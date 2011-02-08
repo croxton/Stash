@@ -12,12 +12,12 @@ Stash allows you to stash text and snippets of code for reuse throughout your te
 
 Stash variables that you create are available to templates embedded below the level at which you are using the tag, or later in the parse order of the current template.
 
-Stash is inspired by John D Wells' article on [template partials](http://johndwells.com/blog/homegrown-plugin-to-create-template-partials-for-expressionengine), and Rob Sanchez's [Dynamo](https://github.com/rsanchez/dynamo) plugin. 
+Stash is inspired by John D Wells' article on [template partials](http://johndwells.com/blog/homegrown-plugin-to-create-template-partials-for-expressionengine), and Rob Sanchez's [Dynamo](https://github.com/rsanchez/dynamo) module. 
 
 ## Installation
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
-2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stuff module
+2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module
 
 ## {exp:stash:set} tag pair
 
