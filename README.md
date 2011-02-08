@@ -17,6 +17,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 ## Installation
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
+2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stuff module
 
 ## {exp:stash:set} tag pair
 
