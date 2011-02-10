@@ -64,6 +64,12 @@ When using dynamic="yes", do you want to store the dynamic value in the database
 ### refresh = [int]
 The number of minutes to store the variable (optional, default is 1440 - or one day)
 
+### default = [string]
+Default value to return if variable is not set or empty (optional, default is an empty string)
+
+### scope = ['user'|'site']
+Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
+
 ### strip_tags = ['yes'|'no']
 Strip HTML tags from the returned variable? (optional, default is 'no').
 
@@ -82,3 +88,20 @@ Strip HTML tags from the returned variable? (optional, default is 'no').
 	{exp:channel:entries search:custom_field="{my_form_field_name}" disable="member_data|pagination|categories"}
 		...
 	{/exp:channel:entries}
+	
+## {exp:stash:bundle} tag pair	
+Bundle up a series of variables into one.
+
+### name = [string]
+The name of your bundle (required)
+
+### unique = ['yes'|'no']
+Do you only want to allow one entry per bundle? (optional, default is 'no')
+
+### Example usage
+	{exp:stash:bundle name="contact_form" unique="no"}
+			{stash:contact_name}Your name{/stash:contact_name}
+			{stash:contact_email}mcroxton@hallmark-design.co.uk{/stash:contact_email}
+		{/exp:stash:bundle}
+		
+The Bundles feature is under development, so not especially useful just yet.
