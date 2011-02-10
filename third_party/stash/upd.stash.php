@@ -25,6 +25,17 @@ class Stash_upd
 	{	
 		$sql = array();
 		
+		// install module 
+		$this->EE->db->insert(
+			'modules',
+			array(
+				'module_name' => 'Stash',
+				'module_version' => $this->version, 
+				'has_cp_backend' => 'n',
+				'has_publish_fields' => 'n'
+			)
+		);
+		
 		// stash table
 		$sql[] = "
 		CREATE TABLE `{$this->EE->db->dbprefix}stash` (
@@ -72,18 +83,7 @@ class Stash_upd
 		{
 			$this->EE->db->query($query);
 		}
-		
-		// install module 
-		$this->EE->db->insert(
-			'modules',
-			array(
-				'module_name' => 'Stash',
-				'module_version' => $this->version, 
-				'has_cp_backend' => 'n',
-				'has_publish_fields' => 'n'
-			)
-		);
-		
+
 		return TRUE;
 	}
 	
