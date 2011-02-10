@@ -2,10 +2,10 @@
 
 class Stash_upd
 {
-	public $version = '1.0.0';
+	public $version = '1.0.2';
 	
 	/**
-	 * Dynamo_upd
+	 * Stash_upd
 	 * 
 	 * @access	public
 	 * @return	void
@@ -22,7 +22,58 @@ class Stash_upd
 	 * @return	void
 	 */
 	public function install()
-	{
+	{	
+		$sql = array();
+		
+		// stash table
+		$sql[] = "
+		CREATE TABLE `{$this->EE->db->dbprefix}stash` (
+		  `id` int(11) unsigned NOT NULL auto_increment,
+		  `site_id` int(4) unsigned NOT NULL default '1',
+		  `session_id` varchar(40) default NULL,
+		  `bundle_id` int(11) unsigned NOT NULL default '1',
+		  `key_name` varchar(64) NOT NULL,
+		  `key_label` varchar(64) default NULL,
+		  `created` int(10) unsigned NOT NULL,
+		  `expire` int(10) unsigned NOT NULL default '0',
+		  `parameters` text,
+		  PRIMARY KEY  (`id`),
+		  KEY `bundle_id` (`bundle_id`),
+		  KEY `key_session` (`key_name`,`session_id`),
+		  KEY `key_name` (`key_name`),
+		  KEY `site_id` (`site_id`)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+		";
+
+		// stash_bundles table
+		$sql[] = "
+		CREATE TABLE `{$this->EE->db->dbprefix}stash_bundles` (
+		  `id` int(11) unsigned NOT NULL auto_increment,
+		  `site_id` int(4) NOT NULL default '1',
+		  `bundle_name` varchar(64) NOT NULL,
+		  `bundle_label` varchar(64) default NULL,
+		  PRIMARY KEY  (`id`),
+		  KEY `bundle` (`bundle_name`),
+		  KEY `site_id` (`site_id`)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+		";
+
+		// foreign key constraints
+		$sql[] = "
+		ALTER TABLE `{$this->EE->db->dbprefix}stash`
+		ADD CONSTRAINT `{$this->EE->db->dbprefix}stash_fk` FOREIGN KEY (`bundle_id`) REFERENCES `{$this->EE->db->dbprefix}stash_bundles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+		";
+		
+		// default bundle
+		$sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(1, 1, 'default', 'Default');";
+		
+		// run the queries one by one
+		foreach ($sql as $query)
+		{
+			$this->EE->db->query($query);
+		}
+		
+		// install module 
 		$this->EE->db->insert(
 			'modules',
 			array(
@@ -32,21 +83,6 @@ class Stash_upd
 				'has_publish_fields' => 'n'
 			)
 		);
-
-		$this->EE->load->dbforge();
-		
-		$fields = array(
-			'id' 		 => array('type' => 'int', 'constraint' => 9, 'auto_increment' => TRUE),
-			'key' 		 => array('type' => 'varchar', 'constraint' => '64'),
-			'expire' 	 => array('type' => 'int', 'constraint' => '10'),
-			'parameters' => array('type' => 'text'),
-		);
-	
-		$this->EE->dbforge->add_field($fields);
-		$this->EE->dbforge->add_key('id', TRUE);
-		$this->EE->dbforge->add_key('key', FALSE);
-	
-		$this->EE->dbforge->create_table('stash');
 		
 		return TRUE;
 	}
@@ -69,8 +105,8 @@ class Stash_upd
 		$this->EE->db->delete('modules', array('module_name' => 'Stash'));
 		
 		$this->EE->load->dbforge();
-		
 		$this->EE->dbforge->drop_table('stash');
+		$this->EE->dbforge->drop_table('stash_bundles');
 
 		return TRUE;
 	}
@@ -84,12 +120,7 @@ class Stash_upd
 	 */
 	public function update($current = '')
 	{
-		if ($current == $this->version)
-		{
-			return FALSE;
-		}
-		
-		return TRUE;
+		return FALSE;
 	}
 }
 
