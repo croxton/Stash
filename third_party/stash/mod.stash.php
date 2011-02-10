@@ -355,6 +355,7 @@ class Stash {
 					{
 						// truncate text and make safe 
 						$bundle_entry_label = $this->EE->security->xss_clean(substr($matches[1], 0, 64));
+						$first_var = TRUE;
 					}
 				}	
 			}
