@@ -80,7 +80,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 		
 			This is cached. Cool eh?
 
-			{exp:stash:get name="test" scope="global"}	
+			{exp:stash:get name="test" scope="site"}	
 		{/case}
 	
 	{/exp:switchee}
