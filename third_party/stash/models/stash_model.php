@@ -167,15 +167,16 @@ class Stash_model extends CI_Model {
 	 * @param string $key
 	 * @param string $session_id
 	 * @param integer $site_id
+	 * @param string $col
 	 * @return string
 	 */
-	function get_key_value($key, $session_id = '', $site_id = 1)
+	function get_key($key, $session_id = '', $site_id = 1, $col = 'parameters')
 	{
-		$this->db->select('parameters')
-					 ->from('stash')
-					 ->where('key_name', $this->EE->db->escape_str($key))
-					 ->where('site_id', $site_id)
-					 ->limit(1);
+		$this->db->select($col)
+				 ->from('stash')
+				 ->where('key_name', $this->EE->db->escape_str($key))
+				 ->where('site_id', $site_id)
+				 ->limit(1);
 		if ( ! empty($session_id))
 		{
 			$this->db->where('session_id', $session_id);
@@ -233,6 +234,28 @@ class Stash_model extends CI_Model {
 				'expire <'  => $this->EE->localize->now, 
 				'expire !=' => '0'
 		)))
+		{
+			return TRUE;
+		}
+		else
+		{
+			return FALSE;
+		}
+	}
+	
+	/**
+	 * Flush cache
+	 *
+	 * @param integer $site_id
+	 * @return boolean
+	 */
+	function flush_cache($site_id = 1)
+	{
+		$this->db->where('site_id', $site_id)
+				 ->where('key_name !=',  '_last_activity')
+				 ->where('bundle_id',  '1');
+
+		if ($this->EE->db->delete('stash')) 
 		{
 			return TRUE;
 		}

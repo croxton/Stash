@@ -80,7 +80,7 @@ class Stash {
 				{
 					// older than 5 minutes? Let's regenerate the cookie and update the db
 					if ( $last_activity + 300 < $this->EE->localize->now)
-					{
+					{			
 						// overwrite cookie
 						$this->EE->functions->set_cookie($this->_stash_cookie, $this->EE->session->cache['stash']['_session_id'], 7200);
 
@@ -164,30 +164,57 @@ class Stash {
 				// clean data for inserting
 				$parameters = $this->EE->security->xss_clean($this->_stash[$name]);
 				
-				// narrow the scope to user?
-				$session_id = $scope === 'user' ? $this->_session_id : '';
-				
-				// attempt to update an existing row
-				if ( ! $result = $this->EE->stash_model->update_key(
-					$name,
-					$this->_session_id,
-					$this->site_id,
-					$this->EE->localize->now + ($refresh * 60),
-					$parameters
-				))
+				// what's the intended variable scope? 
+				if ($scope === 'site')
 				{
-					// else insert a new row, setting date in the future
-					$this->EE->stash_model->insert_key(
-						$name,
-						$this->_session_id,
-						$this->site_id,
-						$this->EE->localize->now + ($refresh * 60),
-						$parameters,
-						$label
-					);
+					// GLOBAL scope - (scope = 'site')
+					// we don't want the overhead of updating the record if it already exists
+					// so let's check a record exists for this key
+					if ( ! $result = $this->EE->stash_model->get_key($name, '_global', $this->site_id, 'id'))
+					{
+						// no record, so insert one
+						$this->EE->stash_model->insert_key(
+							$name,
+							'_global',
+							$this->site_id,
+							$this->EE->localize->now + ($refresh * 60),
+							$parameters,
+							$label
+						);
+					}
 				}
-				// do delete of any existing keys with same name in this session
-				//$this->EE->stash_model->delete_key($name, $session_id, $this->site_id);			
+				else
+				{
+					// USER scope (scope = 'user')		
+					// let's check if there is an existing record, and that that it matches the new one exactly
+					if ( $result = $this->EE->stash_model->get_key($name, $this->_session_id, $this->site_id))
+					{
+						// record exists, but is it identical?
+						if ( $result !== $parameters)
+						{
+							// nope - update
+							$this->EE->stash_model->update_key(
+								$name,
+								$this->_session_id,
+								$this->site_id,
+								$this->EE->localize->now + ($refresh * 60),
+								$parameters
+							);
+						}
+					}
+					else
+					{
+						// no record - insert one
+						$this->EE->stash_model->insert_key(
+							$name,
+							$this->_session_id,
+							$this->site_id,
+							$this->EE->localize->now + ($refresh * 60),
+							$parameters,
+							$label
+						);
+					}
+				}		
 			}
 		}
 	}
@@ -244,14 +271,14 @@ class Stash {
 			// Not found in globals, so let's look in the database table cache
 			if (empty($value))
 			{		
-				// cleanup keys with date older than right now 
+				// cleanup keys with expiry date older than right now 
 				$this->EE->stash_model->prune_keys();
 					
 				// narrow the scope to user?
 				$session_id = $scope === 'user' ? $this->_session_id : '';
 						
 				// look for our key
-				if ($parameters = $this->EE->stash_model->get_key_value(
+				if ($parameters = $this->EE->stash_model->get_key(
 					$name, 
 					$session_id, 
 					$this->site_id
@@ -395,6 +422,29 @@ class Stash {
 			);
 		}
 	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Flush the variables database cache for the current site (Super Admins only)
+	 *
+	 * @access public
+	 * @return string 
+	 */
+	public function flush_cache()
+	{
+		if ($this->EE->session->userdata['group_title'] == "Super Admins")
+		{
+			$this->EE->stash_model->flush_cache($this->site_id);
+			return $this->EE->lang->line('cache_flush_success');
+		}
+		else
+		{
+			// not authorised
+			$this->EE->output->show_user_error('general', $this->EE->lang->line('not_authorized'));
+		}
+	}
+	
 }
 /* End of file mod.stash.php */
 /* Location: ./system/expressionengine/third_party/stash/mod.stash.php */
