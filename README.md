@@ -60,7 +60,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 ### Advanced usage:
 
 	{!-- get the variable if it exists, but don't output it --}
-	{exp:stash:get name="test" scope="global" output="no"}
+	{exp:stash:get name="test" scope="site" output="no"}
 
 	{!-- caching logic. Switchee will check for Stash vars if you prefix with 'stash:' --}
 	{exp:switchee variable="stash:test" parse="inward"}	
