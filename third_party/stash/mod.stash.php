@@ -129,9 +129,12 @@ class Stash {
 		{	
 			// get params
 			$label = strtolower($this->EE->TMPL->fetch_param('label', $name));
-			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('cache'));						
+			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
 			$refresh = $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
+			
+			// do we want this tag to return it's tagdata?
+			$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
 			
 			if ( $update === TRUE )
 			{
@@ -217,6 +220,11 @@ class Stash {
 				}		
 			}
 		}
+		
+		if ($output)
+		{
+			return $this->EE->TMPL->tagdata;
+		}
 	}
 	
 	// ---------------------------------------------------------
@@ -243,6 +251,9 @@ class Stash {
 		// useful for user submitted data in superglobals - but don't do this by default!
 		$strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));	
 		$strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));	
+		
+		// do we want this tag to return the value, or just set the variable quietly in the background?
+		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
 		
 		$value = '';
 		
@@ -293,20 +304,24 @@ class Stash {
 				}
 			}
 		}
+		
+		// output
+		if ($output)
+		{
+			// strip tags?
+			if ($strip_tags)
+			{
+				$value = strip_tags($value);
+			}
+		
+			// strip curly braces?
+			if ($strip_curly_braces)
+			{
+				$value = str_replace(array(LD, RD), '', $value);
+			}
 
-		// strip tags?
-		if ($strip_tags)
-		{
-			$value = strip_tags($value);
+			return $value;
 		}
-		
-		// strip curly braces?
-		if ($strip_curly_braces)
-		{
-			$value = str_replace(array(LD, RD), '', $value);
-		}
-		
-		return $value;
 	}
 	
 	// ---------------------------------------------------------

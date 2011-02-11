@@ -108,12 +108,12 @@ class Stash_model extends CI_Model {
 	function insert_key($key, $session_id, $site_id = 1, $expire = 0, $parameters = '', $label = '', $bundle_id = 1)
 	{
 		$data = array(	
-				'key_name' 		=> $this->db->escape_str($key),
+				'key_name' 		=> $key,
 				'session_id' 	=> $session_id,
 				'site_id'		=> $site_id,
 				'created' 		=> $this->EE->localize->now,
 				'expire' 		=> $expire,
-				'parameters' 	=> $this->db->escape_str($parameters),
+				'parameters' 	=> $parameters,
 				'key_label'		=> $label,
 				'bundle_id'		=> $bundle_id
 		);
@@ -143,10 +143,10 @@ class Stash_model extends CI_Model {
 		$data = array(
 				'created' 		=> $this->EE->localize->now,
 				'expire' 		=> $expire,
-				'parameters' 	=> $this->EE->db->escape_str($parameters)
+				'parameters' 	=> $parameters
 		);
 		
-		$this->db->where('key_name', $this->db->escape_str($key))
+		$this->db->where('key_name', $key)
 				 ->where('session_id', $session_id)
 				 ->where('site_id', $site_id);
 		
@@ -174,7 +174,7 @@ class Stash_model extends CI_Model {
 	{
 		$this->db->select($col)
 				 ->from('stash')
-				 ->where('key_name', $this->EE->db->escape_str($key))
+				 ->where('key_name', $key)
 				 ->where('site_id', $site_id)
 				 ->limit(1);
 		if ( ! empty($session_id))
@@ -204,7 +204,7 @@ class Stash_model extends CI_Model {
 	 */
 	function delete_key($key, $session_id = '', $site_id = 1)
 	{
-		$this->db->where('key_name', $this->EE->db->escape_str($key))
+		$this->db->where('key_name', $key)
 				 ->where('site_id', $site_id);
 				
 		if ( ! empty($session_id))
@@ -274,7 +274,7 @@ class Stash_model extends CI_Model {
 	{
 		$result = $this->db->select('id')
 				 ->from('stash_bundles')
-				 ->where('bundle_name', $this->EE->db->escape_str($bundle))
+				 ->where('bundle_name', $bundle)
 				 ->where('site_id', $site_id)
 				 ->limit(1)
 				 ->get();
@@ -299,7 +299,7 @@ class Stash_model extends CI_Model {
 	function insert_bundle($bundle, $site_id = 1, $bundle_label = '')
 	{
 		$data = array(	
-				'bundle_name' 	=> $this->db->escape_str($bundle),
+				'bundle_name' 	=> $bundle,
 				'site_id'		=> $site_id,
 				'bundle_label'	=> $bundle_label
 		);
