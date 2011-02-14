@@ -129,7 +129,7 @@ class Stash {
 		{	
 			// get params
 			$label = strtolower($this->EE->TMPL->fetch_param('label', $name));
-			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
+			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('cache'));						
 			$refresh = $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
 			

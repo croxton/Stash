@@ -70,7 +70,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 			This is un-cached, so let's cache it for 5 minutes.
 
 			{exp:channel:entries entry_id="1" limit="1"}
-				{exp:stash:set name="test" scope="site" save="yes" output="yes" refresh="5"}	
+				{exp:stash:set name="test" scope="site" cache="yes" output="yes" refresh="5"}	
 					{title}
 				{/exp:stash:set}
 			{/exp:channel:entries}
