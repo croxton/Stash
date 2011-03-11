@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 1.0.0
+## Version 1.0.6
 
 * Requires: ExpressionEngine 2
 
@@ -85,12 +85,25 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 	
 	{/exp:switchee}
 
-
 ## {exp:stash:append} tag pair	
 Works the same as {exp:stash:set}, except the value is appended to an existing variable.
 
 ## {exp:stash:prepend} tag pair	
 Works the same as {exp:stash:set}, except the value is prepended to an existing variable.
+
+## {exp:stash:set_value} single tag
+Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a 
+plugin as a tag parameter (always use with parse="inward"). For example:
+
+	{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
+
+In this case {title} would be set to the parsed value of {exp:another:tag}
+
+## {exp:stash:append_value} single tag
+Works the same as {exp:stash:append}, except the value is passed as a parameter.
+
+## {exp:stash:prepend_value} single tag
+Works the same as {exp:stash:prepend}, except the value is passed as a parameter.
 	
 ## {exp:stash:get}
 
