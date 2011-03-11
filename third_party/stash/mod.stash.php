@@ -353,6 +353,56 @@ class Stash {
 	// ---------------------------------------------------------
 	
 	/**
+	 * Single tag version of set(), for when you need to use a 
+	 * plugin as a tag parameter (always use with parse="inward")
+	 * 
+	 *
+	 * @access public
+	 * @param bool 	 $update Update an existing stashed variable
+	 * @param bool 	 $append Append or prepend to existing variable
+	 * @return void 
+	 */
+	public function set_value($update = FALSE, $append = TRUE)
+	{	
+		/* Sample use
+		---------------------------------------------------------
+		{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
+		--------------------------------------------------------- */
+		if ( !! $this->EE->TMPL->tagdata = $this->EE->TMPL->fetch_param('value', FALSE))
+		{
+			return $this->set($update, $append);
+		}
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Single tag version of append()
+	 *
+	 * @access public
+	 * @return void 
+	 */
+	public function append_value()
+	{
+		return $this->set_value(TRUE, TRUE);
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Single tag version of prepend()
+	 *
+	 * @access public
+	 * @return void 
+	 */
+	public function prepend_value()
+	{
+		return $this->set_value(TRUE, FALSE);
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
 	 * Bundle up a selection of variables
 	 * Note that we don't want bundled variables to expire 
 	 *
