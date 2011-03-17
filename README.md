@@ -88,7 +88,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 	
 	{/exp:switchee}
 
-## Advanced usage 2
+### Advanced usage 2
 {exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
 
 In this example we want to ensure that the inner {exp:channel:entries} tag is parsed so we set parse_tags="yes". Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
