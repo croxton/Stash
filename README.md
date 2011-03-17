@@ -22,7 +22,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 ## {exp:stash:set} tag pair
 
 ### name = [string]
-The name of your variable (required). 
+The name of your variable (optional). 
 This should be a unique name. Use underscores for spaces and use only alphanumeric characters.
 Note: if you use the same variable twice the second one will overwrite the first.
 
@@ -42,6 +42,9 @@ The number of minutes to store the variable (optional, default is 1440 - or one 
 ### output = ['yes'|'no']
 Do you want to output the content inside the tag pair (optional, default is 'no')
 
+### parse_tags = ['yes'|'no']
+Do you want to parse any tags (modules or plugins) contained inside the stash tag pair (optional, default is 'no')
+
 ### scope = ['user'|'site']
 When cache ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
@@ -57,7 +60,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 		{exp:stash:set name="title" type="snippet"}{title}{/exp:stash:set}
 	{/exp:channel:entries}
 	
-### Advanced usage:
+### Advanced usage 1
 
 	{!-- get the variable if it exists, but don't output it --}
 	{exp:stash:get name="test" scope="site" output="no"}
@@ -84,6 +87,30 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 		{/case}
 	
 	{/exp:switchee}
+
+## Advanced usage 2
+{exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
+
+In this example we want to ensure that the inner {exp:channel:entries} tag is parsed so we set parse_tags="yes". Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
+
+	{exp:stash:set parse_tags="yes"}
+		{stash:content}
+		<ul>
+		{exp:channel:entries channel="blog"}
+			<li>{title}</li>
+			{stash:absolute_results}{absolute_results}{/stash:absolute_results}
+		{/exp:structure_channel:entries}
+		</ul>
+		{/stash:content}
+	{/exp:stash:set}
+
+	Later in the same template or embedded template:
+
+	{-- output the unordered list of entries --}
+	{exp:stash:get name="content"}
+
+	{-- output the absolute total count of the entries --}
+	{exp:stash:get name="absolute_results"}
 
 ## {exp:stash:append} tag pair	
 Works the same as {exp:stash:set}, except the value is appended to an existing variable.
