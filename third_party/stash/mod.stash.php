@@ -125,17 +125,50 @@ class Stash {
 		{exp:stash:set name="title" type="snippet"}A title{/exp:stash:set}
 		--------------------------------------------------------- */
 		
-		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
+		// do we want to parse any tags inside tagdata?	
+		if ( $parse_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('parse_tags')))
 		{	
+			$this->EE->TMPL->log_item("Stash: processing inner tags");
+					
+			$TMPL2 = $this->EE->TMPL;
+			unset($this->EE->TMPL);
+			
+			$this->EE->TMPL = new EE_Template();
+			$this->EE->TMPL->start_microtime = $TMPL2->start_microtime;
+			$this->EE->TMPL->template = $TMPL2->tagdata;
+			$this->EE->TMPL->tag_data	= array();
+			$this->EE->TMPL->var_single = array();
+			$this->EE->TMPL->var_cond	= array();
+			$this->EE->TMPL->var_pair	= array();
+			$this->EE->TMPL->plugins = $TMPL2->plugins;
+			$this->EE->TMPL->modules = $TMPL2->modules;
+			$this->EE->TMPL->parse_tags();
+			$this->EE->TMPL->process_tags();
+			$this->EE->TMPL->loop_count = 0;
+			
+			$TMPL2->tagdata = $this->EE->TMPL->template;
+			$TMPL2->log = array_merge($TMPL2->log, $this->EE->TMPL->log);
+
+			foreach (get_object_vars($TMPL2) as $key => $value)
+			{
+				$this->EE->TMPL->$key = $value;
+			}
+			
+			$this->EE->TMPL = $TMPL2;	
+			unset($TMPL2);	
+		}
+		
+		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
+		{		
 			// get params
 			$label = strtolower($this->EE->TMPL->fetch_param('label', $name));
 			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('cache'));						
 			$refresh = $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
-			
+
 			// do we want this tag to return it's tagdata?
 			$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
-			
+
 			if ( $update === TRUE )
 			{
 				// We're updating a variable, so lets see if it's in the session or cache
@@ -220,6 +253,31 @@ class Stash {
 				}		
 			}
 		}
+		else
+		{
+			// no name supplied, so let's assume we want to set sections of content within tag pairs
+			// {stash:my_variable}...{/stash:my_variable}
+			$vars = array();
+			$tagdata = $this->EE->TMPL->tagdata;
+			
+			foreach($this->EE->TMPL->var_pair as $key => $val)
+			{
+				$pattern = '/{'.$key.'}(.*){\/'.$key.'}/Usi';
+				preg_match($pattern, $tagdata, $matches);
+				if (!empty($matches))
+				{
+					// set the variable, but cleanup first in case there are any nested tags
+					$this->EE->TMPL->tagparams['name'] = str_replace('stash:', '', $key);
+					$this->EE->TMPL->tagdata = preg_replace('/{stash:[a-zA-Z0-9-_]+}(.*){\/stash:[a-zA-z0-9]+}/Usi', '', $matches[1]);
+					$this->EE->TMPL->tagparams['parse_tags'] = 'no';
+					$this->set();
+				}	
+			}
+			
+			// reset tagdata to original value
+			$this->EE->TMPL->tagdata = $tagdata;
+			unset($tagdata);
+		}
 		
 		if ($output)
 		{
@@ -236,7 +294,7 @@ class Stash {
 	 * @return string 
 	 */
 	public function get()
-	{
+	{	
 		/* Sample use
 		---------------------------------------------------------
 		{exp:stash:get name="title"}
@@ -303,7 +361,7 @@ class Stash {
 					$value = $default;
 				}
 			}
-		}
+		}			 
 		
 		// output
 		if ($output)
@@ -334,7 +392,7 @@ class Stash {
 	 */
 	public function append()
 	{
-		$this->set(TRUE, TRUE);
+		return $this->set(TRUE, TRUE);
 	}
 	
 	// ---------------------------------------------------------
@@ -347,9 +405,9 @@ class Stash {
 	 */
 	public function prepend()
 	{
-		$this->set(TRUE, FALSE);
+		return $this->set(TRUE, FALSE);
 	}
-	
+		
 	// ---------------------------------------------------------
 	
 	/**
@@ -398,7 +456,7 @@ class Stash {
 	public function prepend_value()
 	{
 		return $this->set_value(TRUE, FALSE);
-	}
+	}	
 	
 	// ---------------------------------------------------------
 	
