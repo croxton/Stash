@@ -2,7 +2,7 @@
 
 class Stash_upd
 {
-	public $version = '1.0.6';
+	public $version = '1.0.7';
 	
 	/**
 	 * Stash_upd
