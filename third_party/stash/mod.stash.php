@@ -158,20 +158,20 @@ class Stash {
 			unset($TMPL2);	
 		}
 		
+		// do we want this tag to return it's tagdata?
+		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
+		
 		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
 		{		
 			// get params
 			$label = strtolower($this->EE->TMPL->fetch_param('label', $name));
-			$cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('cache'));						
+			$save = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
 			$refresh = $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
 
-			// do we want this tag to return it's tagdata?
-			$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
-
 			if ( $update === TRUE )
 			{
-				// We're updating a variable, so lets see if it's in the session or cache
+				// We're updating a variable, so lets see if it's in the session or db
 				$this->_stash[$name] = $this->get();
 				
 				if ( empty($this->_stash[$name]) )
@@ -195,7 +195,7 @@ class Stash {
 				$this->_stash[$name] = $this->EE->TMPL->tagdata;
 			}
 			
-			if ($cache)
+			if ($save)
 			{	
 				// clean data for inserting
 				$parameters = $this->EE->security->xss_clean($this->_stash[$name]);
@@ -300,8 +300,8 @@ class Stash {
 		{exp:stash:get name="title"}
 		--------------------------------------------------------- */
 		
-		$name = strtolower( $this->EE->TMPL->fetch_param('name') );
-		$default = strtolower( $this->EE->TMPL->fetch_param('default', '') ); // default value
+		$name = strtolower($this->EE->TMPL->fetch_param('name'));
+		$default = strtolower($this->EE->TMPL->fetch_param('default', '')); // default value
 		$dynamic = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('dynamic'));		
 		$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
 		
@@ -314,23 +314,37 @@ class Stash {
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
 		
 		$value = '';
-		
+
 		// Let's see if it's been stashed before
 		if ( array_key_exists($name, $this->_stash) )
 		{
-			$value = $this->_stash[$name];
+			$value = $this->_stash[$name];			
 		}
 		else
 		{
-			// Are we looking for a superglobal?
+			// Are we looking for a superglobal or uri segement?
 			if ( $dynamic )
 			{
-				if ( !! $this->EE->input->get_post($name) )
+				// is it in the $_POST or $_GET superglobals ( run through xss_clean() )?
+				if ( ! $from_global = $this->EE->input->get_post($name, TRUE) )
 				{
-					// get value from $_POST or $_GET, run through xss_clean()
-					$value = $this->EE->input->get_post($name, TRUE);
-					
-					// save to stash, and optionally to database, if cache="yes"
+					// no, so let's check the uri segments
+					$segs = $this->EE->uri->segment_array();
+
+					foreach ( $segs as $index => $segment )
+					{
+					    if ( $segment == $name && array_key_exists( ($index+1), $segs) )
+						{
+							$from_global = $segs[($index+1)];
+							break;
+						}
+					}
+				}
+				
+				if ( !! $from_global )
+				{
+					// save to stash, and optionally to database, if save="yes"
+					$value = $from_global;
 					$this->EE->TMPL->tagparams['name'] = $name;
 					$this->EE->TMPL->tagdata = $value;
 					$this->set();
@@ -358,7 +372,15 @@ class Stash {
 				}
 				else
 				{
+					// set default value
 					$value = $default;
+					
+					if ( ! empty($value))
+					{
+						$this->EE->TMPL->tagparams['name'] = $name;
+						$this->EE->TMPL->tagdata = $value;
+						$this->set(); 
+					}
 				}
 			}
 		}			 
