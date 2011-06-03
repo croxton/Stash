@@ -181,7 +181,7 @@ Strip HTML tags from the returned variable? (optional, default is 'no').
 
 ## stash::get('name', 'type', 'scope')
 
-The get() method is also available to use in PHP-enabled templates using a static function call. With PHP enabled on output, this allows you to access the value of a variable at the end of the parsing, after tags have been processed and rendered.
+The get() method is also available to use in PHP-enabled templates using a static function call. With PHP enabled *on output*, this allows you to access the value of a variable at the end of the parsing, after tags have been processed and rendered. Note that you must use a stash tag somewhere in the template for this to work, and PHP must be enabled on OUTPUT.
 
 ### Example usage
 	<?php echo stash::get('title') ?>
