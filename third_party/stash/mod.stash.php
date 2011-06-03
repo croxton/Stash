@@ -262,16 +262,19 @@ class Stash {
 			
 			foreach($this->EE->TMPL->var_pair as $key => $val)
 			{
-				$pattern = '/{'.$key.'}(.*){\/'.$key.'}/Usi';
-				preg_match($pattern, $tagdata, $matches);
-				if (!empty($matches))
+				if (strncmp($key, 'stash:', 6) ==  0)
 				{
-					// set the variable, but cleanup first in case there are any nested tags
-					$this->EE->TMPL->tagparams['name'] = str_replace('stash:', '', $key);
-					$this->EE->TMPL->tagdata = preg_replace('/{stash:[a-zA-Z0-9-_]+}(.*){\/stash:[a-zA-z0-9]+}/Usi', '', $matches[1]);
-					$this->EE->TMPL->tagparams['parse_tags'] = 'no';
-					$this->set();
-				}	
+					$pattern = '/{'.$key.'}(.*){\/'.$key.'}/Usi';
+					preg_match($pattern, $tagdata, $matches);
+					if (!empty($matches))
+					{
+						// set the variable, but cleanup first in case there are any nested tags
+						$this->EE->TMPL->tagparams['name'] = str_replace('stash:', '', $key);
+						$this->EE->TMPL->tagdata = preg_replace('/{stash:[a-zA-Z0-9-_]+}(.*){\/stash:[a-zA-z0-9]+}/Usi', '', $matches[1]);
+						$this->EE->TMPL->tagparams['parse_tags'] = 'no';
+						$this->set();
+					}	
+				}
 			}
 			
 			// reset tagdata to original value
@@ -291,15 +294,34 @@ class Stash {
 	 * Get content from session, database cache or $_POST/$_GET superglobal
 	 *
 	 * @access public
+	 * @param  string 	 $name  The name of the variable to retrieve
+	 * @param  string 	 $type  The type of variable
+	 * @param  string 	 $scope The scope of the variable
 	 * @return string 
 	 */
-	public function get()
+	public function get($name='', $type='variable', $scope='user')
 	{	
 		/* Sample use
 		---------------------------------------------------------
 		{exp:stash:get name="title"}
+		
+		OR static call within PHP enabled templates: 
+		<?php echo stash::get('title') ?>
 		--------------------------------------------------------- */
 		
+		// is this method being called statically from PHP?
+		if (func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+		{
+			$this->EE->TMPL->tagparams['name']    = $name;
+			$this->EE->TMPL->tagparams['type']    = $type;
+			$this->EE->TMPL->tagparams['scope']   = $scope;
+		
+			// as this function is called statically, 
+			// we need to get an instance of this object and run get()
+			$self = new self();	
+			return $self->get();
+		}
+
 		$name = strtolower($this->EE->TMPL->fetch_param('name'));
 		$default = strtolower($this->EE->TMPL->fetch_param('default', '')); // default value
 		$dynamic = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('dynamic'));		
