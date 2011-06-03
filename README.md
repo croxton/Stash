@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 1.0.9
+## Version 1.1.0
 
 * Requires: ExpressionEngine 2
 
@@ -178,6 +178,16 @@ Strip HTML tags from the returned variable? (optional, default is 'no').
 	{exp:channel:entries search:custom_field="{my_form_field_name}" disable="member_data|pagination|categories"}
 		...
 	{/exp:channel:entries}
+
+## stash::get('name', 'type', 'scope')
+
+The get() method is also available to use in PHP-enabled templates using a static function call. With PHP enabled on output, this allows you to access the value of a variable at the end of the parsing, after tags have been processed and rendered.
+
+### Example usage
+	<?php echo stash::get('title') ?>
+
+	If you have short open tags enabled:
+	<?= stash::get('title') ?>
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.
