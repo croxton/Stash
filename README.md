@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 1.0.7
+## Version 1.0.9
 
 * Requires: ExpressionEngine 2
 
@@ -32,7 +32,7 @@ A 'variable' is stored in the session, and must be retrieved using {exp:stash:ge
 A 'snippet' works just like snippets in ExpressionEngine, and can be used directly as a tag {my_variable}
 If using snippets, please be careful to namespace them so as not to overwrite any existing EE globals. 
 
-### cache = ['yes'|'no']
+### save = ['yes'|'no']
 Do you want to store the variable in the database so that it persists across page loads? (optional, default is 'no')
 Note that you should never cache any sensitive user data.
 
@@ -46,7 +46,7 @@ Do you want to output the content inside the tag pair (optional, default is 'no'
 Do you want to parse any tags (modules or plugins) contained inside the stash tag pair (optional, default is 'no')
 
 ### scope = ['user'|'site']
-When cache ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
+When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
 #### scope = "user"
 A 'user' variable is linked to the users session id. Only they will see it. Use for pagination, search queries, or chunks of personalised content that you need to cache across multiple pages. 
@@ -73,7 +73,7 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 			This is un-cached, so let's cache it for 5 minutes.
 
 			{exp:channel:entries entry_id="1" limit="1"}
-				{exp:stash:set name="test" scope="site" cache="yes" output="yes" refresh="5"}	
+				{exp:stash:set name="test" scope="site" save="yes" output="yes" refresh="5"}	
 					{title}
 				{/exp:stash:set}
 			{/exp:channel:entries}
@@ -141,16 +141,17 @@ The name of your variable (required)
 The type of variable to retrieve (optional, default is 'variable').
 
 ### dynamic = ['yes'|'no']
-Look in the $_POST and $_GET superglobals array for the variable (optional, default is 'no').
+Look in the $_POST and $_GET superglobals arrays, for the variable (optional, default is 'no').
+If Stash doesn't find the variable in the superglobals, it will look in the uri segment array for the variable name and takes the value from the next segment, e.g.: /variable_name/variable_value
 
-### cache = ['yes'|'no']
+### save = ['yes'|'no']
 When using dynamic="yes", do you want to store the dynamic value in the database so that it persists across page loads? (optional, default is 'no')
 
 ### refresh = [int]
 When using dynamic="yes", the number of minutes to store the variable (optional, default is 1440 - or one day)
 
 ### default = [string]
-Default value to return if variable is not set or empty (optional, default is an empty string)
+Default value to return if variable is not set or empty (optional, default is an empty string). If a default value is supplied and the variable has not been set previously, then the variable will be set in the user's session. Thus subsequent attempt to get the variable will return the default value specified by the first call.
 
 ### output = ['yes'|'no']
 Do you want to output the variable or just get the variable quietly in the background? (optional, default is 'yes')
