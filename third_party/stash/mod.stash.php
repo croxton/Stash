@@ -164,10 +164,22 @@ class Stash {
 		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
 		{		
 			// get params
-			$label = strtolower($this->EE->TMPL->fetch_param('label', $name));
-			$save = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
-			$refresh = $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
-			$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
+			$label 			= strtolower($this->EE->TMPL->fetch_param('label', $name));
+			$save 			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
+			$refresh 		= $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
+			$scope 			= strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
+			$filter 		= $this->EE->TMPL->fetch_param('filter', ''); // regular expression to filter value by
+			$string 		= $this->EE->TMPL->fetch_param('string', $this->EE->TMPL->tagdata); // text to apply filter against
+			
+			// apply filter
+			if ( ! empty($filter) && preg_match('/^#(.*)#$/', $filter))
+			{	
+				$filter = $this->EE->security->entity_decode($filter);
+				if ( ! preg_match($filter, $string))
+				{
+					return;
+				}
+			}
 
 			if ( $update === TRUE )
 			{
@@ -300,7 +312,7 @@ class Stash {
 	 * @return string 
 	 */
 	public function get($name='', $type='variable', $scope='user')
-	{	
+	{		
 		/* Sample use
 		---------------------------------------------------------
 		{exp:stash:get name="title"}
@@ -425,6 +437,22 @@ class Stash {
 			return $value;
 		}
 	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Checks if a variable is empty or non-existent, 
+	 * handy for conditionals
+	 *
+	 * @access public
+	 * @return integer
+	 */
+	public function not_empty()
+	{
+		$value  = str_replace( array("\t", "\n", "\r", "\0", "\x0B"), '', trim( $this->get() ));
+		return empty( $value ) ? 0 : 1;
+	}
+	
 	
 	// ---------------------------------------------------------
 	
