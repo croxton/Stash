@@ -45,6 +45,13 @@ Do you want to output the content inside the tag pair (optional, default is 'no'
 ### parse_tags = ['yes'|'no']
 Do you want to parse any tags (modules or plugins) contained inside the stash tag pair (optional, default is 'no')
 
+### match = [#regex#]
+Variable will only be set if the content matches the supplied regular expression (optional)
+
+### against = [string]
+String to match against if using the match= parameter (optional).
+By default, the variable content is used.
+
 ### scope = ['user'|'site']
 When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
@@ -112,8 +119,19 @@ In this example we want to ensure that the inner {exp:channel:entries} tag is pa
 	{-- output the absolute total count of the entries --}
 	{exp:stash:get name="absolute_results"}
 
+
 ## {exp:stash:append} tag pair	
 Works the same as {exp:stash:set}, except the value is appended to an existing variable.
+
+### Example usage of append, with match/against:
+
+	{exp:channel:entries channel="people" sort="asc" orderby="person_lname"}	
+		{exp:stash:append name="people_a_f" match="#^[A-F]#" against="{person_lname}"}
+			<li><a href="/people/{entry_url}" title="view profile">{title}</a></li>
+		{/exp:stash:append}
+	{/exp:channel:entries}
+
+The above would capture all 'people' entries whose last name {person_lname} starts with A-F.
 
 ## {exp:stash:prepend} tag pair	
 Works the same as {exp:stash:set}, except the value is prepended to an existing variable.
@@ -164,7 +182,7 @@ Note: use the same scope that you used when you set the variable.
 Strip HTML tags from the returned variable? (optional, default is 'no').
 
 ### strip_curly_braces = ['yes'|'no']
-Strip HTML tags from the returned variable? (optional, default is 'no').
+Strip curly braces ( { and } ) from the returned variable? (optional, default is 'no').
 
 ### Example usage
 	{exp:stash:get name="title"}
@@ -188,6 +206,15 @@ The get() method is also available to use in PHP-enabled templates using a stati
 
 	If you have short open tags enabled:
 	<?= stash::get('title') ?>
+
+## {exp:stash:not_empty}
+Has exactly the same parameters as {exp:stash:get}
+Returns 0 or 1 depending on whether the variable is empty or not. Useful for conditionals.
+
+### Example usage
+	{if {exp:stash:not_empty name="my_variable" type="snippet"}}
+		{my_variable}								
+	{/if}
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.
