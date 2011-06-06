@@ -168,14 +168,14 @@ class Stash {
 			$save 			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
 			$refresh 		= $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope 			= strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
-			$filter 		= $this->EE->TMPL->fetch_param('filter', ''); // regular expression to filter value by
-			$string 		= $this->EE->TMPL->fetch_param('string', $this->EE->TMPL->tagdata); // text to apply filter against
+			$match 			= $this->EE->TMPL->fetch_param('match', ''); // regular expression to filter value by
+			$against 		= $this->EE->TMPL->fetch_param('against', $this->EE->TMPL->tagdata); // text to apply filter against
 			
 			// apply filter
-			if ( ! empty($filter) && preg_match('/^#(.*)#$/', $filter))
+			if ( ! empty($match) && preg_match('/^#(.*)#$/', $match))
 			{	
-				$filter = $this->EE->security->entity_decode($filter);
-				if ( ! preg_match($filter, $string))
+				$match = $this->EE->security->entity_decode($match);
+				if ( ! preg_match($match, $against))
 				{
 					return;
 				}
