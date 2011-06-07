@@ -166,7 +166,7 @@ If Stash doesn't find the variable in the superglobals, it will look in the uri 
 When using dynamic="yes", do you want to store the dynamic value in the database so that it persists across page loads? (optional, default is 'no')
 
 ### refresh = [int]
-When using dynamic="yes", the number of minutes to store the variable (optional, default is 1440 - or one day)
+When using save="yes", this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
 
 ### default = [string]
 Default value to return if variable is not set or empty (optional, default is an empty string). If a default value is supplied and the variable has not been set previously, then the variable will be set in the user's session. Thus subsequent attempt to get the variable will return the default value specified by the first call.
