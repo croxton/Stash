@@ -168,11 +168,11 @@ class Stash {
 			$save 			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
 			$refresh 		= $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day)	
 			$scope 			= strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
-			$match 			= $this->EE->TMPL->fetch_param('match', ''); // regular expression to filter value by
+			$match 			= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to filter value by
 			$against 		= $this->EE->TMPL->fetch_param('against', $this->EE->TMPL->tagdata); // text to apply filter against
 			
 			// apply filter
-			if ( ! empty($match) && preg_match('/^#(.*)#$/', $match))
+			if ( $match !== NULL && preg_match('/^#(.*)#$/', $match))
 			{	
 				$match = $this->EE->security->entity_decode($match);
 				if ( ! preg_match($match, $against))
@@ -185,12 +185,6 @@ class Stash {
 			{
 				// We're updating a variable, so lets see if it's in the session or db
 				$this->_stash[$name] = $this->get();
-				
-				if ( empty($this->_stash[$name]) )
-				{
-					// otherwise turn the value into a string in case it's empty
-					$this->_stash[$name] = '';
-				}
 			
 				// Append or prepend?
 				if ( $append )
@@ -347,7 +341,7 @@ class Stash {
 		// do we want this tag to return the value, or just set the variable quietly in the background?
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
 		
-		$value = '';
+		$value = NULL;
 
 		// Let's see if it's been stashed before
 		if ( array_key_exists($name, $this->_stash) )
@@ -386,7 +380,7 @@ class Stash {
 			}	
 			
 			// Not found in globals, so let's look in the database table cache
-			if (empty($value))
+			if ( $value == NULL)
 			{		
 				// cleanup keys with expiry date older than right now 
 				$this->EE->stash_model->prune_keys();
@@ -407,9 +401,9 @@ class Stash {
 				else
 				{
 					// set default value
-					$value = $default;
+					$value = $default; // note: $default value is '' unless set as a parameter
 					
-					if ( ! empty($value))
+					if ( $value !== '')
 					{
 						$this->EE->TMPL->tagparams['name'] = $name;
 						$this->EE->TMPL->tagdata = $value;
