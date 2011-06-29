@@ -156,8 +156,7 @@ The above would capture all 'people' entries whose last name {person_lname} star
 Works the same as {exp:stash:set}, except the value is prepended to an existing variable.
 
 ## {exp:stash:set_value} single tag
-Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a 
-plugin as a tag parameter (always use with parse="inward"). For example:
+Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a plugin as a tag parameter (always use with parse="inward"). For example:
 
 	{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
 
@@ -192,6 +191,12 @@ Default value to return if variable is not set or empty (optional, default is an
 
 ### output = ['yes'|'no']
 Do you want to output the variable or just get the variable quietly in the background? (optional, default is 'yes')
+
+### context = [string]
+If the variable was defined within a context, set it here
+Tip: you can also hardcode the context in the variable name, and use '@' to refer to the current context:
+	{exp:stash:get name="@:title"}
+	{exp:stash:get name="news:title"}
 
 ### scope = ['user'|'site']
 Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
