@@ -14,6 +14,15 @@ Stash variables that you create are available to templates embedded below the le
 
 Stash is inspired by John D Wells' article on [template partials](http://johndwells.com/blog/homegrown-plugin-to-create-template-partials-for-expressionengine), and Rob Sanchez's [Dynamo](https://github.com/rsanchez/dynamo) module. 
 
+## Key features
+* Set, append, prepend and get variables
+* Use regular expressions to filter variables that you stash
+* Register variables from the $_POST, $_GET and uri segment arrays
+* Save variables to the database for persistent storage across pages loads
+* Set variable scope (user or global)
+* Fully parse tags contained within a Stash tag pair, so Stash saves the rendered output
+* Use contexts to namespace groups of variables and help organise of your code
+
 ## Installation
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
@@ -51,6 +60,15 @@ Variable will only be set if the content matches the supplied regular expression
 ### against = [string]
 String to match against if using the match= parameter (optional).
 By default, the variable content is used.
+
+### context = [string]
+If you want to assign the variable to a context, add it here. 
+Tip: Use '@' to refer to the current context:
+
+	{exp:stash:set name="title" context="@"}
+	...
+	{exp:stash:set}
+
 
 ### scope = ['user'|'site']
 When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
@@ -206,6 +224,28 @@ The get() method is also available to use in PHP-enabled templates using a stati
 
 	If you have short open tags enabled:
 	<?= stash::get('title') ?>
+
+## {exp:stash:context}
+### name = [string]
+The name of your variable (required)
+
+Set the current context (namespace) for variables. 
+
+### Example usage
+
+	{exp:stash:context name="news"}
+
+	{!-- @ refers to the current context 'news' --}
+	{exp:stash:set name="title" context="@" type="snippet"}
+	My string
+	{exp:stash:set}
+
+	{!-- now you can retrieve the variable in one of the following ways --}
+	{exp:stash:get name="title" context="@"}
+	{exp:stash:get name="title" context="news"}
+	{exp:stash:get name="@:title"}
+	{exp:stash:get name="news:title"}
+	{@:title}
 
 ## {exp:stash:not_empty}
 Has exactly the same parameters as {exp:stash:get}
