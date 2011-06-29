@@ -196,6 +196,7 @@ Do you want to output the variable or just get the variable quietly in the backg
 If the variable was defined within a context, set it here
 Tip: you can also hardcode the context in the variable name, and use '@' to refer to the current context:
 
+	{exp:stash:get name="title" context="@"}
 	{exp:stash:get name="@:title"}
 	{exp:stash:get name="news:title"}
 
