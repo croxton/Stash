@@ -228,9 +228,9 @@ The get() method is also available to use in PHP-enabled templates using a stati
 
 ## {exp:stash:context}
 ### name = [string]
-The name of your variable (required)
+The name of your context (required)
 
-Set the current context (namespace) for variables. 
+Set the current context (namespace) for variables that you set/get.
 
 ### Example usage
 
