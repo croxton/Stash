@@ -21,7 +21,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * Save variables to the database for persistent storage across page loads
 * Set variable scope (user or global)
 * Fully parse tags contained within a Stash tag pair, so Stash saves the rendered output
-* Use contexts to namespace groups of variables and help organise of your code
+* Use contexts to namespace groups of variables and help organise your code
 * Advanced uses: partial page caching, form field persistence, template partials/viewModel pattern implementation 
 
 ## Installation
@@ -246,7 +246,7 @@ Set the current context (namespace) for variables that you set/get.
 	{!-- @ refers to the current context 'news' --}
 	{exp:stash:set name="title" context="@" type="snippet"}
 	My string
-	{exp:stash:set}
+	{/exp:stash:set}
 
 	{!-- now you can retrieve the variable in one of the following ways --}
 	{exp:stash:get name="title" context="@" type="snippet"}
