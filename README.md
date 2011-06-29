@@ -249,10 +249,10 @@ Set the current context (namespace) for variables that you set/get.
 	{exp:stash:set}
 
 	{!-- now you can retrieve the variable in one of the following ways --}
-	{exp:stash:get name="title" context="@"}
-	{exp:stash:get name="title" context="news"}
-	{exp:stash:get name="@:title"}
-	{exp:stash:get name="news:title"}
+	{exp:stash:get name="title" context="@" type="snippet"}
+	{exp:stash:get name="title" context="news" type="snippet"}
+	{exp:stash:get name="@:title" type="snippet"}
+	{exp:stash:get name="news:title" type="snippet"}
 	{@:title}
 
 ## {exp:stash:not_empty}
