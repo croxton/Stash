@@ -1,10 +1,22 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+/**
+ * Set and get template variables, EE snippets and persistent variables.
+ *
+ * @package             Stash
+ * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
+ * @copyright           Copyright (c) 2011 Hallmark Design
+ * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
+ * @link                http://hallmark-design.co.uk
+ */
+
 class Stash {
 
 	public $EE;
 	public $site_id;
-	
+	protected $type;
+	protected static $context = NULL;	
+	private $_update = FALSE;
 	private $_stash;
 	private $_stash_cookie	= 'stashid';
 	private $_session_id;
@@ -24,22 +36,22 @@ class Stash {
 		$this->site_id = $this->EE->config->item('site_id');
 		
 		// stash type, default to 'variable'
-		$type = strtolower( $this->EE->TMPL->fetch_param('type', 'variable') );
+		$this->type = strtolower( $this->EE->TMPL->fetch_param('type', 'variable') );
 		
 		// create a stash array in the session if we don't have one
 		if ( ! array_key_exists('stash', $this->EE->session->cache) )
 		{
 			// create a stash array in the session if we don't have one
 			$this->EE->session->cache['stash'] = array();
-		}
+		}	
 		
 		// determine the stash type
-		if ($type === 'variable')
+		if ($this->type === 'variable')
 		{
 			// we're setting/getting a variable
 			$this->_stash =& $this->EE->session->cache['stash'];
 		}
-		elseif ($type === 'snippet')
+		elseif ($this->type === 'snippet' || $this->type === 'global')
 		{
 			// we're setting/getting a global {snippet}
 			$this->_stash =& $this->EE->config->_global_vars;
@@ -52,9 +64,6 @@ class Stash {
 		// fetch the stash session id
 		if ( ! isset($this->EE->session->cache['stash']['_session_id']) )
 		{	
-			// cleanup - delete ANY last activity records older than 2 hours
-			$this->EE->stash_model->prune_last_activity(7200);
-
 			// do we have a session cookie?	
 			if ( ! $this->EE->input->cookie($this->_stash_cookie) )
 			{ 
@@ -88,7 +97,13 @@ class Stash {
 						$this->EE->stash_model->update_last_activity(
 							$this->EE->session->cache['stash']['_session_id'],
 							$this->site_id
-						);	
+						);
+						
+						// cleanup - delete ANY last activity records older than 2 hours
+						$this->EE->stash_model->prune_last_activity(7200);
+						
+						// cleanup - delete any keys with expiry date older than right now 
+						$this->EE->stash_model->prune_keys();	
 					}
 				}
 				else
@@ -110,15 +125,14 @@ class Stash {
 	// ---------------------------------------------------------
 	
 	/**
-	 * Set content in the session (partial) or in the EE instance (snippet). 
-	 * Optionally save to the database
+	 * Set content in the current session, optionally save to the database
 	 *
 	 * @access public
 	 * @param bool 	 $update Update an existing stashed variable
 	 * @param bool 	 $append Append or prepend to existing variable
 	 * @return void 
 	 */
-	public function set($update = FALSE, $append = TRUE)
+	public function set($append = TRUE)
 	{	
 		/* Sample use
 		---------------------------------------------------------
@@ -162,7 +176,7 @@ class Stash {
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
 		
 		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
-		{		
+		{					
 			// get params
 			$label 			= strtolower($this->EE->TMPL->fetch_param('label', $name));
 			$save 			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));						
@@ -170,6 +184,15 @@ class Stash {
 			$scope 			= strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
 			$match 			= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to filter value by
 			$against 		= $this->EE->TMPL->fetch_param('against', $this->EE->TMPL->tagdata); // text to apply filter against
+			
+			// context handling
+			$context = $this->EE->TMPL->fetch_param('context', NULL);
+		
+			if ($context !== NULL && count( explode(':', $name) == 1 ) )
+			{
+				$name = $context . ':' . $name;
+				$this->EE->TMPL->tagparams['context'] = NULL;
+			}
 			
 			// apply filter
 			if ( $match !== NULL && preg_match('/^#(.*)#$/', $match))
@@ -181,7 +204,7 @@ class Stash {
 				}
 			}
 
-			if ( $update === TRUE )
+			if ( $this->_update )
 			{
 				// We're updating a variable, so lets see if it's in the session or db
 				$this->_stash[$name] = $this->get();
@@ -206,17 +229,22 @@ class Stash {
 				// clean data for inserting
 				$parameters = $this->EE->security->xss_clean($this->_stash[$name]);
 				
+				// replace '@' placeholders with the current context
+				$key = $this->_parse_context($name);
+				
 				// what's the intended variable scope? 
 				if ($scope === 'site')
 				{
 					// GLOBAL scope - (scope = 'site')
 					// we don't want the overhead of updating the record if it already exists
 					// so let's check a record exists for this key
-					if ( ! $result = $this->EE->stash_model->get_key($name, '_global', $this->site_id, 'id'))
+					$result = $this->EE->stash_model->get_key($key, '_global', $this->site_id, 'id');
+					
+					if ( $result === FALSE)
 					{
 						// no record, so insert one
 						$this->EE->stash_model->insert_key(
-							$name,
+							$key,
 							'_global',
 							$this->site_id,
 							$this->EE->localize->now + ($refresh * 60),
@@ -229,14 +257,16 @@ class Stash {
 				{
 					// USER scope (scope = 'user')		
 					// let's check if there is an existing record, and that that it matches the new one exactly
-					if ( $result = $this->EE->stash_model->get_key($name, $this->_session_id, $this->site_id))
+					$result = $this->EE->stash_model->get_key($key, $this->_session_id, $this->site_id);
+					
+					if ( $result !== FALSE)
 					{
 						// record exists, but is it identical?
 						if ( $result !== $parameters)
 						{
 							// nope - update
 							$this->EE->stash_model->update_key(
-								$name,
+								$key,
 								$this->_session_id,
 								$this->site_id,
 								$this->EE->localize->now + ($refresh * 60),
@@ -245,10 +275,10 @@ class Stash {
 						}
 					}
 					else
-					{
+					{	
 						// no record - insert one
 						$this->EE->stash_model->insert_key(
-							$name,
+							$key,
 							$this->_session_id,
 							$this->site_id,
 							$this->EE->localize->now + ($refresh * 60),
@@ -266,6 +296,18 @@ class Stash {
 			$vars = array();
 			$tagdata = $this->EE->TMPL->tagdata;
 			
+			// context handling
+			$context = $this->EE->TMPL->fetch_param('context', NULL);
+			if ( $context !== NULL ) 
+			{
+				$prefix = $context . ':';
+				$this->EE->TMPL->tagparams['context'] = NULL;
+			}
+			else
+			{
+				$prefix = '';
+			}
+			
 			foreach($this->EE->TMPL->var_pair as $key => $val)
 			{
 				if (strncmp($key, 'stash:', 6) ==  0)
@@ -275,7 +317,7 @@ class Stash {
 					if (!empty($matches))
 					{
 						// set the variable, but cleanup first in case there are any nested tags
-						$this->EE->TMPL->tagparams['name'] = str_replace('stash:', '', $key);
+						$this->EE->TMPL->tagparams['name'] = $prefix . str_replace('stash:', '', $key);
 						$this->EE->TMPL->tagdata = preg_replace('/{stash:[a-zA-Z0-9-_]+}(.*){\/stash:[a-zA-z0-9]+}/Usi', '', $matches[1]);
 						$this->EE->TMPL->tagparams['parse_tags'] = 'no';
 						$this->set();
@@ -341,6 +383,16 @@ class Stash {
 		// do we want this tag to return the value, or just set the variable quietly in the background?
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
 		
+		// context handling
+		$context	= $this->EE->TMPL->fetch_param('context', NULL);
+		$global_name = $name;
+		
+		if ($context !== NULL && count( explode(':', $name) == 1 ) )
+		{
+			$name = $context . ':' . $name;
+			$this->EE->TMPL->tagparams['context'] = NULL;
+		}
+		
 		$value = NULL;
 
 		// Let's see if it's been stashed before
@@ -354,14 +406,16 @@ class Stash {
 			if ( $dynamic )
 			{
 				// is it in the $_POST or $_GET superglobals ( run through xss_clean() )?
-				if ( ! $from_global = $this->EE->input->get_post($name, TRUE) )
+				$from_global = $this->EE->input->get_post($global_name, TRUE);
+				
+				if ( $from_global === FALSE )
 				{
 					// no, so let's check the uri segments
 					$segs = $this->EE->uri->segment_array();
 
 					foreach ( $segs as $index => $segment )
 					{
-					    if ( $segment == $name && array_key_exists( ($index+1), $segs) )
+					    if ( $segment == $global_name && array_key_exists( ($index+1), $segs) )
 						{
 							$from_global = $segs[($index+1)];
 							break;
@@ -369,41 +423,45 @@ class Stash {
 					}
 				}
 				
-				if ( !! $from_global )
+				if ( $from_global !== FALSE )
 				{
 					// save to stash, and optionally to database, if save="yes"
+					// note: don't save if we're updating a variable (to avoid recursion)
 					$value = $from_global;
-					$this->EE->TMPL->tagparams['name'] = $name;
-					$this->EE->TMPL->tagdata = $value;
-					$this->set();
+					
+					if ( ! $this->_update)
+					{
+						$this->EE->TMPL->tagparams['name'] = $name;
+						$this->EE->TMPL->tagdata = $value;
+						$this->set();
+					}
 				}
 			}	
 			
 			// Not found in globals, so let's look in the database table cache
 			if ( $value == NULL)
-			{		
-				// cleanup keys with expiry date older than right now 
-				$this->EE->stash_model->prune_keys();
-					
+			{				
 				// narrow the scope to user?
 				$session_id = $scope === 'user' ? $this->_session_id : '';
+				
+				// replace '@' placeholders with the current context
+				$key = $this->_parse_context($name);
 						
 				// look for our key
 				if ($parameters = $this->EE->stash_model->get_key(
-					$name, 
+					$key, 
 					$session_id, 
 					$this->site_id
 				))
-				{
+				{	
 					// save to session 
 					$value = $this->_stash[$name] = $parameters;
 				}
 				else
 				{
 					// set default value
-					$value = $default; // note: $default value is '' unless set as a parameter
-					
-					if ( $value !== '')
+					$value = $default;
+					if ( ! $this->_update)
 					{
 						$this->EE->TMPL->tagparams['name'] = $name;
 						$this->EE->TMPL->tagdata = $value;
@@ -427,7 +485,6 @@ class Stash {
 			{
 				$value = str_replace(array(LD, RD), '', $value);
 			}
-
 			return $value;
 		}
 	}
@@ -458,7 +515,8 @@ class Stash {
 	 */
 	public function append()
 	{
-		return $this->set(TRUE, TRUE);
+		$this->_update = TRUE;
+		return $this->set(TRUE);
 	}
 	
 	// ---------------------------------------------------------
@@ -471,7 +529,8 @@ class Stash {
 	 */
 	public function prepend()
 	{
-		return $this->set(TRUE, FALSE);
+		$this->_update = TRUE;
+		return $this->set(FALSE);
 	}
 		
 	// ---------------------------------------------------------
@@ -486,15 +545,18 @@ class Stash {
 	 * @param bool 	 $append Append or prepend to existing variable
 	 * @return void 
 	 */
-	public function set_value($update = FALSE, $append = TRUE)
+	public function set_value($append = TRUE)
 	{	
 		/* Sample use
 		---------------------------------------------------------
 		{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
 		--------------------------------------------------------- */
-		if ( !! $this->EE->TMPL->tagdata = $this->EE->TMPL->fetch_param('value', FALSE))
+		
+		$this->EE->TMPL->tagdata = $this->EE->TMPL->fetch_param('value', FALSE);
+		
+		if ( $this->EE->TMPL->tagdata !== FALSE )
 		{
-			return $this->set($update, $append);
+			return $this->set($append);
 		}
 	}
 	
@@ -508,7 +570,8 @@ class Stash {
 	 */
 	public function append_value()
 	{
-		return $this->set_value(TRUE, TRUE);
+		$this->_update = TRUE;
+		return $this->set_value(TRUE);
 	}
 	
 	// ---------------------------------------------------------
@@ -521,7 +584,43 @@ class Stash {
 	 */
 	public function prepend_value()
 	{
-		return $this->set_value(TRUE, FALSE);
+		$this->_update = TRUE;
+		return $this->set_value(FALSE);
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Set the current context
+	 *
+	 * @access protected
+	 * @return void
+	 */
+	public function context()
+	{
+		if ( !! $name = strtolower($this->EE->TMPL->fetch_param('name', FALSE)) )
+		{
+			self::$context = $name;
+		}
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Replace the current context in a variable name
+	 *
+	 * @access private
+	 * @param string	$name The variable name
+	 * @return string
+	 */
+	private function _parse_context($name)
+	{
+		// replace '@' with current context
+		if (strncmp($name, '@:', 2) ==  0)
+		{
+			$name = str_replace('@', self::$context, $name);
+		}	
+		return $name;
 	}	
 	
 	// ---------------------------------------------------------

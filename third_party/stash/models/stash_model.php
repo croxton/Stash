@@ -1,5 +1,15 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+/**
+ * Set and get template variables, EE snippets and persistent variables.
+ *
+ * @package             Stash
+ * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
+ * @copyright           Copyright (c) 2011 Hallmark Design
+ * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
+ * @link                http://hallmark-design.co.uk
+ */
+
 class Stash_model extends CI_Model {
 	
 	public $EE;
@@ -138,17 +148,25 @@ class Stash_model extends CI_Model {
 	 * @param string $parameters
 	 * @return boolean
 	 */
-	function update_key($key, $session_id, $site_id = 1, $expire = 0, $parameters = '')
+	function update_key($key, $session_id = '', $site_id = 1, $expire = 0, $parameters = NULL)
 	{
 		$data = array(
 				'created' 		=> $this->EE->localize->now,
-				'expire' 		=> $expire,
-				'parameters' 	=> $parameters
+				'expire' 		=> $expire
 		);
 		
+		if ($parameters !== NULL)
+		{
+			$data += array('parameters' => $parameters);
+		}
+		
 		$this->db->where('key_name', $key)
-				 ->where('session_id', $session_id)
 				 ->where('site_id', $site_id);
+				
+		if ( ! empty($session_id))
+		{
+			$this->db->where('session_id', $session_id);
+		}		
 		
 		if ($result = $this->db->update('stash', $data))		 		   
 		{
@@ -162,6 +180,21 @@ class Stash_model extends CI_Model {
 	}
 	
 	/**
+	 * Refresh key for user session
+	 *
+	 * @param string $key
+	 * @param string $session_id
+	 * @param integer $site_id
+	 * @param integer $refresh Seconds to expiry date
+	 * @return boolean
+	 */
+	function refresh_key($key, $session_id = '', $site_id = 1, $refresh)
+	{	
+		$expire = $this->EE->localize->now + $refresh;
+		return $this->update_key($key, $session_id, $site_id, $expire);
+	}
+	
+	/**
 	 * Get key value
 	 *
 	 * @param string $key
@@ -172,7 +205,7 @@ class Stash_model extends CI_Model {
 	 */
 	function get_key($key, $session_id = '', $site_id = 1, $col = 'parameters')
 	{
-		$this->db->select($col)
+		$this->db->select($col .', created, expire')
 				 ->from('stash')
 				 ->where('key_name', $key)
 				 ->where('site_id', $site_id)
@@ -186,7 +219,22 @@ class Stash_model extends CI_Model {
 		
 		if ($result->num_rows() == 1) 
 		{
-			return $result->row('parameters');
+			if ($result->row('expire') > 0)
+			{
+				// if this key expires soon, refresh it
+				$refresh = $result->row('expire') - $result->row('created'); // refresh period  (seconds)
+				$expire  = $result->row('expire') - $this->EE->localize->now; // time to expiry (seconds)
+			
+				if ( ($refresh / $expire) > 2 ) 
+				{
+					// more than half the refresh time has passed since the last time key was accessed
+					// so let's refresh the key expiry
+					$this->refresh_key($key, $session_id, $site_id, $refresh);	
+				}
+			}
+			
+			// return
+			return $result->row($col);
 		}
 		else
 		{

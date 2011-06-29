@@ -1,8 +1,18 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
-class Stash_upd
-{
-	public $version = '1.1.2';
+/**
+ * Set and get template variables, EE snippets and persistent variables.
+ *
+ * @package             Stash
+ * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
+ * @copyright           Copyright (c) 2011 Hallmark Design
+ * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
+ * @link                http://hallmark-design.co.uk
+ */
+
+class Stash_upd {
+	
+	public $version = '1.1.3';
 	
 	/**
 	 * Stash_upd
@@ -46,7 +56,7 @@ class Stash_upd
 		  `key_name` varchar(64) NOT NULL,
 		  `key_label` varchar(64) default NULL,
 		  `created` int(10) unsigned NOT NULL,
-		  `expire` int(10) unsigned NOT NULL default '0',
+		  `expire` int(10) unsigned NOT NULL default '0',	
 		  `parameters` text,
 		  PRIMARY KEY  (`id`),
 		  KEY `bundle_id` (`bundle_id`),

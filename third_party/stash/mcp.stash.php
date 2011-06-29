@@ -1,7 +1,17 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
-class Stash_mcp
-{
+/**
+ * Set and get template variables, EE snippets and persistent variables.
+ *
+ * @package             Stash
+ * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
+ * @copyright           Copyright (c) 2011 Hallmark Design
+ * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
+ * @link                http://hallmark-design.co.uk
+ */
+
+class Stash_mcp {
+	
 	/**
 	 * Stash_mcp
 	 * 
