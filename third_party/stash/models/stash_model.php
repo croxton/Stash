@@ -13,6 +13,8 @@
 class Stash_model extends CI_Model {
 	
 	public $EE;
+	protected static $keys = array();
+	protected static $bundle_ids = array();
 
     function __construct()
     {
@@ -74,7 +76,7 @@ class Stash_model extends CI_Model {
 	 */
 	function update_last_activity($session_id, $site_id)
 	{	
-		if ($result = $this->update_key('_last_activity', $session_id, $site_id)) 
+		if ($result = $this->update_key('_last_activity', 1, $session_id, $site_id)) 
 		{
 			return (bool) $this->db->affected_rows();
 		}
@@ -93,7 +95,7 @@ class Stash_model extends CI_Model {
 	 */
 	function insert_last_activity($session_id, $site_id, $parameters = '')
 	{	
-		if ($result = $this->insert_key('_last_activity', $session_id, $site_id, 0, $parameters)) 
+		if ($result = $this->insert_key('_last_activity', 1, $session_id, $site_id, 0, $parameters)) 
 		{
 			return $this->db->insert_id();
 		}
@@ -115,17 +117,17 @@ class Stash_model extends CI_Model {
 	 * @param integer $bundle_id
 	 * @return integer
 	 */
-	function insert_key($key, $session_id, $site_id = 1, $expire = 0, $parameters = '', $label = '', $bundle_id = 1)
+	function insert_key($key, $bundle_id = 1, $session_id, $site_id = 1, $expire = 0, $parameters = '', $label = '')
 	{
 		$data = array(	
 				'key_name' 		=> $key,
+				'bundle_id'		=> $bundle_id,
 				'session_id' 	=> $session_id,
 				'site_id'		=> $site_id,
 				'created' 		=> $this->EE->localize->now,
 				'expire' 		=> $expire,
 				'parameters' 	=> $parameters,
-				'key_label'		=> $label,
-				'bundle_id'		=> $bundle_id
+				'key_label'		=> $label
 		);
 		
 		if ( $result = $this->db->insert('stash', $data) )
@@ -148,7 +150,7 @@ class Stash_model extends CI_Model {
 	 * @param string $parameters
 	 * @return boolean
 	 */
-	function update_key($key, $session_id = '', $site_id = 1, $expire = 0, $parameters = NULL)
+	function update_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $expire = 0, $parameters = NULL)
 	{
 		$data = array(
 				'created' 		=> $this->EE->localize->now,
@@ -161,7 +163,8 @@ class Stash_model extends CI_Model {
 		}
 		
 		$this->db->where('key_name', $key)
-				 ->where('site_id', $site_id);
+				 ->where('bundle_id', $bundle_id)
+				 ->where('site_id', $site_id);				 
 				
 		if ( ! empty($session_id))
 		{
@@ -188,10 +191,10 @@ class Stash_model extends CI_Model {
 	 * @param integer $refresh Seconds to expiry date
 	 * @return boolean
 	 */
-	function refresh_key($key, $session_id = '', $site_id = 1, $refresh)
+	function refresh_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $refresh)
 	{	
 		$expire = $this->EE->localize->now + $refresh;
-		return $this->update_key($key, $session_id, $site_id, $expire);
+		return $this->update_key($key, $bundle_id, $session_id, $site_id, $expire);
 	}
 	
 	/**
@@ -203,43 +206,50 @@ class Stash_model extends CI_Model {
 	 * @param string $col
 	 * @return string
 	 */
-	function get_key($key, $session_id = '', $site_id = 1, $col = 'parameters')
+	function get_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $col = 'parameters')
 	{
-		$this->db->select($col .', created, expire')
-				 ->from('stash')
-				 ->where('key_name', $key)
-				 ->where('site_id', $site_id)
-				 ->limit(1);
-		if ( ! empty($session_id))
-		{
-			$this->db->where('session_id', $session_id);
-		}
+		$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 		
-		$result = $this->db->get();
-		
-		if ($result->num_rows() == 1) 
+		if ( ! isset(self::$keys[$cache_key]))
 		{
-			if ($result->row('expire') > 0)
+			$this->db->select($col .', created, expire')
+					 ->from('stash')
+					 ->where('key_name', $key)
+					 ->where('bundle_id', $bundle_id)
+					 ->where('site_id', $site_id)
+					 ->limit(1);
+			if ( ! empty($session_id))
 			{
-				// if this key expires soon, refresh it
-				$refresh = $result->row('expire') - $result->row('created'); // refresh period  (seconds)
-				$expire  = $result->row('expire') - $this->EE->localize->now; // time to expiry (seconds)
-			
-				if ( ($refresh / $expire) > 2 ) 
-				{
-					// more than half the refresh time has passed since the last time key was accessed
-					// so let's refresh the key expiry
-					$this->refresh_key($key, $session_id, $site_id, $refresh);	
-				}
+				$this->db->where('session_id', $session_id);
 			}
+		
+			$result = $this->db->get();
+		
+			if ($result->num_rows() == 1) 
+			{
+				// if this key expires soon and is scoped to user session, refresh it
+				if ($result->row('expire') > 0 && $session_id != '_global' && ! empty($session_id))
+				{
+					$refresh = $result->row('expire') - $result->row('created'); // refresh period  (seconds)
+					$expire  = $result->row('expire') - $this->EE->localize->now; // time to expiry (seconds)
 			
-			// return
-			return $result->row($col);
+					if ( ($refresh / $expire) > 2 ) 
+					{
+						// more than half the refresh time has passed since the last time key was accessed
+						// so let's refresh the key expiry
+						$this->refresh_key($key, $bundle_id, $session_id, $site_id, $refresh);	
+					}
+				}
+			
+				// cache result
+				self::$keys[$cache_key] = $result->row($col);
+			}
+			else
+			{
+				self::$keys[$cache_key] = FALSE;
+			}
 		}
-		else
-		{
-			return FALSE;
-		}
+		return self::$keys[$cache_key];
 	}
 	
 	/**
@@ -250,9 +260,10 @@ class Stash_model extends CI_Model {
 	 * @param integer $site_id
 	 * @return boolean
 	 */
-	function delete_key($key, $session_id = '', $site_id = 1)
+	function delete_key($key, $bundle_id = 1, $session_id = '', $site_id = 1)
 	{
 		$this->db->where('key_name', $key)
+				 ->where('bundle_id', $bundle_id)
 				 ->where('site_id', $site_id);
 				
 		if ( ! empty($session_id))
@@ -297,11 +308,11 @@ class Stash_model extends CI_Model {
 	 * @param integer $site_id
 	 * @return boolean
 	 */
-	function flush_cache($site_id = 1)
+	function flush_cache($site_id = 1, $bundle_id = 1)
 	{
 		$this->db->where('site_id', $site_id)
 				 ->where('key_name !=',  '_last_activity')
-				 ->where('bundle_id',  '1');
+				 ->where('bundle_id',  $bundle_id);
 
 		if ($this->EE->db->delete('stash')) 
 		{
@@ -320,21 +331,27 @@ class Stash_model extends CI_Model {
 	 */
 	function get_bundle_by_name($bundle, $site_id = 1)
 	{
-		$result = $this->db->select('id')
-				 ->from('stash_bundles')
-				 ->where('bundle_name', $bundle)
-				 ->where('site_id', $site_id)
-				 ->limit(1)
-				 ->get();
+		$cache_key = $bundle . '_' . $site_id;
+		
+		if ( ! isset(self::$bundle_ids[$cache_key]))
+		{
+			$result = $this->db->select('id')
+					 ->from('stash_bundles')
+					 ->where('bundle_name', $bundle)
+					 ->where('site_id', $site_id)
+					 ->limit(1)
+					 ->get();
 				
-		if ($result->num_rows() == 1) 
-		{
-			return $result->row('id');
-		}
-		else
-		{
-			return FALSE;
-		}
+			if ($result->num_rows() == 1) 
+			{
+				self::$bundle_ids[$cache_key] = $result->row('id');
+			}
+			else
+			{
+				self::$bundle_ids[$cache_key] = FALSE;
+			}
+		}		
+		return self::$bundle_ids[$cache_key];
 	}
 	
 	/**
@@ -365,7 +382,7 @@ class Stash_model extends CI_Model {
 	/**
 	 * Check if there is at least one entry for the bundle in this site
 	 *
-	 * @return boolean
+	 * @return integer
 	 */
 	function bundle_entry_exists($bundle_id, $site_id = 1)
 	{
@@ -383,6 +400,29 @@ class Stash_model extends CI_Model {
 		else
 		{
 			return FALSE;
+		}
+	}
+	
+	/**
+	 * Count the number of entries for a given bundle
+	 *
+	 * @return boolean
+	 */
+	function bundle_entry_count($bundle_id, $site_id = 1)
+	{
+		$result = $this->db->select('COUNT(id) AS row_count')
+				 ->from('stash')
+				 ->where('bundle_id', $bundle_id)
+				 ->where('site_id', $site_id)
+				 ->get();
+				
+		if ($result->num_rows() == 1) 
+		{
+			return $result->row('row_count');
+		}
+		else
+		{
+			return 0;
 		}
 	}
 }
