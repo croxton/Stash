@@ -37,11 +37,12 @@ class Stash {
 	/*
 	 * Constructor
 	 */
-	public function __construct()
+	public function __construct($EE="EE")
 	{
-		$this->EE = get_instance();
+		$this->EE =& get_instance();
 		
-		// load dependencies
+		// load dependencies - make sure the package path is available in case the class is being called statically
+		$this->EE->load->add_package_path(PATH_THIRD.'stash/', TRUE);
 		$this->EE->lang->loadfile('stash');
 		$this->EE->load->model('stash_model');
 
@@ -193,6 +194,9 @@ class Stash {
 		// is this method being called statically from PHP?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
 		{
+			// make sure we have a clean array in case the class has already been instatiated
+			$this->EE->TMPL->tagparams = array();
+			
 			if ( is_array($params))
 			{
 				$this->EE->TMPL->tagparams = $params;
@@ -525,6 +529,9 @@ class Stash {
 		// is this method being called statically from PHP?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
 		{
+			// make sure we have a clean array in case the class has already been instatiated
+			$this->EE->TMPL->tagparams = array();
+			
 			if ( is_array($params))
 			{
 				$this->EE->TMPL->tagparams = $params;
