@@ -12,26 +12,26 @@ Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and ad
 (of course if you're using a custom config bootstrap file, add the path there instead)
  
 ## Creating files
-Inside your Stash directory, create html files containing template tags, variables etc, just like you would a normal ExpressionEngine template. Name the file after the variable you will be creating and make sure it has the suffix '.html' 
+Inside your Stash directory, create html files containing template tags, variables etc, just like you would a normal ExpressionEngine template. Name the file after the variable you will be creating and make sure it has the exstension '.html' 
 
 If you want to use contexts to namespace your variables, then create a subfolder named after the context, e.g.
 
-stash_templates/
-  my_var1.html
-  my_var2.html
-  my_context/
-     my_var1.html
-     my_var2.html
+	stash_templates/
+  		my_var1.html
+  		my_var2.html
+  		my_context/
+     			my_var1.html
+     			my_var2.html
 
 If you are using MSM and want to have separate Stash templates for each site, then you can use each site name as a context. E.g.:
 
-stash_templates/
-  my_site1/
-     my_var1.html
-     my_var2.html
-  my_site2/
-     my_var1.html
-     my_var2.html
+	stash_templates/
+  		my_site1/
+     			my_var1.html
+     			my_var2.html
+  		my_site2/
+     			my_var1.html
+     			my_var2.html
 
 
 ## Loading a Stash template
