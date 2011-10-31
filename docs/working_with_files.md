@@ -1,6 +1,6 @@
 # Working with template files
 
-Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc.
+Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc, and for when encapsulation is desirable but might otherwise be too expensive (e.g. long one-off blocks of template code).
 
 ## Config
 Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
