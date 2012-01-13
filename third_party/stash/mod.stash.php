@@ -4,6 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
+ * @version				2.0.2
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -24,6 +25,7 @@ class Stash {
 	protected $parse_vars = NULL;
 	protected $parse_conditionals = FALSE;
 	protected $parse_depth = 1;
+	protected $parse_complete = FALSE;
 	protected $bundle_id = 1;
 	protected static $context = NULL;
 	protected static $bundles = array();
@@ -291,10 +293,10 @@ class Stash {
 		
 		if ($set)
 		{
-			if ( $this->parse_tags || $this->parse_vars)
+			if ( ($this->parse_tags || $this->parse_vars) && ! $this->parse_complete)
 			{	
 				$this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
-				$this->parse_tags = $this->parse_vars = FALSE; // don't run again
+				$this->parse_complete = TRUE; // don't run again
 			}
 			
 			// strip tags?
@@ -459,20 +461,31 @@ class Stash {
 				{
 					$prefix = '';
 				}
+				
+				// if the tagdata has been parsed, we need to generate a new array of tag pairs
+				// this permits dynamic tag pairs, e.g. {stash:{key}}{/stash:{key}} 
+				if ($this->parse_complete)
+				{
+					$tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
+					$tag_pairs = $tag_vars['var_pair'];
+				}
+				else
+				{
+					$tag_pairs =& $this->EE->TMPL->var_pair;
+				}
 			
-				foreach($this->EE->TMPL->var_pair as $key => $val)
+				foreach($tag_pairs as $key => $val)
 				{
 					if (strncmp($key, 'stash:', 6) ==  0)
 					{
 						$pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
 						preg_match($pattern, $tagdata, $matches);
 						if (!empty($matches))
-						{
+						{		
 							// set the variable, but cleanup first in case there are any nested tags
 							$this->EE->TMPL->tagparams['name'] = $prefix . str_replace('stash:', '', $key);
 							$this->EE->TMPL->tagdata = preg_replace('/'.LD.'stash:[a-zA-Z0-9-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-z0-9]+'.RD.'/Usi', '', $matches[1]);
-							$this->parse_tags = FALSE;
-							$this->parse_vars = FALSE;
+							$this->parse_complete = TRUE; // don't allow tagdata to be parsed
 							$this->set();
 						}	
 					}
@@ -752,8 +765,8 @@ class Stash {
 			}
 		}
 		
-		// set to default if value is empty
-		if ( empty($value) && $default !== '')
+		// set to default value if it is exactly '' (this permits '0' to be a valid Stash value)
+		if ( $value === '' && $default !== '')
 		{	
 			$value = $default;	
 		}
@@ -774,7 +787,7 @@ class Stash {
 		if ($output)
 		{
 			// parse tags?
-			if ( $this->parse_tags || $this->parse_vars)
+			if ( ($this->parse_tags || $this->parse_vars) && ! $this->parse_complete)
 			{	
 				$this->EE->TMPL->tagdata = $value;
 				$this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
@@ -1131,13 +1144,22 @@ class Stash {
 		// stash vars {stash:var}
 		if (count($this->EE->session->cache['stash']) > 0)
 		{
-			foreach ($this->EE->session->cache['stash'] as $key => $val)
+			// We want to replace single stash tag not tag pairs such as {stash:var}whatever{/stash:var}
+			// because these are used by stash::set() method when capturing multiple variables.
+			// So we'll calculate the intersecting keys of existing stash vars and single tags in the template 
+			// Note that the stash array goes first so that it's values are in the resultant array
+			$tag_vars = $this->EE->functions->assign_variables($template);
+			$tag_vars = $tag_vars['var_single'];
+			$tag_vars = array_intersect_key($this->EE->session->cache['stash'], $tag_vars);
+			
+			foreach ($tag_vars as $key => $val)
 			{
+				// replace SINGLE tags, not tag pairs
 				$template = str_replace(LD.'stash:'.$key.RD, $val, $template);
 			}
 		}
 	
-		// parse segments
+		// parse segments {segment_1} etc
 		for ($i = 1; $i < 10; $i++)
 		{
 			$template = str_replace(LD.'segment_'.$i.RD, $this->EE->uri->segment($i), $template); 
