@@ -1,37 +1,37 @@
 # Working with template files
 
-Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc.
+Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc, and for when encapsulation is desirable but might otherwise be too expensive (e.g. long blocks of template code).
 
 ## Config
 Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
 
 Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following line:
 
-	$assign_to_config['global_vars']['stash_file_basepath'] => '/path/to/stash_templates/'
+	$assign_to_config['stash_file_basepath'] => '/path/to/stash_templates/'
 
 (of course if you're using a custom config bootstrap file, add the path there instead)
  
 ## Creating files
-Inside your Stash directory, create html files containing template tags, variables etc, just like you would a normal ExpressionEngine template. Name the file after the variable you will be creating and make sure it has the suffix '.html' 
+Inside your Stash directory, create html files containing template tags, variables etc, just like you would a normal ExpressionEngine template. Name the file after the variable you will be creating and make sure it has the exstension '.html' 
 
 If you want to use contexts to namespace your variables, then create a subfolder named after the context, e.g.
 
-stash_templates/
-  my_var1.html
-  my_var2.html
-  my_context/
-     my_var1.html
-     my_var2.html
+	stash_templates/
+  		my_var1.html
+  		my_var2.html
+  		my_context/
+     			my_var1.html
+     			my_var2.html
 
 If you are using MSM and want to have separate Stash templates for each site, then you can use each site name as a context. E.g.:
 
-stash_templates/
-  my_site1/
-     my_var1.html
-     my_var2.html
-  my_site2/
-     my_var1.html
-     my_var2.html
+	stash_templates/
+  		my_site1/
+     			my_var1.html
+     			my_var2.html
+  		my_site2/
+     			my_var1.html
+     			my_var2.html
 
 
 ## Loading a Stash template
