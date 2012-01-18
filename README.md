@@ -312,8 +312,8 @@ If the list does not exist, it will be created.
 
 ### Example usage
 	{!-- set a list of entries in the products channel with a title that starts with the letter 'C' --}
-	{exp:channel:entries channel="products" limit="5" match="#^C#" against="{title}"}
-   		{exp:stash:append_list name="blog_entries"}
+	{exp:channel:entries channel="products" limit="5"}
+   		{exp:stash:append_list name="blog_entries" match="#^C#" against="{title}"}
      		{stash:item_title}{title}{/stash:item_title}
      		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
  		{/exp:stash:append_list}
