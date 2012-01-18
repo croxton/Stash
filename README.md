@@ -311,12 +311,28 @@ If the list does not exist, it will be created.
 * Accepts the same parameters as {exp:stash:set}
 
 ### Example usage
-	{exp:channel:entries channel="products" limit="5"}
+	{!-- set a list of entries in the products channel with a title that starts with the letter 'C' --}
+	{exp:channel:entries channel="products" limit="5" match="#^C#" against="{title}"}
    		{exp:stash:append_list name="blog_entries"}
      		{stash:item_title}{title}{/stash:item_title}
      		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
  		{/exp:stash:append_list}
 	{/exp:channel:entries}
+	
+### Advanced usage: caching lists
+Generating a list of related items from a Playa custom field 'blog_related' and caching the result so that the Channel Entries and Playa tags do not run on subsequent views of the template:
+
+	{exp:switchee variable="'{exp:stash:not_empty name='blog_entries' scope='site'}'" parse="inward"}
+		{case value="'0'"}
+			{exp:channel:entries channel="blog" entry_id="123"}
+				{blog_related}
+					{exp:stash:append_list name="blog_related" save="yes" scope="site"}
+						{stash:item_title}{title}{/stash:item_title}
+					{/exp:stash:append_list}	
+				{/blog_related}
+			{/exp:channel:entries}
+		{/case}	
+	{/exp:switchee}
 	
 ## {exp:stash:prepend_list} tag pair
 
@@ -325,7 +341,7 @@ Prepend an array of variables to a list.
 * Accepts the same parameters as {exp:stash:set}
 
 ### Example usage
-	{exp:channel:entries channel="products" limit="5"}
+	{exp:channel:entries channel="products"}
    		{exp:stash:prepend_list name="blog_entries"}
      		{stash:item_title}{title}{/stash:item_title}
      		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
@@ -360,12 +376,12 @@ Offset from 0 (optional, default is 0).
 * {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
 
 ### Example usage
-	{exp:stash:get_list name=""blog_entries" orderby="item_title" sort="asc" limit="10"}
+	{exp:stash:get_list name="blog_entries" orderby="item_title" sort="asc" limit="10"}
 		<h2 class="{switch="one|two|three"}">{item_title}</h2>
    		<p>{item_teaser}</p>
 		<p>This is item {count} of {total_results} rows curently being displayed.</p>
 		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
-	{/exp:stash:get_list}
+	{/exp:stash:get_list}	
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.
