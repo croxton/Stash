@@ -296,12 +296,21 @@ Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}m
 
 * Accepts the same parameters as {exp:stash:set}
 
-### Example usage
-	{exp:stash:set_list name="blog_entries"}
-        {stash:title}{title}{/stash:title}
-        {stash:img_url}{img_url}{/stash:img_url}
-        {stash:copy}{copy}{/stash:copy}
+### Example usage 1
+	{exp:stash:set_list name="my_list"}
+        {stash:item_title}My title{/stash:item_title}
+ 		{stash:item_summary}Summary text{/stash:item_summary}
+        {stash:item_copy}Bodycopy goes here{/stash:item_copy}
     {/exp:stash:set_list}
+
+### Example usage 2
+	{exp:channel:entries channel="products" limit="1"}
+		{exp:stash:set_list name="my_list"}
+	        {stash:item_title}{title}{/stash:item_title}
+	 		{stash:item_summary}{summary}{/stash:item_summary}
+	        {stash:item_copy}{copy}{/stash:item_copy}
+	    {/exp:stash:set_list}
+	{/exp:channel:entries}
 
 ## {exp:stash:append_list} tag pair
 
