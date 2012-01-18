@@ -24,7 +24,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * Individual control of parse depth, variable and conditional parsing when parsing tagdata
 * Use contexts to namespace related groups of variables and help organise your code 
 * save related form field values as a persistent 'bundle' of variables for efficient retrieval
-* set, get append and prepend lists (multidimensional variables) - including Matrix and Playa data
+* set, get append and prepend lists (multidimensional arrays ) - for example, Matrix and Playa data
 * determine the order, sort, limit and offset when retrieving a list
 * apply text tranformations and parsing to retrieved variables and lists
 * Advanced uses: partial/full page caching, form field persistence, template partials/viewModel pattern implementation
