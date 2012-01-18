@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.0.2
+## Version 2.0.3
 
 * Requires: ExpressionEngine 2
 
@@ -20,9 +20,14 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * Register variables from the $_POST, $_GET and uri segment arrays
 * Save variables to the database for persistent storage across page loads
 * Set variable scope (user or global)
-* Fully parse tags contained within a Stash tag pair, so Stash saves the rendered output
-* Use contexts to namespace groups of variables and help organise your code
-* Advanced uses: partial page caching, form field persistence, template partials/viewModel pattern implementation 
+* Parse tags contained within a Stash tag pair, so Stash saves the rendered output
+* Individual control of parse depth, variable and conditional parsing when parsing tagdata
+* Use contexts to namespace related groups of variables and help organise your code 
+* save related form field values as a persistent 'bundle' of variables for efficient retrieval
+* set, get append and prepend lists (multidimensional variables) - including Matrix and Playa data
+* determine the order, sort, limit and offset when retrieving a list
+* apply text tranformations and parsing to retrieved variables and lists
+* Advanced uses: partial/full page caching, form field persistence, template partials/viewModel pattern implementation
 
 ## Installation
 
@@ -49,11 +54,25 @@ Note that you should never cache any sensitive user data.
 ### refresh = [int]
 The number of minutes to store the variable (optional, default is 1440 - or one day)
 
+### replace = ['yes'|'no']                
+Do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
+
 ### output = ['yes'|'no']
 Do you want to output the content inside the tag pair (optional, default is 'no')
 
 ### parse_tags = ['yes'|'no']
 Do you want to parse any tags (modules or plugins) contained inside the stash tag pair (optional, default is 'no')
+
+### parse_vars = ['yes'|'no']
+Parse variables inside the template? (optional, default is 'yes', IF parse_tags is 'yes')
+
+### parse_conditionals = ['yes'|'no']
+Parse if/else conditionals inside the variable? (optional, default is 'no')
+
+### parse_depth = [int]
+How many passes of the template to make by the parser? (optional, default is 1) 
+By default the parse depth is '1', meaning nested module tags would remain un-parsed. 
+Set to a higher number to make repeated passes. More passes means more overhead (processing time).
 
 ### match = [#regex#]
 Variable will only be set if the content matches the supplied regular expression (optional)
@@ -86,33 +105,24 @@ A 'global' variable is set only once until it expires, and is accessible to ALL 
 		{exp:stash:set name="title" type="snippet"}{title}{/exp:stash:set}
 	{/exp:channel:entries}
 	
-### Advanced usage 1
+### Advanced usage 1	
+Caching the output of a channel entries tag for 60 minutes. The first time the template is viewed the channel entries tag is run and its output is captured and saved to the database. On subsequent visits within the following 60 minutes, the output is retrieved from the database and the channel entries tag does NOT run. At the end of the 60 minutes  the variable expires from the database, and on the next view of the template the cache is regenerated. 
 
-	{!-- get the variable if it exists, but don't output it --}
-	{exp:stash:get name="test" scope="site" output="no"}
+This approach can save you a huge number of queries and processing time.
 
-	{!-- caching logic. Switchee will check for Stash vars if you prefix with 'stash:' --}
-	{exp:switchee variable="stash:test" parse="inward"}	
-	
-		{case value=""}
-
-			This is un-cached, so let's cache it for 5 minutes.
-
-			{exp:channel:entries entry_id="1" limit="1"}
-				{exp:stash:set name="test" scope="site" save="yes" output="yes" refresh="5"}	
-					{title}
-				{/exp:stash:set}
-			{/exp:channel:entries}
-		{/case}
-
-		{case default="Yes"}
-		
-			This is cached. Cool eh?
-
-			{exp:stash:get name="test" scope="site"}	
-		{/case}
-	
-	{/exp:switchee}
+	{exp:stash:set
+		name="my_cached_blog_entries" 
+		save="yes" 
+		scope="site" 
+		parse_tags="yes"
+		replace="no" 
+		refresh="60"
+		output="yes"
+	}
+		{exp:channel:entries channel="blog"}
+			<p>{title}</p>
+		{/exp:structure_channel:entries}
+	{/exp:stash:set}
 
 ### Advanced usage 2
 {exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
@@ -180,11 +190,21 @@ The type of variable to retrieve (optional, default is 'variable').
 Look in the $_POST and $_GET superglobals arrays, for the variable (optional, default is 'no').
 If Stash doesn't find the variable in the superglobals, it will look in the uri segment array for the variable name and takes the value from the next segment, e.g.: /variable_name/variable_value
 
+### file = ['yes'|'no']
+Set to yes to tell Stash to look for a file in the Stash template folder (optional, default is 'no').
+See [working_with_files](https://github.com/croxton/Stash/blob/dev/docs/working_with_files.md)
+
+### file_name = [string]        
+The file name (without the extension) - only required if your filename is different from the variable name
+
 ### save = ['yes'|'no']
-When using dynamic="yes", do you want to store the dynamic value in the database so that it persists across page loads? (optional, default is 'no')
+When using dynamic="yes" or file="yes", do you want to store the value we have retrieved in the database so that it persists across page loads? (optional, default is 'no')
 
 ### refresh = [int]
 When using save="yes", this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
+
+### replace = ['yes'|'no']                
+When using dynamic="yes" or file="yes", do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
 
 ### default = [string]
 Default value to return if variable is not set or empty (optional, default is an empty string). If a default value is supplied and the variable has not been set previously, then the variable will be set in the user's session. Thus subsequent attempt to get the variable will return the default value specified by the first call.
@@ -224,12 +244,16 @@ Strip curly braces ( { and } ) from the returned variable? (optional, default is
 		...
 	{/exp:channel:entries}
 
-## stash::get('name', 'type', 'scope')
+## stash::get('name', 'type', 'scope') OR stash::get($array)
 
 The get() method is also available to use in PHP-enabled templates using a static function call. With PHP enabled *on output*, this allows you to access the value of a variable at the end of the parsing, after tags have been processed and rendered. Note that you must use a stash tag somewhere in the template for this to work, and PHP must be enabled on OUTPUT.
 
+You can also pass an array of key value pairs containing any of the parameters accepted by get.
+
 ### Example usage
 	<?php echo stash::get('title') ?>
+	
+	<?php echo stash::get(array('name'=>'my_var', 'context' => '@')) ?>
 
 	If you have short open tags enabled:
 	<?= stash::get('title') ?>
@@ -264,12 +288,92 @@ Returns 0 or 1 depending on whether the variable is empty or not. Useful for con
 	{if {exp:stash:not_empty name="my_variable" type="snippet"}}
 		{my_variable}								
 	{/if}
+
+	
+## {exp:stash:set_list} tag pair
+
+Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}my_value{/stash:my_key}
+
+* Accepts the same parameters as {exp:stash:set}
+
+### Example usage
+	{exp:stash:set_list name="blog_entries"}
+        {stash:title}{title}{/stash:title}
+        {stash:img_url}{img_url}{/stash:img_url}
+        {stash:copy}{copy}{/stash:copy}
+    {/exp:stash:set_list}
+
+## {exp:stash:append_list} tag pair
+
+Append an array of variables to a list to create *multiple rows* of variables (i.e. a multidimensional array). 
+If the list does not exist, it will be created.
+
+* Accepts the same parameters as {exp:stash:set}
+
+### Example usage
+	{exp:channel:entries channel="products" limit="5"}
+   		{exp:stash:append_list name="blog_entries"}
+     		{stash:item_title}{title}{/stash:item_title}
+     		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
+ 		{/exp:stash:append_list}
+	{/exp:channel:entries}
+	
+## {exp:stash:prepend_list} tag pair
+
+Prepend an array of variables to a list.
+
+* Accepts the same parameters as {exp:stash:set}
+
+### Example usage
+	{exp:channel:entries channel="products" limit="5"}
+   		{exp:stash:prepend_list name="blog_entries"}
+     		{stash:item_title}{title}{/stash:item_title}
+     		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
+ 		{/exp:stash:prepend_list}
+	{/exp:channel:entries}
+	
+## {exp:stash:get_list} tag pair
+
+Retrieve a list and apply a custom order, sort, limit and offset.
+
+### orderby = [string]
+The variable you want to sort the list by.
+
+### sort = [asc|desc]
+The sort order, either ascending (asc) or descending (desc) (optional, default is "asc").
+
+### sort_type = [string|integer]
+The data type of the column you are ordering by, either 'string' or 'integer' (optional, default is "string").
+
+### limit = [int]
+Limit the number of rows returned (optional).
+
+### offset = [int]
+Offset from 0 (optional, default is 0).
+
+### variables
+
+* {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
+* {total_results} -  the total number of rows in the list currently being displayed
+* {absolute_count} - The absolute "count" of the current row being displayed by the tag, regardless of limit / offset.
+* {absolute_results} - the absolute total number of rows in the list, regardless of limit / offset.
+* {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
+
+### Example usage
+	{exp:stash:get_list name=""blog_entries" orderby="item_title" sort="asc" limit="10"}
+		<h2 class="{switch="one|two|three"}">{item_title}</h2>
+   		<p>{item_teaser}</p>
+		<p>This is item {count} of {total_results} rows curently being displayed.</p>
+		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
+	{/exp:stash:get_list}
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.
 	
 ## {exp:stash:bundle} tag pair	
-Bundle up a series of variables into one.
+Bundle up a group of independent variables into a single variable and save to the database. If the bundled variable already exists then the bundle is retrieved and the individual variables are restored into the current session.
+
+This is very useful when working with form field values that you want to register from a dynamic source such as $_POST or $_GET, validate the user submitted form value against a regular expression, and persist the submitted value from page to page. Instead of saving multiple variables you can efficiently bundle them up into one variable requiring only a single query for retrieval.
 
 ### name = [string]
 The name of your bundle (required)
@@ -277,10 +381,21 @@ The name of your bundle (required)
 ### unique = ['yes'|'no']
 Do you only want to allow one entry per bundle? (optional, default is 'no')
 
+### context = [string]
+Defined a context for the bundled variables (optional)
+
+### refresh = [int]
+This parameter sets the number of minutes to store the bundle (optional, default is 1440 - or one day)
+
 ### Example usage
-	{exp:stash:bundle name="contact_form" unique="no"}
-			{stash:contact_name}Your name{/stash:contact_name}
-			{stash:contact_email}mcroxton@hallmark-design.co.uk{/stash:contact_email}
-		{/exp:stash:bundle}
-		
-The Bundles feature is under development, so not especially useful just yet.
+
+	{exp:stash:context name="my_search_form"}
+	
+	{exp:stash:bundle name="form" context="@" refresh="10" parse="inward"}
+		{exp:stash:get dynamic="yes" type="snippet" name="orderby" output="yes" default="entry_date" match="#^[a-zA-Z0-9_-]+$#"}
+		{exp:stash:get dynamic="yes" type="snippet" name="sort" output="yes" default="asc" match="#^asc|desc$#"}
+		{exp:stash:get dynamic="yes" type="snippet" name="category" output="yes" default="" match="#^[a-zA-Z0-9_-]+$#"}
+	{/exp:stash:bundle}
+	
+	{!-- now you could use like this in an embedded view template --}
+	<input name="orderby" value="{@:orderby}">
