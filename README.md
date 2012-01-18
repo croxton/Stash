@@ -322,11 +322,11 @@ If the list does not exist, it will be created.
 ### Advanced usage: caching lists
 Generating a list of related items from a Playa custom field 'blog_related' and caching the result so that the Channel Entries and Playa tags do not run on subsequent views of the template:
 
-	{exp:switchee variable="'{exp:stash:not_empty name='blog_entries' scope='site'}'" parse="inward"}
+	{exp:switchee variable="'{exp:stash:not_empty name='blog_related_entries' scope='site'}'" parse="inward"}
 		{case value="'0'"}
 			{exp:channel:entries channel="blog" entry_id="123"}
 				{blog_related}
-					{exp:stash:append_list name="blog_related" save="yes" scope="site"}
+					{exp:stash:append_list name="blog_related_entries" save="yes" scope="site"}
 						{stash:item_title}{title}{/stash:item_title}
 					{/exp:stash:append_list}	
 				{/blog_related}
