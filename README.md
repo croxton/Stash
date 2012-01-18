@@ -304,8 +304,8 @@ Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}m
     {/exp:stash:set_list}
 
 ### Example usage 2
-	{exp:channel:entries channel="products" limit="1"}
-		{exp:stash:set_list name="my_list"}
+	{exp:channel:entries channel="products" limit="1" entry_id="123"}
+		{exp:stash:set_list name="my_product"}
 	        {stash:item_title}{title}{/stash:item_title}
 	 		{stash:item_summary}{summary}{/stash:item_summary}
 	        {stash:item_copy}{copy}{/stash:item_copy}
@@ -322,7 +322,7 @@ If the list does not exist, it will be created.
 ### Example usage
 	{!-- set a list of entries in the products channel with a title that starts with the letter 'C' --}
 	{exp:channel:entries channel="products" limit="5"}
-   		{exp:stash:append_list name="blog_entries" match="#^C#" against="{title}"}
+   		{exp:stash:append_list name="product_entries" match="#^C#" against="{title}"}
      		{stash:item_title}{title}{/stash:item_title}
      		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
  		{/exp:stash:append_list}
@@ -351,7 +351,7 @@ Prepend an array of variables to a list.
 
 ### Example usage
 	{exp:channel:entries channel="products"}
-   		{exp:stash:prepend_list name="blog_entries"}
+   		{exp:stash:prepend_list name="product_entries"}
      		{stash:item_title}{title}{/stash:item_title}
      		{stash:item_teaser}{product_teaser}{/stash:item_teaser}
  		{/exp:stash:prepend_list}
@@ -385,7 +385,7 @@ Offset from 0 (optional, default is 0).
 * {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
 
 ### Example usage
-	{exp:stash:get_list name="blog_entries" orderby="item_title" sort="asc" limit="10"}
+	{exp:stash:get_list name="product_entries" orderby="item_title" sort="asc" limit="10"}
 		<h2 class="{switch="one|two|three"}">{item_title}</h2>
    		<p>{item_teaser}</p>
 		<p>This is item {count} of {total_results} rows curently being displayed.</p>
