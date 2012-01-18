@@ -15,6 +15,7 @@ class Stash_model extends CI_Model {
 	
 	public $EE;
 	protected static $keys = array();
+	protected static $inserted_keys = array();
 	protected static $bundle_ids = array();
 
     function __construct()
@@ -133,12 +134,28 @@ class Stash_model extends CI_Model {
 		
 		if ( $result = $this->db->insert('stash', $data) )
 		{
+			// store a record of the newly created key
+			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
+			self::$inserted_keys[] = $cache_key;
+			
+			// return insert id
 			return $this->db->insert_id();
 		}
 		else
 		{
 			return FALSE;
 		}
+	}
+	
+	/**
+	 * Check to see if a key has been inserted within this page load
+	 *
+	 * @param string $cache_key
+	 * @return bool
+	 */
+	function is_inserted_key($cache_key)
+	{
+		return in_array($cache_key, self::$inserted_keys) ? TRUE : FALSE;
 	}
 	
 	/**
@@ -247,7 +264,8 @@ class Stash_model extends CI_Model {
 			}
 			else
 			{
-				self::$keys[$cache_key] = FALSE;
+				// don't cache a negative result, in case the variable is created later on in this session
+				return FALSE;
 			}
 		}
 		return self::$keys[$cache_key];

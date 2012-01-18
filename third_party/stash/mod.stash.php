@@ -419,12 +419,15 @@ class Stash {
 					
 					// let's check if there is an existing record, and that that it matches the new one exactly
 					$result = $this->EE->stash_model->get_key($stash_key, $this->bundle_id, $session_filter, $this->site_id);
-				
+
 					if ( $result !== FALSE)
 					{
 						// record exists, but is it identical?
-						if ( $result !== $parameters && $this->replace)
-						{
+						// allow append/prepend if the stash key has been created *in this page load*
+						$cache_key = $stash_key. '_'. $this->bundle_id .'_' .$this->site_id . '_' . $session_filter;
+						
+						if ( $result !== $parameters && ($this->replace || ($this->_update && $this->EE->stash_model->is_inserted_key($cache_key)) ) )
+						{	
 							// nope - update
 							$this->EE->stash_model->update_key(
 								$stash_key,
@@ -643,9 +646,9 @@ class Stash {
 				}
 				//$set = TRUE;
 			}
-			else
+			elseif ( ! $this->_update)
 			{
-				// let's look in the database table cache
+				// let's look in the database table cache, if we're not appending/prepending
 				
 				// narrow the scope to user?
 				$session_id = $scope === 'user' ? $this->_session_id : '';
