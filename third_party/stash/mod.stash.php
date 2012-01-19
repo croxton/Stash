@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.3
+ * @version				2.0.4
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -729,7 +729,7 @@ class Stash {
 			
 			// Are we reading a file?
 			if ( ($file && $value == NULL) || ($file && $this->replace) )
-			{				
+			{					
 				$this->EE->TMPL->log_item("Stash: reading from file");
 				
 				// construct a filepath. Here contexts become folders...
@@ -755,6 +755,7 @@ class Stash {
 					return;
 				}
 			}
+			
 			
 			// set default if we still don't have a value
 			if ( $value == NULL)
@@ -796,7 +797,21 @@ class Stash {
 		// output
 		if ($output)
 		{
-			return $this->_parse_output($value, $match, $filter, $default);
+			$value =  $this->_parse_output($value, $match, $filter, $default);
+			
+			// if we're reading from a file (or a cached file) we need to parse early global vars
+			// and remove any leftover {stash:} vars
+			if ($file)
+			{
+				$value = $this->_parse_template_vars($value);
+				
+				// cleanup of leftover/undeclared stash: single and pairs
+				if (strpos($value , LD.'stash:') !== FALSE)
+				{
+					$value = preg_replace('#\{/?stash:([^!]+?)\}#', '', $value);
+				}
+			}
+			return $value;
 		}
 	}
 	
@@ -1599,16 +1614,16 @@ class Stash {
 	private function _parse_template_vars($template = '')
 	{	
 		// globals vars {name}
-		if (count($this->EE->config->_global_vars) > 0)
+		if (count($this->EE->config->_global_vars) > 0 && strpos( $template, '{' ) !== FALSE)
 		{
 			foreach ($this->EE->config->_global_vars as $key => $val)
 			{
 				$template = str_replace(LD.$key.RD, $val, $template);
-			}
+			}	
 		}
 		
 		// stash vars {stash:var}
-		if (count($this->EE->session->cache['stash']) > 0)
+		if (count($this->EE->session->cache['stash']) > 0 && strpos( $template, '{stash:' ) !== FALSE)
 		{
 			// We want to replace single stash tag not tag pairs such as {stash:var}whatever{/stash:var}
 			// because these are used by stash::set() method when capturing multiple variables.
@@ -1625,12 +1640,15 @@ class Stash {
 			}
 		}
 	
-		// parse segments {segment_1} etc
-		for ($i = 1; $i < 10; $i++)
+		// segment vars {segment_1} etc
+		if ( strpos( $template, '{segment_' ) !== FALSE )
 		{
-			$template = str_replace(LD.'segment_'.$i.RD, $this->EE->uri->segment($i), $template); 
+			for ($i = 1; $i < 10; $i++)
+			{
+				$template = str_replace(LD.'segment_'.$i.RD, $this->EE->uri->segment($i), $template); 
+			}
 		}
-		
+
 		return $template;
 	}
 	
@@ -1656,7 +1674,7 @@ class Stash {
 			$value = $this->EE->TMPL->tagdata;
 			unset($this->EE->TMPL->tagdata);
 		}
-		
+	
 		// regex match
 		if ( $match !== NULL && $value !== NULL )
 		{	
