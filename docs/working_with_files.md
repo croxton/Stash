@@ -72,7 +72,7 @@ Let's say you want to encapulate your main navigation code in a Stash template. 
 	{/exp:structure_entries}
 	</ul>
 
-You want Stash to read the template file the first time it encounters it and save the contents to the database, so that the next time the main navigation is displayed it is pulling it from the database rather than reading a file (reading files is slow).
+You want Stash to read the template file the first time it encounters it and save the contents to the database, so that the next time the main navigation is displayed it is pulling it from the database cache rather than reading the file (reading files is slow).
 
 The navigation should be cached for 60 minutes.
 
