@@ -103,6 +103,7 @@ You want Stash to read the template file the first time it encounters it and sav
 The navigation should be cached for 60 minutes.
 Create a file at /path/to/stash_templates/main_nav.html
 Include it in your template like this:
+
  	{exp:stash:get 
     		name="main_nav"                       
     		scope="site"               
@@ -127,6 +128,7 @@ Change your nav code to look something like this:
 	</ul>
 
 Include it in your template like this:
+
 	{exp:stash:get 
     		name="main_nav"                       
     		scope="site"               
