@@ -64,7 +64,7 @@ These are useful if you want to inject variables into the template after it has 
 
 ## Example 1
 
-Let's say you want to encapulate your main navigation code in a Stash template. Your nav code looks something like this:
+* Let's say you want to encapulate your main navigation code in a Stash template. Your nav code looks something like this:
 	
 	<ul>
 	{exp:structure_entries depth="1" status="open" parse="inward" channel="pages"}
