@@ -86,7 +86,7 @@ Include it in your template like this:
     		file="yes"                  
     		save="yes"                 
     		refresh="60"                
-   		replace="no"                                               
+    		replace="no"                                               
     		output = "yes"           
 	}
 
@@ -116,7 +116,7 @@ Include it in your template like this:
     		refresh="60"                
     		replace="no"                                               
     		output = "yes"  
-		parse_tags="yes"  	
+    		parse_tags="yes"  	
 	}
 
 
