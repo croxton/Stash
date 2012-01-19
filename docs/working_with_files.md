@@ -92,7 +92,7 @@ Include it in your template like this:
 
 ## Example 2
 
-You want to improve on example 1 by parsing the Stash template tags and saving the rendered HTML to your database.
+You want to improve on example 1 by parsing the {exp:structure_entries} tag and caching the rendered HTML to your database.
 
 This will save you multiple queries on subsequent views of the template.
 
