@@ -57,37 +57,67 @@ If you are using MSM and want to have separate Stash templates for each site, th
 
 When using parse_tags="yes", wrap {stash:nocache}...{/stash:nocache} around content that you do not wish to be parsed.
 
-Here's an example Stash template where we want to parse the Structure Entries tag (which generates a huge number of queries) but still ensure the top level navigation responds to highlight the current page :
-	
-	{exp:structure_entries depth="3"}
-	{if {depth} == 1}{!-- Top Level --}
-		<li{stash:nocache}{if "{exp:stash:get name='segment_1' type='global'}" == "{/stash:nocache}{page_url}{stash:nocache}"} class="parent-current"{/if}{/stash:nocache}>
-	        <a href="{page_uri}">{title}</a>
-		{if {children_total} == 0}{!-- No Children - so close markup --}
-			</li>
-		{/if}
-	{if:else}{!-- Children (not top level) --}
-		{if {sibling_count} == 1}{!-- First child - so open markup --}
-			<ul class="level{depth}">
-		{/if}
-	  	<li>
-			<a href="{page_uri}">{title}</a>
-		{close_markup}
-	    	{if {total_children} == 0 || {depth} == {restricted_depth}}
-				</li>
-	    	{/if}
-	    	{if {last_sibling} && {sibling_count} == {sibling_total}}
-				</ul>
-			</li>
-	    {/if}
-		{/close_markup}
-	{/if}
-	{/exp:structure_entries}
-
 
 ## Using placeholders
 
 These are useful if you want to inject variables into the template after it has been parsed and cached. A placeholder takes the form {stash:my_variable}. These will be replaced with the stash variable of the same name wherever the template is output.
+
+## Example 1
+
+Let's say you want to encapulate your main navigation code in a Stash template. Your nav code looks something like this:
+	
+	<ul>
+	{exp:structure_entries depth="1" status="open" parse="inward" channel="pages"}
+		<li><a href="{page_uri}"{if "{url_title}" == "{segment_1}"} class="active"{/if}>{title}</a></li>
+	{/exp:structure_entries}
+	</ul>
+
+You want Stash to read the template file the first time it encounters it and save the contents to the database, so that the next time the main navigation is displayed it is pulling it from the database rather than reading a file (reading files is slow).
+
+The navigation should be cached for 60 minutes.
+
+Create a file at /path/to/stash_templates/main_nav.html.
+
+Include it in your template like this:
+
+ 	{exp:stash:get 
+    		name="main_nav"                       
+    		scope="site"               
+    		file="yes"                  
+    		save="yes"                 
+    		refresh="60"                
+    		replace="no"                                               
+    		output = "yes"           
+	}
+
+## Example 2
+
+You want to improve on example 1 by parsing the Stash template tags and saving the rendered HTML to your database.
+
+This will save you multiple queries on subsequent views of the template.
+
+You still need parts of the Stash template to be 'un-cached' so that your navigation responds to the current value of {segment_1}.
+
+Change your nav code to look something like this:
+	
+	<ul>
+	{exp:structure_entries depth="1" status="open" parse="inward" channel="pages"}
+		<li><a href="{page_uri}"{if "{url_title}" == "{stash:nocache}{segment_1}{/stash:nocache}"} class="active"{/if}>{title}</a></li>
+	{/exp:structure_entries}
+	</ul>
+
+Include it in your template like this:
+
+	{exp:stash:get 
+    		name="main_nav"                       
+    		scope="site"               
+    		file="yes"                  
+    		save="yes"                 
+    		refresh="60"                
+    		replace="no"                                               
+    		output = "yes"  
+    		parse_tags="yes"  	
+	}
 
 
 
