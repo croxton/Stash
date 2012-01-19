@@ -7,7 +7,7 @@ Create a folder to contain your Stash template files. Ideally this should be abo
 
 Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following line:
 
-	$assign_to_config['stash_file_basepath'] => '/path/to/stash_templates/'
+	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
 
 (of course if you're using a custom config bootstrap file, add the path there instead)
  
