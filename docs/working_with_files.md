@@ -89,6 +89,56 @@ Here's an example Stash template where we want to parse the Structure Entries ta
 
 These are useful if you want to inject variables into the template after it has been parsed and cached. A placeholder takes the form {stash:my_variable}. These will be replaced with the stash variable of the same name wherever the template is output.
 
+## Example 1
+
+* Let's say you want to encapulate your main navigation code in a Stash template. 
+* Your nav code looks something like this:
+	
+	<ul>
+	{exp:structure_entries depth="1" status="open" parse="inward" channel="pages"}
+		<li><a href="{page_uri}"{if "{url_title}" == "{segment_1}"} class="active"{/if}>{title}</a></li>
+	{/exp:structure_entries}
+	</ul>
+
+* You want Stash to read the template file the first time it encounters it and save the contents to the database so that the next time the main navigation is displayed it is pulling it from the database rather than reading a file (reading files is slow)
+* The navigation should be cached for 60 minutes
+* Create a file at /path/to/stash_templates/main_nav.html
+* Include it in your template like this:
+ 	{exp:stash:get 
+    		name="main_nav"                       
+    		scope="site"               
+    		file="yes"                  
+    		save="yes"                 
+    		refresh="60"                
+   		replace="no"                                               
+    		output = "yes"           
+	}
+
+## Example 2
+
+* You want to improve on example 1 by parsing the Stash template tags and saving the rendered HTML to your database
+* This will save you multiple queries on subsequent views of the template
+* You still need parts of the Stash template to be 'un-cached' so that your navigation responds to the current value of {segment_1}
+* Change your nav code to look something like this:
+	
+	<ul>
+	{exp:structure_entries depth="1" status="open" parse="inward" channel="pages"}
+		<li><a href="{page_uri}"{if "{url_title}" == "{stash:nocache}{segment_1}{/stash:nocache}"} class="active"{/if}>{title}</a></li>
+	{/exp:structure_entries}
+	</ul>
+
+* Include it in your template like this:
+	{exp:stash:get 
+    		name="main_nav"                       
+    		scope="site"               
+    		file="yes"                  
+    		save="yes"                 
+    		refresh="60"                
+    		replace="no"                                               
+    		output = "yes"  
+		parse_tags="yes"  	
+	}
+
 
 
 
