@@ -57,33 +57,6 @@ If you are using MSM and want to have separate Stash templates for each site, th
 
 When using parse_tags="yes", wrap {stash:nocache}...{/stash:nocache} around content that you do not wish to be parsed.
 
-Here's an example Stash template where we want to parse the Structure Entries tag (which generates a huge number of queries) but still ensure the top level navigation responds to highlight the current page :
-	
-	{exp:structure_entries depth="3"}
-	{if {depth} == 1}{!-- Top Level --}
-		<li{stash:nocache}{if "{exp:stash:get name='segment_1' type='global'}" == "{/stash:nocache}{page_url}{stash:nocache}"} class="parent-current"{/if}{/stash:nocache}>
-	        <a href="{page_uri}">{title}</a>
-		{if {children_total} == 0}{!-- No Children - so close markup --}
-			</li>
-		{/if}
-	{if:else}{!-- Children (not top level) --}
-		{if {sibling_count} == 1}{!-- First child - so open markup --}
-			<ul class="level{depth}">
-		{/if}
-	  	<li>
-			<a href="{page_uri}">{title}</a>
-		{close_markup}
-	    	{if {total_children} == 0 || {depth} == {restricted_depth}}
-				</li>
-	    	{/if}
-	    	{if {last_sibling} && {sibling_count} == {sibling_total}}
-				</ul>
-			</li>
-	    {/if}
-		{/close_markup}
-	{/if}
-	{/exp:structure_entries}
-
 
 ## Using placeholders
 
