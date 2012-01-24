@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.0.4
+## Version 2.0.5
 
 * Requires: ExpressionEngine 2
 
