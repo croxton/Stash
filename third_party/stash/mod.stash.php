@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.4
+ * @version				2.0.5
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -494,7 +494,7 @@ class Stash {
 						{		
 							// set the variable, but cleanup first in case there are any nested tags
 							$this->EE->TMPL->tagparams['name'] = $prefix . str_replace('stash:', '', $key);
-							$this->EE->TMPL->tagdata = preg_replace('/'.LD.'stash:[a-zA-Z0-9-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-z0-9]+'.RD.'/Usi', '', $matches[1]);
+							$this->EE->TMPL->tagdata = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
 							$this->parse_complete = TRUE; // don't allow tagdata to be parsed
 							$this->set();
 						}	
@@ -1394,7 +1394,7 @@ class Stash {
 				preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
 				if (!empty($matches))
 				{
-					$stash_vars[ltrim($key, 'stash:')] = preg_replace('/'.LD.'stash:[a-zA-Z0-9-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-z0-9]+'.RD.'/Usi', '', $matches[1]);
+					$stash_vars[ltrim($key, 'stash:')] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
 				}
 			}
 		}
