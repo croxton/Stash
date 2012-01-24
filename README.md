@@ -135,7 +135,7 @@ In this example we want to ensure that the inner {exp:channel:entries} tag is pa
 		{exp:channel:entries channel="blog"}
 			<li>{title}</li>
 			{stash:absolute_results}{absolute_results}{/stash:absolute_results}
-		{/exp:structure_channel:entries}
+		{/exp:channel:entries}
 		</ul>
 		{/stash:content}
 	{/exp:stash:set}
