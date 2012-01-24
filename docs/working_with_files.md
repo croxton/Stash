@@ -1,13 +1,13 @@
 # Working with template files
 
-Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc, and for when encapsulation is desirable but might otherwise be too expensive (e.g. long blocks of template code).
+Stash can read a file, optionally parse it and then cache the output to the database for fast retrieval elsewhere. This can have significant performance advantages over using embeds and snippets. However, it's not meant to be a replacement for EE's core functionality, rather a complement to the existing methods. In particular, Stash templates are best used for query-intensive parts of your templates that are repeated throughout your site such as navigation, footers, etc, and for when encapsulation is desirable but might otherwise be too expensive as an embed (e.g. long blocks of template code that you use repeatedly).
 
 ## Config
 Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
 
 Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following line:
 
-	$assign_to_config['stash_file_basepath'] => '/path/to/stash_templates/'
+	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
 
 (of course if you're using a custom config bootstrap file, add the path there instead)
  
@@ -72,7 +72,7 @@ Let's say you want to encapulate your main navigation code in a Stash template. 
 	{/exp:structure_entries}
 	</ul>
 
-You want Stash to read the template file the first time it encounters it and save the contents to the database, so that the next time the main navigation is displayed it is pulling it from the database rather than reading a file (reading files is slow).
+You want Stash to read the template file the first time it encounters it and save the contents to the database, so that the next time the main navigation is displayed it is pulling it from the database cache rather than reading the file (reading files is slow).
 
 The navigation should be cached for 60 minutes.
 
@@ -92,7 +92,7 @@ Include it in your template like this:
 
 ## Example 2
 
-You want to improve on example 1 by parsing the Stash template tags and saving the rendered HTML to your database.
+You want to improve on example 1 by parsing the {exp:structure_entries} tag and caching the rendered HTML to your database.
 
 This will save you multiple queries on subsequent views of the template.
 
