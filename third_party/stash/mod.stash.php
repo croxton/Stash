@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.7
+ * @version				2.0.8
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -17,8 +17,6 @@ class Stash {
 	public $site_id;
 	public $path;
 	protected $xss_clean;
-	protected $strip_tags;
-	protected $strip_curly_braces;
 	protected $replace;
 	protected $type;
 	protected $parse_tags = FALSE;
@@ -59,11 +57,6 @@ class Stash {
 		
 		// xss scripting protection
 		$this->xss_clean = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('xss_clean'));
-		
-		// sanitize/filter retrieved variables? 
-		// useful for user submitted data in superglobals - but don't do this by default!
-		$this->strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));	
-		$this->strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));	
 		
 		// if the variable is already set, do we want to replace it's value? Default = yes
 		$this->replace = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('replace', 'yes'));
@@ -306,23 +299,8 @@ class Stash {
 				$this->parse_complete = TRUE; // don't run again
 			}
 			
-			// strip tags?
-			if ($this->strip_tags)
-			{
-				$this->EE->TMPL->tagdata = strip_tags($this->EE->TMPL->tagdata);
-			}
-		
-			// strip curly braces?
-			if ($this->strip_curly_braces)
-			{
-				$this->EE->TMPL->tagdata = str_replace(array(LD, RD), '', $this->EE->TMPL->tagdata);
-			}
-			
-			// xss clean?
-			if ($this->xss_clean)
-			{
-				$this->EE->TMPL->tagdata = $this->EE->security->xss_clean($this->EE->TMPL->tagdata);
-			}
+			// apply any string manipulations
+			$this->EE->TMPL->tagdata = $this->_clean_string($this->EE->TMPL->tagdata);
 
 			if ( !! $name )
 			{					
@@ -379,7 +357,7 @@ class Stash {
 					// We're updating a variable, so lets see if it's in the session or db
 					if ( ! array_key_exists($name, $this->_stash))
 					{
-						$this->_stash[$name] = $this->get();
+						$this->_stash[$name] = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
 					}
 			
 					// Append or prepend?
@@ -947,7 +925,7 @@ class Stash {
 		}
 		else
 		{
-			$test = $this->get(); 
+			$test = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
 		}
 		
 		$value  = str_replace( array("\t", "\n", "\r", "\0", "\x0B"), '', trim($test));
@@ -1039,24 +1017,9 @@ class Stash {
 		$list_html 		= '';
 		$list_markers	= array();
 
-		// set 'safe' params for use with get()
-		$allowed_params = array_flip(array('name', 'type', 'scope', 'context'));
-		foreach($allowed_params as $key => &$value)
-		{
-			if ( isset($this->EE->TMPL->tagparams[$key]))
-			{
-				$value = $this->EE->TMPL->tagparams[$key];
-			}
-			else
-			{
-				unset($allowed_params[$key]);
-			}
-		}
-		$this->EE->TMPL->tagparams = $allowed_params;
-		
-		// get the variable value from the session / cache
-		$list = $this->get();
-		
+		// run get() with a safe list of parameters
+		$list = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
+
 		// return no results if this variable has no value
 		if ($list == '')
 		{
@@ -1101,6 +1064,9 @@ class Stash {
 		
 		// replace into template		
 		$list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
+		
+		// disable backspace parameter as parse_variables does it for you...
+		$this->EE->TMPL->tagparams['backspace'] = FALSE;
 		
 		// parse other markers
 		$list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
@@ -1382,9 +1348,7 @@ class Stash {
 	private function _serialize_stash_tag_pairs()
 	{
 		//  get the stash var pairs values
-		$stash_vars = array();
-		
-		#print_r($this->EE->TMPL->var_pair);
+		$stash_vars = array();		
 		 
 		foreach($this->EE->TMPL->var_pair as $key => $val)
 		{
@@ -1695,27 +1659,103 @@ class Stash {
 				$value = $found[1];
 			}
 		}
+		// apply string manipulations
+		$value = $this->_clean_string($value);
 		
+		return $value;
+	}
+	
+	// ---------------------------------------------------------
+	/**
+	 * String manipulations
+	 *
+	 * @access private
+	 * @param string $value the string to parse	
+	 * @return string
+	 */
+	private function _clean_string($value = NULL)
+	{
+		// register parameters
+		$strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));	
+		$strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));	
+		$backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);
+
 		// strip tags?
-		if ($this->strip_tags)
+		if ($strip_tags)
 		{
 			$value = strip_tags($value);
 		}
-	
+
 		// strip curly braces?
-		if ($this->strip_curly_braces)
+		if ($strip_curly_braces)
 		{
 			$value = str_replace(array(LD, RD), '', $value);
 		}
-		
+	
+		// backspace?
+		if ($backspace)
+		{
+			$value = substr($value, 0, -$backspace);
+		}
+	
 		// xss clean?
 		if ($this->xss_clean)
 		{
 			$value = $this->EE->security->xss_clean($value);
 		}
-		
+
 		return $value;
 	}
+	
+	// ---------------------------------------------------------
+	/**
+	 * Run a Stash module tag with a safe set of parameters
+	 *
+	 * @access private
+	 * @param string $method the public Stash method to call	
+	 * @param array $params the tag parameters to use
+	 * @return string
+	 */
+	private function _run_tag($method, $params = array())
+	{
+		// make a copy of the original parameters
+		$original_params = $this->EE->TMPL->tagparams;
+		
+		// array of permitted parameters
+		$allowed_params = array_flip($params);
+		
+		// set permitted params for use
+		foreach($allowed_params as $key => &$value)
+		{
+			if ( isset($this->EE->TMPL->tagparams[$key]))
+			{
+				$value = $this->EE->TMPL->tagparams[$key];
+			}
+			else
+			{
+				unset($allowed_params[$key]);
+			}
+		}
+		
+		// overwrite template params with our safe set
+		$this->EE->TMPL->tagparams = $allowed_params;
+		
+		// run the tag if it is public
+		if (method_exists($this, $method))
+		{
+		    $reflection = new ReflectionMethod($this, $method);
+		    if ( ! $reflection->isPublic()) 
+			{
+				throw new RuntimeException("The called method is not public.");
+			}
+		    $out = $this->$method();
+		}
+		
+		// restore original parameters
+		$this->EE->TMPL->tagparams = $original_params;
+		
+		return $out;
+	}	
 	
 	// ---------------------------------------------------------
 	
