@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.6
+ * @version				2.0.7
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -1394,7 +1394,7 @@ class Stash {
 				preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
 				if (!empty($matches))
 				{
-					$stash_vars[ltrim($key, 'stash:')] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
+					$stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
 				}
 			}
 		}
