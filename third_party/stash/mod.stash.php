@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.8
+ * @version				2.0.9
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -1007,9 +1007,8 @@ class Stash {
 		$sort 			= strtolower($this->EE->TMPL->fetch_param('sort', 'asc'));
 		$sort_type 		= strtolower($this->EE->TMPL->fetch_param('sort_type', 'string')); // string || integer
 		$orderby 		= $this->EE->TMPL->fetch_param('orderby', FALSE);
-		$limit 			= intval($this->EE->TMPL->fetch_param('limit', 0));
-		$limit			= $limit == 0 ? NULL : $limit;
-		$offset 		= intval($this->EE->TMPL->fetch_param('offset', 0));
+		$limit 			= $this->EE->TMPL->fetch_param('limit',  FALSE);
+		$offset 		= $this->EE->TMPL->fetch_param('offset', FALSE);
 		$default 		= $this->EE->TMPL->fetch_param('default', ''); // default value
 		$match 			= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to test final output against
 		$filter			= $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
@@ -1059,20 +1058,38 @@ class Stash {
 		// record the total number of list rows
 		$list_markers['absolute_results'] = count($list);
 		
-		// slice array depending on limit / offset
-		$list = array_slice($list, $offset, $limit);
+		// slice array depending on limit/offset
+		if ($limit && $offset)
+		{
+			$list = array_slice($list, $offset, $limit);
+		}
+		elseif ($limit)
+		{
+			$list = array_slice($list, 0, $limit);
+		}
+		elseif ($offset)
+		{
+			$list = array_slice($list, $offset);
+		}
 		
-		// replace into template		
-		$list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
+		if (count($list) > 0)
+		{		
+			// replace into template		
+			$list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
 		
-		// disable backspace parameter as parse_variables does it for you...
-		$this->EE->TMPL->tagparams['backspace'] = FALSE;
+			// disable backspace parameter as parse_variables does it for you...
+			$this->EE->TMPL->tagparams['backspace'] = FALSE;
 		
-		// parse other markers
-		$list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
+			// parse other markers
+			$list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
 		
-		// now apply final output transformations / parsing
-		return $this->_parse_output($list_html, $match, $filter, $default);
+			// now apply final output transformations / parsing
+			return $this->_parse_output($list_html, $match, $filter, $default);
+		}
+		else
+		{
+			return $this->EE->TMPL->no_results();
+		}
 	}
 	
 	// ---------------------------------------------------------
