@@ -121,7 +121,7 @@ This approach can save you a huge number of queries and processing time.
 	}
 		{exp:channel:entries channel="blog"}
 			<p>{title}</p>
-		{/exp:structure_channel:entries}
+		{/exp:channel:entries}
 	{/exp:stash:set}
 
 ### Advanced usage 2
