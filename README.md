@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.0.7
+## Version 2.0.8
 
 * Requires: ExpressionEngine 2
 
@@ -229,6 +229,15 @@ Strip HTML tags from the returned variable? (optional, default is 'no').
 
 ### strip_curly_braces = ['yes'|'no']
 Strip curly braces ( { and } ) from the returned variable? (optional, default is 'no').
+
+### backspace = [int]
+Remove an arbitrary number of characters from the end of the returned string
+
+### filter = [#(regex capture group)#]
+Return only part of the string designated by the first capture group in a regular expression (optional)
+
+	{!-- strip a trailing pipe character --}
+	{exp:stash:get name="title" filter="#^(.*)\|$#"}
 
 ### Example usage
 
