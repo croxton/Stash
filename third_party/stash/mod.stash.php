@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.9
+ * @version				2.0.10
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -1550,7 +1550,7 @@ class Stash {
 			foreach (get_object_vars($TMPL2) as $key => $value)
 			{
 				$this->EE->TMPL->$key = $value;
-			}
+			}			
 		}
 	
 		// last template pass
@@ -1630,6 +1630,15 @@ class Stash {
 			}
 		}
 
+		// Current time {current_time format="%Y %m %d %H:%i:%s"}
+		if (strpos($template, LD.'current_time') !== FALSE && preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/",$template, $matches))
+		{				
+			for ($j = 0; $j < count($matches[0]); $j++)
+			{				
+				$template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);	
+			}
+		}
+		
 		return $template;
 	}
 	
