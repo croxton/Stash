@@ -1550,15 +1550,6 @@ class Stash {
 			foreach (get_object_vars($TMPL2) as $key => $value)
 			{
 				$this->EE->TMPL->$key = $value;
-			}
-			
-			// Current time {current_time format="%Y %m %d %H:%i:%s"}
-			if (strpos($TMPL2->tagdata, LD.'current_time') !== FALSE && preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/", $TMPL2->tagdata, $matches))
-			{				
-				for ($j = 0; $j < count($matches[0]); $j++)
-				{				
-					$TMPL2->tagdata = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $TMPL2->tagdata);	
-				}
 			}			
 		}
 	
@@ -1639,6 +1630,15 @@ class Stash {
 			}
 		}
 
+		// Current time {current_time format="%Y %m %d %H:%i:%s"}
+		if (strpos($template, LD.'current_time') !== FALSE && preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/",$template, $matches))
+		{				
+			for ($j = 0; $j < count($matches[0]); $j++)
+			{				
+				$template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);	
+			}
+		}
+		
 		return $template;
 	}
 	
