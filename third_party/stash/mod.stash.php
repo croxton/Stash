@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.0.9
+ * @version				2.1.0
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2011 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -901,9 +901,10 @@ class Stash {
 	 * Checks if a variable or string is empty or non-existent, handy for conditionals
 	 *
 	 * @access public
+	 * @param $string a string to test
 	 * @return integer
 	 */
-	public function not_empty()
+	public function not_empty($string = NULL)
 	{
 		/* Sample use
 		---------------------------------------------------------
@@ -917,7 +918,11 @@ class Stash {
 			Yes! {my_string} is not empty
 		{/if}
 		--------------------------------------------------------- */
-		if ( $this->EE->TMPL->tagdata )
+		if ( ! is_null($string))
+		{
+			$test = $string;
+		}
+		elseif ( $this->EE->TMPL->tagdata )
 		{
 			// parse any vars in the string we're testing
 			$this->_parse_sub_template(FALSE, TRUE);
@@ -951,9 +956,16 @@ class Stash {
     	{/exp:stash:set_list}
 		--------------------------------------------------------- */
 		
+		// do any parsing and string transforms before making the list
+		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+		
 		//  get the stash var pairs values
 		$this->_serialize_stash_tag_pairs();
-		return $this->set();	
+		
+		if ( $this->not_empty($this->EE->TMPL->tagdata))
+		{
+			return $this->set();	
+		}
 	}
 	
 	// ---------------------------------------------------------
@@ -966,9 +978,14 @@ class Stash {
 	 */
 	public function append_list()
 	{	
+		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
 		$this->_serialize_stash_tag_pairs();
-		$this->EE->TMPL->tagdata = $this->_list_delimiter . $this->EE->TMPL->tagdata;
-		return $this->append();	
+		
+		if ( $this->not_empty($this->EE->TMPL->tagdata))
+		{
+			$this->EE->TMPL->tagdata = $this->_list_delimiter . $this->EE->TMPL->tagdata;
+			return $this->append();	
+		}
 	}
 	
 	// ---------------------------------------------------------
@@ -981,9 +998,14 @@ class Stash {
 	 */
 	public function prepend_list()
 	{	
+		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
 		$this->_serialize_stash_tag_pairs();
-		$this->EE->TMPL->tagdata .=  $this->_list_delimiter;
-		return $this->prepend();	
+		
+		if ( $this->not_empty($this->EE->TMPL->tagdata))
+		{
+			$this->EE->TMPL->tagdata .=  $this->_list_delimiter;
+			return $this->prepend();	
+		}
 	}
 	
 	// ---------------------------------------------------------
@@ -1010,35 +1032,32 @@ class Stash {
 		$limit 			= $this->EE->TMPL->fetch_param('limit',  FALSE);
 		$offset 		= $this->EE->TMPL->fetch_param('offset', FALSE);
 		$default 		= $this->EE->TMPL->fetch_param('default', ''); // default value
-		$match 			= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to test final output against
 		$filter			= $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
 		
 		$list_html 		= '';
 		$list_markers	= array();
 
-		// run get() with a safe list of parameters
-		$list = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
+		// retrieve the list array
+		$list = $this->_rebuild_list();
 
 		// return no results if this variable has no value
 		if ($list == '')
 		{
 			return $this->EE->TMPL->no_results();
 		}
-
-		// trim and explode
-		$list = trim($list, $this->_list_delimiter);
-		$list = explode( $this->_list_delimiter, $list);
-		
-		foreach($list as $key => &$value)
-		{
-			$value = $this->_list_row_explode($value);
-		}
 		
 		// order by multidimensional array key
 		if ($orderby)
 		{
-			// this will return an ordered array with sort ascending 
-			$list = $this->sort_by_key($list, $orderby, 'sort_by_'.$sort_type);
+			if ($orderby == "random")
+			{
+				shuffle($list);
+			}
+			else
+			{
+				// this will return an ordered array with sort ascending 
+				$list = $this->sort_by_key($list, $orderby, 'sort_by_'.$sort_type);
+			}
 		}
 		
 		// apply sort direction
@@ -1084,12 +1103,35 @@ class Stash {
 			$list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
 		
 			// now apply final output transformations / parsing
-			return $this->_parse_output($list_html, $match, $filter, $default);
+			return $this->_parse_output($list_html, NULL, $filter, $default);
 		}
 		else
 		{
 			return $this->EE->TMPL->no_results();
 		}
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * Retrieve the item count for a given list
+	 *
+	 * @access public
+	 * @return string 
+	 */
+	public function list_count()
+	{
+		$match 			= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
+		$against 		= $this->EE->TMPL->fetch_param('against', NULL); // key to test $match against	
+				
+		// retrieve the list array
+		$list = $this->_rebuild_list();
+
+		// return 0 if this variable has no value
+		if ($list == '') return '0';
+
+		$count = count($list);
+		return "$count"; // make sure we return a string
 	}
 	
 	// ---------------------------------------------------------
@@ -1357,6 +1399,51 @@ class Stash {
 	}
 	
 	/**
+	 * Retrieve and rebuild list, or optionally part of a list
+	 *
+	 * @access private
+	 * @return string
+	 */
+	private function _rebuild_list()
+	{
+		$match 	 = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
+		$against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
+		
+		// run get() with a safe list of parameters
+		$list = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
+
+		if ($list !== '')
+		{
+			// trim and explode
+			$list = trim($list, $this->_list_delimiter);
+			$list = explode( $this->_list_delimiter, $list);
+		
+			foreach($list as $key => &$value)
+			{
+				$value = $this->_list_row_explode($value);
+			}
+		
+			if ( ! is_null($match) && preg_match('/^#(.*)#$/', $match) && ! is_null($against))
+			{
+				$new_list = array();
+				foreach($list as $key => $value)
+				{
+					if ( isset($value[$against]) )
+					{
+						if ($this->_matches($match, $value[$against]))
+						{
+							// match found
+							$new_list[] = $value;
+						}
+					}
+				}
+				$list = $new_list;
+			}
+		}		
+		return $list;
+	}
+	
+	/**
 	 * Retrieve {stash:var}{/stash:var} tag pairs and serialize
 	 *
 	 * @access private
@@ -1366,7 +1453,7 @@ class Stash {
 	{
 		//  get the stash var pairs values
 		$stash_vars = array();		
-		 
+	 
 		foreach($this->EE->TMPL->var_pair as $key => $val)
 		{
 			if (strncmp($key, 'stash:', 6) ==  0)
@@ -1375,11 +1462,15 @@ class Stash {
 				preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
 				if (!empty($matches))
 				{
-					$stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
+					// don't set a key for an empty string, but preserve zeros 0
+					if ( $this->not_empty($matches[1]) || $matches[1] === '0')
+					{
+						$stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
+					}
 				}
 			}
 		}
-		
+	
 		// flatten the array into a string
 		$this->EE->TMPL->tagdata = $this->_list_row_implode($stash_vars);
 	}
@@ -1595,7 +1686,7 @@ class Stash {
 	private function _parse_template_vars($template = '')
 	{	
 		// globals vars {name}
-		if (count($this->EE->config->_global_vars) > 0 && strpos( $template, '{' ) !== FALSE)
+		if (count($this->EE->config->_global_vars) > 0 && strpos($template, LD) !== FALSE)
 		{
 			foreach ($this->EE->config->_global_vars as $key => $val)
 			{
@@ -1604,7 +1695,7 @@ class Stash {
 		}
 		
 		// stash vars {stash:var}
-		if (count($this->EE->session->cache['stash']) > 0 && strpos( $template, '{stash:' ) !== FALSE)
+		if (count($this->EE->session->cache['stash']) > 0 && strpos($template, LD.'stash:') !== FALSE)
 		{
 			// We want to replace single stash tag not tag pairs such as {stash:var}whatever{/stash:var}
 			// because these are used by stash::set() method when capturing multiple variables.
@@ -1620,16 +1711,45 @@ class Stash {
 				$template = str_replace(LD.'stash:'.$key.RD, $val, $template);
 			}
 		}
-	
+		
+		// Parse date format string "constants"	
+		if (strpos($template, LD.'DATE_') !== FALSE)
+		{	
+			$date_constants	= array('DATE_ATOM'		=>	'%Y-%m-%dT%H:%i:%s%Q',
+									'DATE_COOKIE'	=>	'%l, %d-%M-%y %H:%i:%s UTC',
+									'DATE_ISO8601'	=>	'%Y-%m-%dT%H:%i:%s%Q',
+									'DATE_RFC822'	=>	'%D, %d %M %y %H:%i:%s %O',
+									'DATE_RFC850'	=>	'%l, %d-%M-%y %H:%m:%i UTC',
+									'DATE_RFC1036'	=>	'%D, %d %M %y %H:%i:%s %O',
+									'DATE_RFC1123'	=>	'%D, %d %M %Y %H:%i:%s %O',
+									'DATE_RFC2822'	=>	'%D, %d %M %Y %H:%i:%s %O',
+									'DATE_RSS'		=>	'%D, %d %M %Y %H:%i:%s %O',
+									'DATE_W3C'		=>	'%Y-%m-%dT%H:%i:%s%Q'
+									);
+			foreach ($date_constants as $key => $val)
+			{
+				$template = str_replace(LD.$key.RD, $val, $template);
+			}
+		}
+		
+		// Current time {current_time format="%Y %m %d %H:%i:%s"} - thanks @objectivehtml
+		if (strpos($template, LD.'current_time') !== FALSE && preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/", $template, $matches))
+		{				
+			for ($j = 0; $j < count($matches[0]); $j++)
+			{				
+				$template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);	
+			}
+		}
+		
 		// segment vars {segment_1} etc
-		if ( strpos( $template, '{segment_' ) !== FALSE )
+		if (strpos( $template, LD.'segment_' ) !== FALSE )
 		{
 			for ($i = 1; $i < 10; $i++)
 			{
 				$template = str_replace(LD.'segment_'.$i.RD, $this->EE->uri->segment($i), $template); 
 			}
 		}
-
+		
 		return $template;
 	}
 	
@@ -1696,6 +1816,7 @@ class Stash {
 		$strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));	
 		$strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));	
 		$backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);
+		$remove_unparsed_vars = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('remove_unparsed_vars'));
 
 		// strip tags?
 		if ($strip_tags)
@@ -1719,6 +1840,12 @@ class Stash {
 		if ($this->xss_clean)
 		{
 			$value = $this->EE->security->xss_clean($value);
+		}
+		
+		// remove leftover placeholder variables {var} (leave stash: vars untouched)
+		if ($remove_unparsed_vars)
+		{
+			$value = preg_replace('/\{\/?(?!\/?stash)[a-zA-Z0-9_\-:]+\}/', '', $value);
 		}
 
 		return $value;
