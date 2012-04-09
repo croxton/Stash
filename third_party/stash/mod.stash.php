@@ -1072,10 +1072,12 @@ class Stash {
 		{
 			$i++;
 			$value['absolute_count'] = $i;
+			$value['stash:absolute_count'] = $i;
 		}
 		
 		// record the total number of list rows
 		$list_markers['absolute_results'] = count($list);
+		$list_markers['stash:absolute_results'] = count($list);
 		
 		// slice array depending on limit/offset
 		if ($limit && $offset)
@@ -1093,6 +1095,14 @@ class Stash {
 		
 		if (count($list) > 0)
 		{		
+            // add stash:count to the ordered/sorted/limited/offsetted items
+            $i=0;
+            foreach($list as $key => &$value)
+            {
+                $i++;
+                $value['stash:count'] = $i;
+            }
+            
 			// replace into template		
 			$list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
 		
