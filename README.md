@@ -427,7 +427,7 @@ This parameter sets the number of minutes to store the bundle (optional, default
 	
 	{exp:stash:bundle name="form" context="@" refresh="10" parse="inward"}
 		{exp:stash:get dynamic="yes" type="snippet" name="orderby" output="yes" default="entry_date" match="#^[a-zA-Z0-9_-]+$#"}
-		{exp:stash:get dynamic="yes" type="snippet" name="sort" output="yes" default="asc" match="#^asc|desc$#"}
+		{exp:stash:get dynamic="yes" type="snippet" name="sort" output="yes" default="asc" match="#^asc$|^desc$#"}
 		{exp:stash:get dynamic="yes" type="snippet" name="category" output="yes" default="" match="#^[a-zA-Z0-9_-]+$#"}
 	{/exp:stash:bundle}
 	
