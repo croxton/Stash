@@ -1033,7 +1033,8 @@ class Stash {
 		$offset 		= $this->EE->TMPL->fetch_param('offset', FALSE);
 		$default 		= $this->EE->TMPL->fetch_param('default', ''); // default value
 		$filter			= $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
-		
+		$json 			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('json'));
+
 		$list_html 		= '';
 		$list_markers	= array();
 
@@ -1066,10 +1067,23 @@ class Stash {
 			$list = array_reverse($list);
 		}
 		
+		//get the list in json encoded form
+		if($json)
+		{
+			$list_json = json_encode($list);
+		}	
+
 		// add absolute count to the ordered/sorted items
 		$i=0;
 		foreach($list as $key => &$value)
 		{
+			
+			if($json)
+			{
+				$value['row_json'] = json_encode($value);
+				$value['list_json'] = $list_json;
+			} 
+
 			$i++;
 			$value['absolute_count'] = $i;
 		}
