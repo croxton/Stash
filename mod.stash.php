@@ -1610,6 +1610,10 @@ class Stash {
 		// parse the variable when it is retrieved from the database (like a standard EE embed)
 		$this->EE->TMPL->tagparams['parse_stage'] = $this->EE->TMPL->fetch_param('parse_stage', 'get');
 		
+		// don't replace the variable by default (only read from file once)
+		// note: file syncing is forced by setting stash_file_sync = TRUE in config
+		$this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
+		
 		// initialise?
 		$init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
 		
