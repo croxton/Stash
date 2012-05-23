@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.0 beta
+## Version 2.2.1 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -31,10 +31,26 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * apply text tranformations and parsing to retrieved variables and lists
 * Advanced uses: partial/full page caching, form field persistence, template partials/viewModel pattern implementation
 
+## New in v2.2.0
+* {stash:embed} - embed a Stash template file at various points in the parse order of the host template: start, inline, end, final.
+* {exp:stash:parse} - post-process arbitary sections of template code at various points in the parse order: inline, end and final.
+* {exp:stash:get}, {exp:stash:get_list} and {exp:stash:parse} can also post process inline, end or final.
+* parse_stage="get|set|both" parameter for {exp:stash:set} allows saved variables to be post-parsed (get), pre-parsed (set) or both.
+* {exp:stash:get_list} gets a new prefix parameter for namespacing {count} etc, 
+* Match against individual list key values when setting or getting a list, to filter the returned rows
+
 ## Installation
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
-2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module
+2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module and the Stash extension
+
+## Upgrading from <2.1.0 or earlier
+
+1. Copy the stash folder to ./system/expressionengine/third_party/
+2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link for the Stash module
+3. In the CP, navigate to Add-ons > Extensions and click the 'activate' link for the Stash extension
+
+## Not updated the following yet...
 
 ## {exp:stash:set} tag pair
 

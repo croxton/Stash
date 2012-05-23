@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.2.0
+ * @version				2.2.1
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -15,7 +15,7 @@ class Stash_ext {
 
 	public $EE;
 	public $name			= "Stash";
-	public $version			= "2.2.0";
+	public $version			= "2.2.1";
 	public $description		= "Set and get template variables, EE snippets and persistent variables.";
 	public $docs_url		= "http://hallmark-design.co.uk/code/stash/";
 	public $settings 		= array();
@@ -194,7 +194,7 @@ class Stash_ext {
 						$out = Stash::get($param);
 					}
 					else
-					{				
+					{		
 						// convert it into a normal tag...
 						$out = LD.'exp:'.$tag.RD;
 					}
@@ -220,9 +220,7 @@ class Stash_ext {
 	 * @return 	string	Template string
 	 */
 	public function template_post_parse($template, $sub, $site_id)
-	{	
-
-		
+	{		
 		// play nice with other extensions on this hook
 		if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
 		{
@@ -240,24 +238,10 @@ class Stash_ext {
 			$cache = $this->EE->session->cache['stash']['__template_post_parse__'];
 			
 			// cleanup
-			unset($this->EE->session->cache['stash']['__template_post_parse__']);
-			
-			/*
-			echo 'end';
-			
-			echo '------------------------------------------------------<br>';
-			echo $template;
-			
-			print_r($cache);
-			
-			echo '<br>------------------------------------------------------<br>';
-			*/
-			
+			unset($this->EE->session->cache['stash']['__template_post_parse__']);	
 		}
 		else
-		{
-			#echo 'final';
-			
+		{	
 			// yes,this is the final template to be parsed (process="final")
 			if ( ! isset($this->EE->session->cache['stash']['__template_post_parse_final__']))
 			{
@@ -279,7 +263,7 @@ class Stash_ext {
 		
 		// run any postponed stash tags
 		if ( ! empty($cache))
-		{			
+		{		
 			if ( ! class_exists('Stash'))
 			{
 				include_once PATH_THIRD . 'stash/mod.stash.php';
@@ -305,9 +289,11 @@ class Stash_ext {
 				{
 					$this->EE->TMPL->tagparams = $tag['tagparams'];
 					$this->EE->TMPL->tagdata = $tag['tagdata'];
+					
 					$s->init(TRUE);
 					
 					$out = $s->{$tag['method']}();
+					
 					$template = str_replace(LD.$placeholder.RD, $out, $template);
 				}
 				else
@@ -316,7 +302,9 @@ class Stash_ext {
 				}
 			}
 			
-			// do we have unparsed placeholders? Restore to cache for next time
+			// do we have unparsed placeholders? Restore to cache for next time -
+			// this shouldn't really be necessary, I need to investigate why EE doesn't
+			// always run this hook at the exact point it's meant to
 			if ( ! empty($unparsed) && $sub !== FALSE)
 			{
 				$this->EE->session->cache['stash']['__template_post_parse__'] = $unparsed;

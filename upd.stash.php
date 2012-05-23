@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.2.0
+ * @version				2.2.1
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -13,7 +13,7 @@
 
 class Stash_upd {
 	
-	public $version = '2.2.0';
+	public $version = '2.2.1';
 	
 	/**
 	 * Stash_upd

@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version             2.2.0
+ * @version             2.2.1
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -144,13 +144,14 @@ class Stash {
 		$this->_update = FALSE;
 		$this->_append = TRUE;
 		$this->_embed_nested = FALSE;
+		$this->process = 'inline';
 		
 		// postpone the parsing of the called stash tag?
 		if ( ! $calling_from_hook)
 		{	
 			$this->process  = $this->EE->TMPL->fetch_param('process', 'inline'); // start | inline | end | final	
 			$this->priority = $this->EE->TMPL->fetch_param('priority', '1'); // ensure a priority is set
-		}	
+		}
 		
 		// xss scripting protection
 		$this->xss_clean = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('xss_clean'));
