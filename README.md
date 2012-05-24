@@ -33,6 +33,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 
 ## New in v2.2.0
 * {stash:embed} - embed a Stash template file at different points in the parse order of the host template: start (before template parsing), inline (normal), end (post-process after normal template parsing has completed).
+* Stash embeds can be nested, but unlike EE embeds you can use pre-parsing to create a single cache of the assembled templates (by setting parse_stage="set" on the parent embed). Which gives you the benefits of encapsulation without the overhead.
 * {exp:stash:parse} - post-process arbitary sections of template code 
 * {exp:stash:get} and {exp:stash:get_list} can be post processed.
 * parse_stage="get|set|both" parameter for {exp:stash:set} allows saved variables to be post-parsed (get), pre-parsed (set) or both.
