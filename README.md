@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.1 beta
+## Version 2.2.2 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -32,12 +32,12 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * Advanced uses: partial/full page caching, form field persistence, template partials/viewModel pattern implementation
 
 ## New in v2.2.0
-* {stash:embed} - embed a Stash template file at various points in the parse order of the host template: start, inline, end, final.
-* {exp:stash:parse} - post-process arbitary sections of template code at various points in the parse order: inline, end and final.
-* {exp:stash:get}, {exp:stash:get_list} and {exp:stash:parse} can also post process inline, end or final.
+* {stash:embed} - embed a Stash template file at different points in the parse order of the host template: start (before template parsing), inline (normal), end (post-process after normal template parsing has completed).
+* {exp:stash:parse} - post-process arbitary sections of template code 
+* {exp:stash:get} and {exp:stash:get_list} can be post processed.
 * parse_stage="get|set|both" parameter for {exp:stash:set} allows saved variables to be post-parsed (get), pre-parsed (set) or both.
-* {exp:stash:get_list} gets a new prefix parameter for namespacing {count} etc, 
-* Match against individual list key values when setting or getting a list, to filter the returned rows
+* {exp:stash:get_list} has a new prefix parameter for namespacing {count} and other common loop variables.
+* Match against individual list key values when setting or getting a list, to filter the rows.
 
 ## Installation
 

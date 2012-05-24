@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.2.1
+ * @version				2.2.2
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -120,7 +120,7 @@ class Stash_ext {
 	 * @return     array
 	 */
 	public function template_fetch_template($row)
-	{
+	{	
 		// get the latest version of $row
 		if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
 		{
@@ -192,6 +192,9 @@ class Stash_ext {
 						
 						// get the file
 						$out = Stash::get($param);
+						
+						// convert any nested {stash:embed} into {exp:stash:embed} tags
+						$out = str_replace(LD.'stash:embed', LD.'exp:stash:embed', $out);
 					}
 					else
 					{		
@@ -227,96 +230,64 @@ class Stash_ext {
 			$template = $this->EE->extensions->last_call;
 		}
 
-		// is this the final template before output to browser?
-		if ($sub !== FALSE)
-		{
-			// no
+		// is this the final template?
+		if ($sub == FALSE)
+		{	
+			// check the cache for postponed tags
 			if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
 			{
 				$this->EE->session->cache['stash']['__template_post_parse__'] = array();
 			}
+
 			$cache = $this->EE->session->cache['stash']['__template_post_parse__'];
-			
-			// cleanup
-			unset($this->EE->session->cache['stash']['__template_post_parse__']);	
-		}
-		else
-		{	
-			// yes,this is the final template to be parsed (process="final")
-			if ( ! isset($this->EE->session->cache['stash']['__template_post_parse_final__']))
-			{
-				$this->EE->session->cache['stash']['__template_post_parse_final__'] = array();
-			}
-			$cache = $this->EE->session->cache['stash']['__template_post_parse_final__'];
-			
-			// we need to concatenate the process="end" tag markers too 
-			// if they haven't been parsed already in a parent template (i.e. there is only one template)
-			if ( isset($this->EE->session->cache['stash']['__template_post_parse__']))
-			{
-				$cache += $this->EE->session->cache['stash']['__template_post_parse__'];
-				unset($this->EE->session->cache['stash']['__template_post_parse__']);
-			}
-			
-			// cleanup	
-			unset($this->EE->session->cache['stash']['__template_post_parse_final__']);
-		}
 		
-		// run any postponed stash tags
-		if ( ! empty($cache))
-		{		
-			if ( ! class_exists('Stash'))
-			{
-				include_once PATH_THIRD . 'stash/mod.stash.php';
-			}
-
-			$s = new Stash();
-		
-			// save TMPL values for later
-			$tagparams = $this->EE->TMPL->tagparams;
-			$tagdata = $this->EE->TMPL->tagdata;
-		
-			// sort by priority
-			$cache = $s->sort_by_key($cache, 'priority', 'sort_by_integer');
-
-			// loop through, prep the Stash instance, call the postponed tag and replace output into the placeholder
-			// if a placeholder isn't found, save it for a later pass by this extension
-			$unparsed = array();
-			foreach($cache as $placeholder => $tag)
+			// run any postponed stash tags
+			if ( ! empty($cache))
 			{	
-				// make sure there is a placeholder in the template
-				// it may have been removed by advanced conditional processing
-				if ( strpos( $template, $placeholder ) !== FALSE)
+				$this->EE->TMPL->log_item("Stash: post-processing tags");
+				
+				if ( ! class_exists('Stash'))
 				{
-					$this->EE->TMPL->tagparams = $tag['tagparams'];
-					$this->EE->TMPL->tagdata = $tag['tagdata'];
-					
-					$s->init(TRUE);
-					
-					$out = $s->{$tag['method']}();
-					
-					$template = str_replace(LD.$placeholder.RD, $out, $template);
+					include_once PATH_THIRD . 'stash/mod.stash.php';
 				}
-				else
-				{
-					$unparsed[$placeholder] = $tag;
-				}
-			}
-			
-			// do we have unparsed placeholders? Restore to cache for next time -
-			// this shouldn't really be necessary, I need to investigate why EE doesn't
-			// always run this hook at the exact point it's meant to
-			if ( ! empty($unparsed) && $sub !== FALSE)
-			{
-				$this->EE->session->cache['stash']['__template_post_parse__'] = $unparsed;
-			}
+
+				$s = new Stash();
 		
-			// restore original TMPL values
-			$this->EE->TMPL->tagparams = $tagparams;
-			$this->EE->TMPL->tagdata = $tagdata;
+				// save TMPL values for later
+				$tagparams = $this->EE->TMPL->tagparams;
+				$tagdata = $this->EE->TMPL->tagdata;
+		
+				// sort by priority
+				$cache = $s->sort_by_key($cache, 'priority', 'sort_by_integer');
+
+				// loop through, prep the Stash instance, call the postponed tag and replace output into the placeholder
+				foreach($cache as $placeholder => $tag)
+				{	
+					// make sure there is a placeholder in the template
+					// it may have been removed by advanced conditional processing
+					if ( strpos( $template, $placeholder ) !== FALSE)
+					{
+						$this->EE->TMPL->tagparams = $tag['tagparams'];
+						$this->EE->TMPL->tagdata = $tag['tagdata'];
+					
+						$s->init(TRUE);
+					
+						$out = $s->{$tag['method']}();
+					
+						$template = str_replace(LD.$placeholder.RD, $out, $template);
+					
+						// remove the placeholder from the cache so we don't iterate over it in future calls of this hook
+						unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
+					}
+				}
+				
+				// restore original TMPL values
+				$this->EE->TMPL->tagparams = $tagparams;
+				$this->EE->TMPL->tagdata = $tagdata;
+			}
 
 			// cleanup
 			unset($cache);
-			unset($unparsed);
 		}
 		return $template;
 	}

@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version             2.2.1
+ * @version             2.2.2
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -149,8 +149,25 @@ class Stash {
 		// postpone the parsing of the called stash tag?
 		if ( ! $calling_from_hook)
 		{	
-			$this->process  = $this->EE->TMPL->fetch_param('process', 'inline'); // start | inline | end | final	
+			/* process stage:
+				start = called prior to template parsing in the current template
+				inline = process as a normal tag within the natural parse order of the template
+				end = called after all tag parsing has completed
+			*/
+			$this->process  = $this->EE->TMPL->fetch_param('process', 'inline'); // start | inline | end
 			$this->priority = $this->EE->TMPL->fetch_param('priority', '1'); // ensure a priority is set
+		}
+		
+		// legacy: make 'final' the same as 'end'
+		if ($this->process == "final") 
+		{
+			$this->process = "end";
+		}
+		
+		// tags can't be processed on start, only stash embeds
+		if ($this->process == "start") 
+		{
+			$this->process = "inline";
 		}
 		
 		// xss scripting protection
@@ -1612,22 +1629,19 @@ class Stash {
 		$this->EE->TMPL->tagparams['parse_stage'] = $this->EE->TMPL->fetch_param('parse_stage', 'get');
 		
 		// don't replace the variable by default (only read from file once)
-		// note: file syncing is forced by setting stash_file_sync = TRUE in config
+		// note: file syncing can be forced by setting stash_file_sync = TRUE in config
 		$this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
 		
 		// initialise?
 		$init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
 		
-		// re-initialise parameters if this is not a nested stash embed
+		// re-initialise parameters, unless disabled by init parameter
 		if ($init)
 		{
 			$this->init();
 		}
 		else
 		{
-			// *** nested stash embeds can only be processed inline ***
-			// This is because the parent template is already being post-processed
-			// TO DO: work out how to recursively post-process nested stash embeds...
 			$this->process = 'inline';
 		}
 		
@@ -1983,7 +1997,7 @@ class Stash {
 	// ---------------------------------------------------------
 	
 	/**
-	 * Parse template data inside the stash tag pair
+	 * Parse template data
 	 *
 	 * @access private
 	 * @param bool	$tags Parse plugin/module tags
@@ -1996,22 +2010,43 @@ class Stash {
 	{	
 		$this->EE->TMPL->log_item("Stash: processing inner tags");
 		
+		// save TMPL values for later
+		$tagparams = $this->EE->TMPL->tagparams;
+		$tagdata = $this->EE->TMPL->tagdata;
+		
+		// call the template_fetch_template hook to prep nested stash embeds
+		if ($this->EE->extensions->active_hook('template_fetch_template') === TRUE && ! $this->_embed_nested)
+		{
+			$this->_embed_nested = $this->EE->extensions->call('template_fetch_template', array(
+				'template_data' 	 => $this->EE->TMPL->tagdata
+			));
+			// don't run again for this template
+			$this->_embed_nested = TRUE;
+		}
+		
+		// restore original TMPL values
+		$this->EE->TMPL->tagparams = $tagparams;
+		$this->EE->TMPL->tagdata = $tagdata;
+		
+		// clone the template object
 		$TMPL2 = $this->EE->TMPL;
 		unset($this->EE->TMPL);
 
 		// protect content inside {stash:nocache} tags
 		$pattern = '/'.LD.'stash:nocache'.RD.'(.*)'.LD.'\/stash:nocache'.RD.'/Usi';
 		$TMPL2->tagdata = preg_replace_callback($pattern, array(get_class($this), '_placeholders'), $TMPL2->tagdata);
-		
+
+		/*
 		// special handling for nested Stash embeds (inside Stash templates)
 		if ( ! $this->_embed_nested && $tags)
 		{
 			if (strpos($TMPL2->tagdata, LD.'stash:embed') !== false)
 			{
-				$TMPL2->tagdata = str_replace(LD.'exp:stash:embed', LD.'exp:stash:embed init="0"', $TMPL2->tagdata);
+				$TMPL2->tagdata = str_replace(LD.'stash:embed', LD.'exp:stash:embed init="0"', $TMPL2->tagdata);
 				$this->_embed_nested = true;
 			}
 		}
+		*/
 	
 		// parse variables	
 		if ($vars)
@@ -2039,6 +2074,10 @@ class Stash {
 	
 			$TMPL2->tagdata = $this->EE->TMPL->template;
 			$TMPL2->log = array_merge($TMPL2->log, $this->EE->TMPL->log);
+		}
+		else
+		{
+			$depth = 1;
 		}
 	
 		$this->EE->TMPL = $TMPL2;	
@@ -2074,7 +2113,18 @@ class Stash {
 			}	
 
 			// parse EE nocache placeholders {NOCACHE}
-			$this->EE->TMPL->tagdata = $this->EE->TMPL->parse_nocache($this->EE->TMPL->tagdata);
+			$this->EE->TMPL->tagdata = $this->EE->TMPL->parse_nocache($this->EE->TMPL->tagdata);		
+			
+			// call the 'template_post_parse' hook
+			if ($this->EE->extensions->active_hook('template_post_parse') === TRUE && $this->_embed_nested === TRUE)
+			{
+				$this->EE->TMPL->tagdata = $this->EE->extensions->call(
+					'template_post_parse',
+					$this->EE->TMPL->tagdata,
+					FALSE, 
+					$this->site_id
+				);
+			}
 		}
 	}
 	
@@ -2384,20 +2434,16 @@ class Stash {
 			$this->EE->session->cache['stash']['__template_post_parse__'] = array();
 		}
 		
-		if ( ! isset($this->EE->session->cache['stash']['__template_post_parse_final__']))
-		{
-			$this->EE->session->cache['stash']['__template_post_parse_final__'] = array();
-		}
-		
 		if ($this->process == 'end')
 		{
-			// postpone until end of current EE template
+			// postpone until end of tag processing
 			$cache =& $this->EE->session->cache['stash']['__template_post_parse__'];
 		}
 		else
 		{
-			// postpone until final EE template
-			$cache =& $this->EE->session->cache['stash']['__template_post_parse_final__'];
+			// unknown or impossible post-process stage
+			$this->EE->output->show_user_error('general', sprintf($this->EE->lang->line('unknown_post_process'), $this->EE->TMPL->tagproper, $this->process));
+			return;
 		}
 		
 		$this->EE->TMPL->log_item("Stash: this tag will be post-processed on {$this->process}: {$this->EE->TMPL->tagproper}");
@@ -2406,8 +2452,7 @@ class Stash {
 			'method' 	=> $method,
 			'tagparams' => $this->EE->TMPL->tagparams,
 			'tagdata' 	=> $this->EE->TMPL->tagdata,
-			'priority' 	=> $this->priority,
-			'final'		=> strtolower($this->process) == 'final' ? TRUE : FALSE
+			'priority' 	=> $this->priority
 		);
 		
 		// return needle so we can find it later
