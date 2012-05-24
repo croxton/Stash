@@ -36,6 +36,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * {exp:stash:parse} - post-process arbitary sections of template code 
 * {exp:stash:get} and {exp:stash:get_list} can be post processed.
 * parse_stage="get|set|both" parameter for {exp:stash:set} allows saved variables to be post-parsed (get), pre-parsed (set) or both.
+* The precise parse order of post-processed tags (get, get_list, parse, embed) can be determined with the new priority="" parameter
 * {exp:stash:get_list} has a new prefix parameter for namespacing {count} and other common loop variables.
 * Match against individual list key values when setting or getting a list, to filter the rows.
 
