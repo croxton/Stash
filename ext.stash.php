@@ -15,7 +15,7 @@ class Stash_ext {
 
 	public $EE;
 	public $name			= "Stash";
-	public $version			= "2.2.1";
+	public $version			= "2.2.3";
 	public $description		= "Set and get template variables, EE snippets and persistent variables.";
 	public $docs_url		= "http://hallmark-design.co.uk/code/stash/";
 	public $settings 		= array();
