@@ -4,7 +4,7 @@
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version             2.2.2
+ * @version             2.2.3
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -1632,6 +1632,9 @@ class Stash {
 		// note: file syncing can be forced by setting stash_file_sync = TRUE in config
 		$this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
 		
+		// set priority to 0 by default, so that embeds come before post-processed variables
+		$this->EE->TMPL->tagparams['priority'] = $this->EE->TMPL->fetch_param('priority', '0');
+		
 		// initialise?
 		$init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
 		
@@ -1706,6 +1709,19 @@ class Stash {
 
 		// set a default parse depth of 3
 		$this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 3);
+		
+		// initialise?
+		$init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
+		
+		// re-initialise parameters, unless disabled by init parameter
+		if ($init)
+		{
+			$this->init();
+		}
+		else
+		{
+			$this->process = 'inline';
+		}
 		
 		// postpone tag processing?
 		if ( $this->process !== 'inline') 
@@ -2017,9 +2033,24 @@ class Stash {
 		// call the template_fetch_template hook to prep nested stash embeds
 		if ($this->EE->extensions->active_hook('template_fetch_template') === TRUE && ! $this->_embed_nested)
 		{
-			$this->_embed_nested = $this->EE->extensions->call('template_fetch_template', array(
+			// important: we only want to call Stash's hook, not any other add-ons
+			
+			// make a copy of the extensions for this hook
+			// we'll need to do this manually if extensions property visibility is ever changed to protected or private
+			$ext = $this->EE->extensions->extensions['template_fetch_template'];
+			
+			// temporarily make Stash the only extension
+			$this->EE->extensions->extensions['template_fetch_template'] = array(array('Stash_ext' => array('template_fetch_template')));
+			
+			// call the hook
+			$this->EE->extensions->call('template_fetch_template', array(
 				'template_data' 	 => $this->EE->TMPL->tagdata
 			));
+			
+			// restore original extensions
+			$this->EE->extensions->extensions['template_fetch_template'] = $ext;
+			unset($ext);
+		
 			// don't run again for this template
 			$this->_embed_nested = TRUE;
 		}
@@ -2035,18 +2066,6 @@ class Stash {
 		// protect content inside {stash:nocache} tags
 		$pattern = '/'.LD.'stash:nocache'.RD.'(.*)'.LD.'\/stash:nocache'.RD.'/Usi';
 		$TMPL2->tagdata = preg_replace_callback($pattern, array(get_class($this), '_placeholders'), $TMPL2->tagdata);
-
-		/*
-		// special handling for nested Stash embeds (inside Stash templates)
-		if ( ! $this->_embed_nested && $tags)
-		{
-			if (strpos($TMPL2->tagdata, LD.'stash:embed') !== false)
-			{
-				$TMPL2->tagdata = str_replace(LD.'stash:embed', LD.'exp:stash:embed init="0"', $TMPL2->tagdata);
-				$this->_embed_nested = true;
-			}
-		}
-		*/
 	
 		// parse variables	
 		if ($vars)
@@ -2117,13 +2136,24 @@ class Stash {
 			
 			// call the 'template_post_parse' hook
 			if ($this->EE->extensions->active_hook('template_post_parse') === TRUE && $this->_embed_nested === TRUE)
-			{
+			{	
+				// make a copy of the extensions for this hook
+				$ext = $this->EE->extensions->extensions['template_post_parse'];
+			
+				// temporarily make Stash the only extension
+				$this->EE->extensions->extensions['template_post_parse'] = array(array('Stash_ext' => array('template_post_parse')));
+				
+				// call the hook
 				$this->EE->TMPL->tagdata = $this->EE->extensions->call(
 					'template_post_parse',
 					$this->EE->TMPL->tagdata,
 					FALSE, 
 					$this->site_id
 				);
+				
+				// restore original extensions
+				$this->EE->extensions->extensions['template_post_parse'] = $ext;
+				unset($ext);
 			}
 		}
 	}
