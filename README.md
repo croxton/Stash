@@ -6,7 +6,7 @@
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
-* Requires: ExpressionEngine 2
+* Requires: ExpressionEngine 2.4+
 
 ## Description
 
