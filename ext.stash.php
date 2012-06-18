@@ -178,7 +178,7 @@ class Stash_ext {
 				
 				if ( ! empty($param))
 				{
-					// parse early?
+					// process early?
 					if ( isset($param['process']) && $param['process'] == 'start')
 					{
 						// mandatory parameters
@@ -194,6 +194,15 @@ class Stash_ext {
 						
 						// get the file
 						$out = Stash::get($param);
+						
+						// parse stash embed vars passed as parameters in the form stash:my_var
+						foreach ($param as $key => $val)
+						{
+							if (strncmp($key, 'stash:', 6) == 0)
+							{
+								$out = str_replace(LD.$key.RD, $val, $out);
+							}
+						}
 						
 						// convert any nested {stash:embed} into {exp:stash:embed} tags
 						$out = str_replace(LD.'stash:embed', LD.'exp:stash:embed', $out);

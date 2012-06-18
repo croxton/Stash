@@ -1610,7 +1610,17 @@ class Stash {
 	 * @return string 
 	 */
 	public function embed()
-	{		
+	{	
+		/* Sample use
+		---------------------------------------------------------
+		{stash:embed name="my_template" 
+			context="my_template_folder" 
+			process="start"
+			stash:another_var1="value 1"
+			stash:another_var2="value 2"
+		}
+		--------------------------------------------------------- */
+			
 		// mandatory parameter values for template files
 		$this->EE->TMPL->tagparams['scope'] 	  		  = 'site';
 		$this->EE->TMPL->tagparams['file']  	  		  = 'yes';
@@ -1618,6 +1628,7 @@ class Stash {
 		$this->EE->TMPL->tagparams['parse_tags']  		  = 'yes';
 		$this->EE->TMPL->tagparams['parse_vars']  		  = 'yes';
 		$this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
+		$this->EE->TMPL->tagparams['embed_vars'] 		  = array();
 		
 		// set default parameter values for template files
 		
@@ -1650,7 +1661,7 @@ class Stash {
 			$this->process = 'inline';
 		}
 		
-		return $this->_run_tag('get', array(
+		$reserved_vars = array(
 			'name', 
 			'context', 
 			'scope', 
@@ -1666,10 +1677,24 @@ class Stash {
 			'parse_conditionals',
 			'process',
 			'priority',
-			'output'
-		));
-	}
+			'output',
+			'embed_vars'
+		);
+		
+		// save stash embed vars passed as parameters in the form stash:my_var which we'll
+		// inject later into the stash array for replacement, so remove the stash: prefix
+		$params = $this->EE->TMPL->tagparams;
+
+		foreach ($params as $key => $val)
+		{
+			if (strncmp($key, 'stash:', 6) == 0)
+			{
+				$this->EE->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
+			}
+		}
 	
+		return $this->_run_tag('get', $reserved_vars);
+	}	
 	
 	/**
 	 * Parse tagdata
@@ -2027,7 +2052,7 @@ class Stash {
 	private function _parse_sub_template($tags = TRUE, $vars = TRUE, $conditionals = FALSE, $depth = 1)
 	{	
 		$this->EE->TMPL->log_item("Stash: processing inner tags");
-		
+			
 		// save TMPL values for later
 		$tagparams = $this->EE->TMPL->tagparams;
 		$tagdata = $this->EE->TMPL->tagdata;
@@ -2035,6 +2060,10 @@ class Stash {
 		// call the template_fetch_template hook to prep nested stash embeds
 		if ($this->EE->extensions->active_hook('template_fetch_template') === TRUE && ! $this->_embed_nested)
 		{
+			// stash embed vars
+			$embed_vars = (array) $this->EE->TMPL->fetch_param('embed_vars', array());		
+			$this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+			
 			// important: we only want to call Stash's hook, not any other add-ons
 			
 			// make a copy of the extensions for this hook
@@ -2193,7 +2222,7 @@ class Stash {
 		// stash vars {stash:var} 
 		// note: due to the order we're doing this, global vars can themselves contain stash vars...
 		if (count($this->EE->session->cache['stash']) > 0 && strpos($template, LD.'stash:') !== FALSE)
-		{
+		{	
 			// We want to replace single stash tag not tag pairs such as {stash:var}whatever{/stash:var}
 			// because these are used by stash::set() method when capturing multiple variables.
 			// So we'll calculate the intersecting keys of existing stash vars and single tags in the template 
