@@ -1,10 +1,11 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+require_once PATH_THIRD . 'stash/config.php';
+
 /**
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version             2.2.3
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -14,6 +15,7 @@
 class Stash {
 
 	public $EE;
+	public $version = STASH_VER;
 	public $site_id;
 	public $path;
 	protected $xss_clean;
@@ -2040,7 +2042,12 @@ class Stash {
 			$ext = $this->EE->extensions->extensions['template_fetch_template'];
 			
 			// temporarily make Stash the only extension
-			$this->EE->extensions->extensions['template_fetch_template'] = array(array('Stash_ext' => array('template_fetch_template')));
+			$this->EE->extensions->extensions['template_fetch_template'] = array(
+				array('Stash_ext' => array(
+					'template_fetch_template',
+					'',
+					$this->version
+				)));
 			
 			// call the hook
 			$this->EE->extensions->call('template_fetch_template', array(
@@ -2141,7 +2148,12 @@ class Stash {
 				$ext = $this->EE->extensions->extensions['template_post_parse'];
 			
 				// temporarily make Stash the only extension
-				$this->EE->extensions->extensions['template_post_parse'] = array(array('Stash_ext' => array('template_post_parse')));
+				$this->EE->extensions->extensions['template_fetch_template'] = array(
+				array('Stash_ext' => array(
+					'template_fetch_template',
+					'',
+					$this->version
+				)));
 				
 				// call the hook
 				$this->EE->TMPL->tagdata = $this->EE->extensions->call(

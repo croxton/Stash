@@ -1,10 +1,11 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+require_once PATH_THIRD . 'stash/config.php';
+
 /**
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.2.3
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
  * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
@@ -14,10 +15,10 @@
 class Stash_ext {
 
 	public $EE;
-	public $name			= "Stash";
-	public $version			= "2.2.3";
-	public $description		= "Set and get template variables, EE snippets and persistent variables.";
-	public $docs_url		= "http://hallmark-design.co.uk/code/stash/";
+	public $name			= STASH_NAME;
+	public $version			= STASH_VER;
+	public $description		= STASH_DESC;
+	public $docs_url		= STASH_DOCS;
 	public $settings 		= array();
 	public $settings_exist	= 'n';
 	private $hooks 			= array('template_fetch_template', 'template_post_parse');
@@ -120,7 +121,7 @@ class Stash_ext {
 	 * @return     array
 	 */
 	public function template_fetch_template($row)
-	{	
+	{		
 		// get the latest version of $row
 		if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
 		{
@@ -136,6 +137,7 @@ class Stash_ext {
 		
 		// deal with any unparsed {vars} inside parameters
 		$temp = $row['template_data'];
+		
 		foreach ($matches[2] as $key => $val)
 		{
 			if (strpos($val, LD) !== FALSE)
