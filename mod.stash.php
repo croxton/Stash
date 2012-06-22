@@ -249,6 +249,40 @@ class Stash {
 	*/
 	
 	/**
+	 * Shortcut to stash:get or stash:set
+	 * 
+	 * @param string 	 $name The method name being called
+	 * @param array 	 $arguments The method call arguments
+	 * 
+	 * @return void
+	 */
+	public function __call($name, $arguments)
+	{	
+		/* Sample use
+		---------------------------------------------------------
+		{exp:stash:foo}
+		
+		is equivalent to:
+		
+		{exp:stash:get name="foo"}
+		---------------------------------------------------------
+		{exp:stash:foo}
+		CONTENT
+		{/exp:stash:foo}
+		
+		is equivalent to:
+		
+		{exp:stash:set name="foo"}
+		CONTENT
+		{/exp:stash:set}
+		--------------------------------------------------------- */
+		
+		$this->EE->TMPL->tagparams['name'] = $name;
+		
+		return $this->EE->TMPL->tagdata ? $this->set() : $this->get();
+	}
+	
+	/**
 	 * Set content in the current session, optionally save to the database
 	 *
 	 * @access public
@@ -326,6 +360,17 @@ class Stash {
 		
 		// do we want this tag to return it's tagdata? (default: no)
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
+		
+		if (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('prepend')))
+		{
+			$this->_update = TRUE;
+			$this->_append = FALSE;
+		}
+		elseif (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('append')))
+		{
+			$this->_update = TRUE;
+			$this->_append = TRUE;
+		}
 		
 		// do we want to save this variable in a bundle?
 		$bundle = $this->EE->TMPL->fetch_param('bundle', NULL); // save in a bundle?
