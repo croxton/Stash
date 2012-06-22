@@ -126,6 +126,8 @@ class Stash {
 		$this->_session_id =& $this->EE->session->cache['stash']['_session_id'];
 	}
 	
+	// ---------------------------------------------------------
+	
 	/**
 	 * Initialise tag parameters
 	 *
@@ -224,11 +226,13 @@ class Stash {
 		}
 	}
 	
+	// ---------------------------------------------------------
+	
 	/**
 	 * Load the EE Template class and register the Stash module
 	 * Used when Stash is instantiated outside of an EE template
 	 *
-	 * @access public
+	 * @access private
 	 * @return void 
 	 */
 	private function _load_EE_TMPL()
@@ -1025,7 +1029,7 @@ class Stash {
 	/**
 	 * Set the current context
 	 *
-	 * @access protected
+	 * @access public
 	 * @return void
 	 */
 	public function context()
@@ -1506,6 +1510,8 @@ class Stash {
 	 * Bundle up a collection of variables and save in the database
 	 *
 	 * @access public
+	 * @param array $params 
+	 * @param array $dynamic 
 	 * @return void 
 	 */
 	public function bundle($params = array(), $dynamic = array())
@@ -1606,7 +1612,6 @@ class Stash {
 	 * Embed a Stash template file in the current template
 	 *
 	 * @access public
-	 * @param bool init Initialise the Stash object instance?
 	 * @return string 
 	 */
 	public function embed()
@@ -1694,7 +1699,9 @@ class Stash {
 		}
 	
 		return $this->_run_tag('get', $reserved_vars);
-	}	
+	}
+	
+	// ---------------------------------------------------------	
 	
 	/**
 	 * Parse tagdata
@@ -1737,22 +1744,9 @@ class Stash {
 		// set a default parse depth of 3
 		$this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 3);
 		
-		// initialise?
-		$init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
-		
-		// re-initialise parameters, unless disabled by init parameter
-		if ($init)
-		{
-			$this->init();
-		}
-		else
-		{
-			$this->process = 'inline';
-		}
-		
 		// postpone tag processing?
 		if ( $this->process !== 'inline') 
-		{
+		{	
 			if ($out = $this->_post_parse(__FUNCTION__)) return $out;
 		}
 		
@@ -1811,6 +1805,8 @@ class Stash {
 		return $is_match;
 	}
 	
+	// ---------------------------------------------------------
+	
 	/**
 	 * Retrieve and rebuild list, or optionally part of a list
 	 *
@@ -1863,6 +1859,8 @@ class Stash {
 		}		
 		return $list;
 	}
+	
+	// ---------------------------------------------------------
 	
 	/**
 	 * Retrieve {stash:var}{/stash:var} tag pairs and serialize
@@ -1998,9 +1996,9 @@ class Stash {
 	protected function sort_by_string($a, $b) 
 	{
 		return (strcasecmp($a[$this->_key2sort], $b[$this->_key2sort]));
-	} 
+	}
 	
-	// ---------------------------------------------------------
+	// --------------------------------------------------------- 
 	
 	/** 
 	 * Sort callback function: sort by integer
@@ -2035,7 +2033,7 @@ class Stash {
 			$name = str_replace('@', self::$context, $name);
 		}	
 		return $name;
-	}	
+	}
 	
 	// ---------------------------------------------------------
 	
@@ -2297,7 +2295,7 @@ class Stash {
 	}
 	
 	// ---------------------------------------------------------
-	
+		
 	/**
 	 * Final parsing of the stash variable before output to the template
 	 *
@@ -2346,6 +2344,7 @@ class Stash {
 	}
 	
 	// ---------------------------------------------------------
+	
 	/**
 	 * String manipulations
 	 *
@@ -2372,8 +2371,6 @@ class Stash {
 		if ($trim)
 		{
 			$value  = str_replace( array("\t", "\n", "\r", "\0", "\x0B"), '', trim($value));
-			
-			echo $value;
 		}
 
 		// strip tags?
@@ -2419,6 +2416,7 @@ class Stash {
 	}
 	
 	// ---------------------------------------------------------
+	
 	/**
 	 * Run a Stash module tag with a safe set of parameters
 	 *
@@ -2473,8 +2471,6 @@ class Stash {
 	// ---------------------------------------------------------
 	
 	/** 
-	 * _placeholders
-	 *
 	 * Replaces nested tag content with placeholders
 	 *
 	 * @access private
@@ -2492,6 +2488,7 @@ class Stash {
 	/**
 	 * process processing our method until template_post_parse hook
 	 * 
+	 * @access private
 	 * @param String	Method name (e.g. display, link or embed)
 	 * @return Mixed	TRUE if delay, FALSE if not
 	 */
@@ -2521,6 +2518,7 @@ class Stash {
 		
 		$cache[$placeholder] = array(
 			'method' 	=> $method,
+			'tagproper'	=> $this->EE->TMPL->tagproper,
 			'tagparams' => $this->EE->TMPL->tagparams,
 			'tagdata' 	=> $this->EE->TMPL->tagdata,
 			'priority' 	=> $this->priority
@@ -2531,8 +2529,11 @@ class Stash {
 	}
 	
 	// ---------------------------------------------------------
+	
 	/**
 	 * Prep {if var IN (array)} conditionals
+	 *
+	 * @access private
 	 * @param string $tagdata
 	 * @return String	
 	 */	
@@ -2565,6 +2566,7 @@ class Stash {
 	/**
 	 * get a users real IP address
 	 * 
+	 * @access private
 	 * @return String	
 	 */	
 	private function _get_real_ip() {

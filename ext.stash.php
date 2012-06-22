@@ -255,8 +255,6 @@ class Stash_ext {
 			// run any postponed stash tags
 			if ( ! empty($cache))
 			{	
-				$this->EE->TMPL->log_item("Stash: post-processing tags");
-				
 				if ( ! class_exists('Stash'))
 				{
 					include_once PATH_THIRD . 'stash/mod.stash.php';
@@ -278,6 +276,8 @@ class Stash_ext {
 					// it may have been removed by advanced conditional processing
 					if ( strpos( $template, $placeholder ) !== FALSE)
 					{
+						$this->EE->TMPL->log_item("Stash: post-processing tag: ".$tag['tagproper']);
+						
 						$this->EE->TMPL->tagparams = $tag['tagparams'];
 						$this->EE->TMPL->tagdata = $tag['tagdata'];
 					
