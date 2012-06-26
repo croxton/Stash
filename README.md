@@ -119,6 +119,12 @@ A 'user' variable is linked to the users session id. Only they will see it. Use 
 #### scope = "site"
 A 'global' variable is set only once until it expires, and is accessible to ALL site visitors. Use in combination with [Switchee](https://github.com/croxton/Switchee) for caching and reusing rendered content throughout your site.
 
+### append = ['yes'|'no']
+The value is appended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:append}`
+
+### prepend = ['yes'|'no']
+The value is prepended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:prepend}`
+
 ### Example usage:
 
 	{exp:channel:entries limit="1" disable="member_data|pagination|categories"}	
@@ -168,6 +174,9 @@ In this example we want to ensure that the inner {exp:channel:entries} tag is pa
 	{-- output the absolute total count of the entries --}
 	{exp:stash:get name="absolute_results"}
 
+## {exp:stash:set:your_var_name}
+
+This is a shortcut tag, equivalent to `{exp:stash:set name="your_var_name"}Hello World{/exp:stash:set}`.
 
 ## {exp:stash:append} tag pair	
 Works the same as {exp:stash:set}, except the value is appended to an existing variable.
@@ -286,6 +295,10 @@ You can also pass an array of key value pairs containing any of the parameters a
 
 	If you have short open tags enabled:
 	<?= stash::get('title') ?>
+
+## {exp:stash:get:your_var_name}
+
+This is a shortcut tag, equivalent to `{exp:stash:get name="your_var_name"}`.
 
 ## {exp:stash:context}
 ### name = [string]

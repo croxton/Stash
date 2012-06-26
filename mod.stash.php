@@ -303,6 +303,12 @@ class Stash {
 		// do we want to set the variable?
 		$set = TRUE;
 		
+		// grab the name from the extra tagpart, if it exists
+		if (isset($this->EE->TMPL->tagparts[2]))
+		{
+			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];
+		}
+		
 		// var name
 		$name = strtolower($this->EE->TMPL->fetch_param('name', FALSE));		
 		
@@ -326,6 +332,17 @@ class Stash {
 		
 		// do we want this tag to return it's tagdata? (default: no)
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
+		
+		if (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('prepend')))
+		{
+			$this->_update = TRUE;
+			$this->_append = FALSE;
+		}
+		elseif (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('append')))
+		{
+			$this->_update = TRUE;
+			$this->_append = TRUE;
+		}
 		
 		// do we want to save this variable in a bundle?
 		$bundle = $this->EE->TMPL->fetch_param('bundle', NULL); // save in a bundle?
@@ -654,6 +671,12 @@ class Stash {
 			// as this function is called statically, we need to get an instance of this object
 			$self = new self();			
 			return $self->get();
+		}
+		
+		// grab the name from the extra tagpart, if it exists
+		if (isset($this->EE->TMPL->tagparts[2]))
+		{
+			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];
 		}
 		
 		if ( $this->process !== 'inline') 
