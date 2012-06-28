@@ -524,6 +524,9 @@ Embed a Stash template file in your template. Works similar to an EE embed, with
 	{!-- Stash template file at /path/to/stash_templates/test.html --}
 	{stash:embed name="test"}
 	
+	{!-- ...or using the shortcut syntax --}
+	{stash:embed:test}
+	
 	{!-- Stash template file at /path/to/stash_templates/foo/bar.html --}
 	{stash:embed name="foo:bar" process="start" stash:my_var="value"}
 	
@@ -534,41 +537,41 @@ Embed a Stash template file in your template. Works similar to an EE embed, with
 	{stash:embed:foo:bar process="start" stash:my_var="value"}
 
 ### name = [string]
-The name of the template instance and the filename of your template (without the suffix), if file_name parameter is not set
+The name of the template instance and the filename of your template (without the suffix), if file_name parameter is not set.
 
 ### context = [string]
 The variable namespace, which must have a corresponding subfolder in the Stash template folder.	
 
 ### file_name = [string]
-The file name (without the suffix) if different from the variable name, e.g. 'my_file' or 'my_context:my_file'
+The file name (without the suffix) if different from the variable name, e.g. 'my_file' or 'my_context:my_file'.
 
 ### refresh = [int]
-How long to cache the template output for in seconds (default='1440')
+How long to cache the template output for in seconds (default='1440').
 
 ### replace = ['yes'|'no']
 Do you want the cache to be recreated if it already exists? (default='no')
 Note: set stash_file_sync = true in your EE config to override this value globally. You will need to do this during development.
 
 ### process = ['start'|'inline'|'end']
-When in the parse order of your EE template do you want the embed to be included (default='end')
+When in the parse order of your EE template do you want the embed to be included (default='end').
 
 #### process="start"
-Embed the template before any other variables and tags in your template are parsed (similar to an EE snippet)
+Embed the template before any other variables and tags in your template are parsed (similar to an EE snippet).
 
 #### process="inline"
-Embed the template in the natural parse order of the template
+Embed the template in the natural parse order of the template.
 
 #### process="end"
-Embed the template at the end of template parsing after other tags and variables have been parsed (like a standard EE embed)
+Embed the template at the end of template parsing after other tags and variables have been parsed (like a standard EE embed).
 
 ### priority = [int]
-Determines the order in which the template is parsed when using process="end". Lower numbers are parsed first (default="0")
+Determines the order in which the template is parsed when using process="end". Lower numbers are parsed first (default="0").
 
 ### parse_stage = ['set'|'get'|'both']
-When to parse the template: parse and cached, or cache then parsed on retrieval, or do both (default="get")
+When to parse the template: parse and cached, or cache then parsed on retrieval, or do both (default="get").
 
 #### parse_stage = "set"
-Parse the template the first time it is read from the file, and cache the rendered result. Subsequent retrievals will return the cached template from the database and not the original template file (unless replace="yes" or stash_file_sync = true)
+Parse the template the first time it is read from the file, and cache the rendered result. Subsequent retrievals will return the cached template from the database and not the original template file (unless replace="yes" or stash_file_sync = true).
 
 #### parse_stage = "get"
 Read the template file and cache it to the database. When output to the template on the first and subsequent retrievals the template will be parsed. This is similar to how EE templates work.
@@ -581,7 +584,7 @@ How many passes of the template to make by the parser? (default is 3)
 
 ### stash:my_variable="value"
 
-Pass variables to the Stash template as parameters in the form stash:my_variable="value"
+Pass variables to the Stash template as parameters in the form stash:my_variable="value":
 
 	{exp:stash:embed name="my_template" stash:my_var="my_value"}
 	
