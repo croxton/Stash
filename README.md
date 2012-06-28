@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.6 beta
+## Version 2.2.7 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -45,14 +45,19 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
 2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module and the Stash extension
+3. Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
+4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
+
+	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
+	$assign_to_config['stash_file_sync'] = TRUE;
+
+(of course if you're using a custom config bootstrap file, add the config items there instead)
 
 ## Upgrading from <2.1.0 or earlier
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
 2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link for the Stash module
 3. In the CP, navigate to Add-ons > Extensions and click the 'activate' link for the Stash extension
-
-## Not updated the following yet...
 
 ## {exp:stash:set} tag pair
 
@@ -216,11 +221,13 @@ The type of variable to retrieve (optional, default is 'variable').
 Look in the $_POST and $_GET superglobals arrays, for the variable (optional, default is 'no').
 If Stash doesn't find the variable in the superglobals, it will look in the uri segment array for the variable name and takes the value from the next segment, e.g.: /variable_name/variable_value
 
-### file = ['yes'|'no']
+### file = ['yes'|'no'] 
+[deprecated - use {stash:embed}]
 Set to yes to tell Stash to look for a file in the Stash template folder (optional, default is 'no').
 See [working_with_files](https://github.com/croxton/Stash/blob/dev/docs/working_with_files.md)
 
-### file_name = [string]        
+### file_name = [string] 
+[deprecated - use {stash:embed}]       
 The file name (without the extension) - only required if your filename is different from the variable name
 
 ### save = ['yes'|'no']
@@ -249,6 +256,18 @@ Tip: you can also hardcode the context in the variable name, and use '@' to refe
 ### scope = ['user'|'site']
 Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
 Note: use the same scope that you used when you set the variable.
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+
+#### process="inline"
+Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+
+#### process="end"
+Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
 
 ### strip_tags = ['yes'|'no']
 Strip HTML tags from the returned variable? (optional, default is 'no').
@@ -411,6 +430,27 @@ Limit the number of rows returned (optional).
 ### offset = [int]
 Offset from 0 (optional, default is 0).
 
+### match = [#regex#]
+Match a column in the list against a regular expression. Only rows in the list that match will be returned.
+
+### against = [list column]
+Column to match against. If against is not specified or is not a valid list column, match="#regex#" will be applied to the whole string return by get_list.
+
+### prefix = [string]
+Prefix for common iteration variables such as {count}, {total:results} and {switch}. Useful when outputting a list inside another tag.
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+
+#### process="inline"
+Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+
+#### process="end"
+Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
+
 ### variables
 
 * {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
@@ -459,7 +499,105 @@ This parameter sets the number of minutes to store the bundle (optional, default
 	
 	{!-- now you could use like this in an embedded view template --}
 	<input name="orderby" value="{@:orderby}">
+	
+	
+## {stash:embed}
 
-## {exp:stash:your_var_name}
+Embed a Stash template file in your template. Works similar to an EE embed, with the following advantages:
+
+* Control over the process stage (when in the parse order of the host template that the embed is included)
+* Control over the parse stage (whether the template is parsed and cached, or cached then parsed on retrieval, or both)
+* Non caching regions of the template can be demarcated with {stash:nocache}{/stash:nocache} tag pairs
+* Precisely control the order of processing of embeds with the priority parameter
+* Precisely control the parse depth when a template is parsed (the number of passes made by EEs template parser)
+* Set caching duration per embed
+* Use multiple instances of the same template without extra overhead
+
+### Setting up
+* Make sure you follow the installation instructions (above) to set up a Stash template folder
+* During development, set stash_file_sync = TRUE to keep your Stash template files in sync with the database
+* For production use I highly recommend setting stash_file_sync = FALSE so that cached Stash templates are served from your database, unless you have added the replace="yes" parameter for a particular embed. Be careful to test first!
+
+### name = [string]
+The name of the template instance and the filename of your template (without the suffix), if file_name parameter is not set
+
+### context = [string]
+The variable namespace, which must have a corresponding subfolder in the Stash template folder.	
+
+### file_name = [string]
+The file name (without the suffix) if different from the variable name, e.g. 'my_file' or 'my_context:my_file'
+
+### refresh = [int]
+How long to cache the template output for in seconds (default='1440')
+
+### replace = ['yes'|'no']
+Do you want the cache to be recreated if it already exists? (default='no')
+Note: set stash_file_sync = true in your EE config to override this value globally. You will need to do this during development.
+
+### process = ['start'|'inline'|'end']
+When in the parse order of your EE template do you want the embed to be included (default='end')
+
+#### process="start"
+Embed the template before any other variables and tags in your template are parsed (similar to an EE snippet)
+
+#### process="inline"
+Embed the template in the natural parse order of the template
+
+#### process="end"
+Embed the template at the end of template parsing after other tags and variables have been parsed (like a standard EE embed)
+
+### priority = [int]
+Determines the order in which the template is parsed when using process="end". Lower numbers are parsed first (default="0")
+
+### parse_stage = ['set'|'get'|'both']
+When to parse the template: parse and cached, or cache then parsed on retrieval, or do both (default="get")
+
+#### parse_stage = "set"
+Parse the template the first time it is read from the file, and cache the rendered result. Subsequent retrievals will return the cached template from the database and not the original template file (unless replace="yes" or stash_file_sync = true)
+
+#### parse_stage = "get"
+Read the template file and cache it to the database. When output to the template on the first and subsequent retrievals the template will be parsed. This is similar to how EE templates work.
+
+#### parse_stage="both"
+Parse the template before caching AND after it is retrieved. This can be very useful when enclosing regions of your template with {stash:nocache}{/stash:nocache}. On SET the template code inside {stash:nocache} will not be parsed, but everything else will. On GET it will be parsed. This provides a way to partially cache some of your template code while leaving other areas dynamic.
+
+### parse_depth = [int]
+How many passes of the template to make by the parser? (default is 3)
+
+### stash:my_variable="value"
+
+Pass variables to the Stash template as parameters in the form stash:my_variable="value"
+
+	{exp:stash:embed name="my_template" stash:my_var="my_value"}
+	
+	{!-- inside my_template inline variables can be accessed like so --}
+	{stash:my_var}	
+	
+## {exp:stash:parse} tag pair
+Parse arbitrary regions of your template.
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the tags to be parsed (default='inline')
+
+#### process="inline"
+Parse the enclosed tagdata in the natural parse order of the template
+
+#### process="end"
+Parse the enclosed tagdata at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the enclosed tagadata is parsed when using process="end". Lower numbers are parsed first (default="1")
+
+### parse_depth = [int]
+How many passes of the enclosed tagdata to make by the parser? (default is 3)
+
+## Shortcut tags
+
+### {exp:stash:your_var_name} or {exp:stash:your_context:your_var_name}
 
 On ExpressionEngine 2.5+, you may use this shortcut tag. When used as a single tag, this is equivalent to `{exp:stash:get name="your_var_name"}`. When used as a tag pair, this is equivalent to `{exp:stash:set name="your_var_name"}Hello World{/exp:stash:set}`.
+
+### {stash:embed:your_template} or {stash:embed:your_context:your_template}
+
+Alternative syntax for stash embeds for ExpressionEngine 2.5+ only.
+
