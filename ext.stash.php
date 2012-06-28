@@ -128,9 +128,9 @@ class Stash_ext {
 			$row = $this->EE->extensions->last_call;
 		}	
 		
-		// do we have any stash embeds?
+		// do we have any stash embeds? {stash:embed name=""} or {stash:embed:name}
 		$matches = array();
-		if ( ! preg_match_all("/(".LD."stash:embed)(\s.*?)".RD."/s", $row['template_data'], $matches))
+		if ( ! preg_match_all("/(".LD."stash:embed)([\s|:].*?)".RD."/s", $row['template_data'], $matches))
 		{
 			return $row;
 		}
@@ -154,12 +154,18 @@ class Stash_ext {
 		foreach($matches[2] as $key => $val)
 		{
 			$parts = preg_split("/\s+/", $val, 2);
-		
+			
 			$embed_params = (isset($parts[1])) ? $this->EE->functions->assign_parameters($parts[1]) : array();
-		
+
 			if ($embed_params === FALSE)
 			{
 				$embed_params = array();
+			}
+			
+			// support {stash:embed:context:var}
+			if ( ! empty($parts[0]))
+			{
+				$embed_params['name'] = trim($parts[0], ':');
 			}
 	
 			$embeds[trim($matches[0][$key], LD.RD)] = $embed_params;
@@ -276,7 +282,7 @@ class Stash_ext {
 					// it may have been removed by advanced conditional processing
 					if ( strpos( $template, $placeholder ) !== FALSE)
 					{
-						$this->EE->TMPL->log_item("Stash: post-processing tag: ".$tag['tagproper']);
+						$this->EE->TMPL->log_item("Stash: post-processing tag: " . $tag['tagproper'] . " will be replaced into " . LD . $placeholder . RD);
 						
 						$this->EE->TMPL->tagparams = $tag['tagparams'];
 						$this->EE->TMPL->tagdata = $tag['tagdata'];
@@ -285,7 +291,7 @@ class Stash_ext {
 					
 						$out = $s->{$tag['method']}();
 					
-						$template = str_replace(LD.$placeholder.RD, $out, $template);
+						$template = str_replace(LD.$placeholder.RD, $out, $template);	
 					
 						// remove the placeholder from the cache so we don't iterate over it in future calls of this hook
 						unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
@@ -300,6 +306,7 @@ class Stash_ext {
 			// cleanup
 			unset($cache);
 		}
+		
 		return $template;
 	}
 }

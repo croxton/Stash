@@ -251,7 +251,7 @@ class Stash {
 	/**
 	 * Shortcut to stash:get or stash:set
 	 * 
-	 * @param string 	 $name The method name being called
+	 * @param string 	 $name The method name being called or context if third tagpart
 	 * @param array 	 $arguments The method call arguments
 	 * 
 	 * @return void
@@ -275,12 +275,42 @@ class Stash {
 		{exp:stash:set name="foo"}
 		CONTENT
 		{/exp:stash:set}
+		---------------------------------------------------------
+		{exp:stash:bar:foo}
+		
+		is equivalent to:
+	
+		{exp:stash:get name="bar:foo"}
+		and
+		{exp:stash:get context="bar" name="foo"}
+		---------------------------------------------------------
+		{exp:stash:bar:foo}
+		CONTENT
+		{/exp:stash:bar:foo}
+		
+		is equivalent to:
+		{exp:stash:set context="bar" name="foo"}
+		CONTENT
+		{/exp:stash:set}
+		and
+		{exp:stash:set name="bar:foo"}
+		CONTENT
+		{/exp:stash:set}
 		--------------------------------------------------------- */
 		
-		$this->EE->TMPL->tagparams['name'] = $name;
-		
+		// if there is an extra tagpart, then we have a context and a name
+		if (isset($this->EE->TMPL->tagparts[2]))
+		{	
+			$this->EE->TMPL->tagparams['context'] = $name;
+			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];	
+		}
+		else
+		{
+			$this->EE->TMPL->tagparams['name'] = $name;
+		}
 		return $this->EE->TMPL->tagdata ? $this->set() : $this->get();
 	}
+
 	
 	/**
 	 * Set content in the current session, optionally save to the database
@@ -361,6 +391,7 @@ class Stash {
 		// do we want this tag to return it's tagdata? (default: no)
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
 		
+		// append or prepend passed as parameters?
 		if (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('prepend')))
 		{
 			$this->_update = TRUE;
@@ -1309,10 +1340,10 @@ class Stash {
 			{
 				// {prefix:count}
 				$i=0;
-				foreach($list as $key => &$value)
+				foreach($list as $key => &$v)
 				{
 					$i++;
-					$value[$prefix.':count'] = $i;
+					$v[$prefix.':count'] = $i;
 				}
 				
 				// {prefix:switch = ""}
@@ -1669,6 +1700,10 @@ class Stash {
 			stash:another_var1="value 1"
 			stash:another_var2="value 2"
 		}
+		
+		Alternative sytax:
+		{stash:embed:name} or
+		{stash:embed:context:name}
 		--------------------------------------------------------- */
 			
 		// mandatory parameter values for template files
@@ -1679,6 +1714,17 @@ class Stash {
 		$this->EE->TMPL->tagparams['parse_vars']  		  = 'yes';
 		$this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
 		$this->EE->TMPL->tagparams['embed_vars'] 		  = array();
+		
+		// name and context passed in tagparts?
+		if (isset($this->EE->TMPL->tagparts[3]))
+		{	
+			$this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->tagparts[2];
+			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[3];	
+		}
+		elseif(isset($this->EE->TMPL->tagparts[2]))
+		{
+			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];
+		}
 		
 		// set default parameter values for template files
 		
@@ -1888,14 +1934,17 @@ class Stash {
 			if ( ! is_null($match) && preg_match('/^#(.*)#$/', $match) && ! is_null($against))
 			{
 				$new_list = array();
-				foreach($list as $key => $value)
+				
+				// note: $value is still a reference so use another name
+				// NOT a bug! See https://bugs.php.net/bug.php?id=50485
+				foreach($list as $key => $part)
 				{
-					if ( isset($value[$against]) )
+					if ( isset($part[$against]) )
 					{
-						if ($this->_matches($match, $value[$against]))
+						if ($this->_matches($match, $part[$against]))
 						{
 							// match found
-							$new_list[] = $value;
+							$new_list[] = $part;
 						}
 					}
 				}
@@ -2540,7 +2589,8 @@ class Stash {
 	private function _post_parse($method)
 	{
 		// base our needle off the calling tag
-		$placeholder = md5($this->EE->TMPL->tagproper);	
+		// add a random number to prevent EE caching the tag, if it is used more than once
+		$placeholder = md5($this->EE->TMPL->tagproper) . rand();	
 				
 		if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
 		{
