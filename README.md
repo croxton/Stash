@@ -49,6 +49,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
 
 	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
+
 	$assign_to_config['stash_file_sync'] = TRUE;
 
 (of course if you're using a custom config bootstrap file, add the config items there instead)
@@ -517,6 +518,20 @@ Embed a Stash template file in your template. Works similar to an EE embed, with
 * Make sure you follow the installation instructions (above) to set up a Stash template folder
 * During development, set stash_file_sync = TRUE to keep your Stash template files in sync with the database
 * For production use I highly recommend setting stash_file_sync = FALSE so that cached Stash templates are served from your database, unless you have added the replace="yes" parameter for a particular embed. Be careful to test first!
+
+### Example usage
+
+	{!-- Stash template file at /path/to/stash_templates/test.html --}
+	{stash:embed name="test"}
+	
+	{!-- Stash template file at /path/to/stash_templates/foo/bar.html --}
+	{stash:embed name="foo:bar" process="start" stash:my_var="value"}
+	
+	{!-- could also be written as... --}
+	{stash:embed context="foo" name="bar" process="start" stash:my_var="value"}
+	
+	{!-- ...or using the shortcut syntax --}
+	{stash:embed:foo:bar process="start" stash:my_var="value"}
 
 ### name = [string]
 The name of the template instance and the filename of your template (without the suffix), if file_name parameter is not set
