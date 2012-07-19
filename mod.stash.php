@@ -460,6 +460,12 @@ class Stash {
 			// apply any string manipulations
 			$this->EE->TMPL->tagdata = $this->_clean_string($this->EE->TMPL->tagdata);
 
+			// Check for a no_results prefix to avoid no_results parse conflicts
+			if($no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix'))
+			{
+				$this->EE->TMPL->tagdata = str_replace($no_results_prefix.'no_results', 'no_results', $this->EE->TMPL->tagdata);
+			}
+			
 			if ( !! $name )
 			{					
 				// get params
@@ -550,7 +556,7 @@ class Stash {
 						array($name => $this->_stash[$name])
 					);
 				}
-			
+							
 				if ($save)
 				{	
 					// optionally clean data before inserting
@@ -1010,6 +1016,7 @@ class Stash {
 				}
 				*/
 			}
+			
 			return $value;
 		}
 	}
