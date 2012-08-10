@@ -124,10 +124,10 @@ Tip: Use '@' to refer to the current context:
 ### scope = ['user'|'site']
 When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
-#### scope = "user"
+#### `scope = "user"`
 A 'user' variable is linked to the users session id. Only they will see it. Use for pagination, search queries, or chunks of personalised content that you need to cache across multiple pages. 
 
-#### scope = "site"
+#### `scope = "site"`
 A 'global' variable is set only once until it expires, and is accessible to ALL site visitors. Use in combination with [Switchee](https://github.com/croxton/Switchee) for caching and reusing rendered content throughout your site.
 
 ### append = ['yes'|'no']
@@ -269,10 +269,10 @@ Note: use the same scope that you used when you set the variable.
 ### process = ['inline'|'end']
 When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
 
-#### process="inline"
+#### `process="inline"`
 Retrieve the variable in the natural parse order of the template (like a standard EE tag)
 
-#### process="end"
+#### `process="end"`
 Retrieve the variable at the end of template parsing after other tags and variables have been parsed
 
 ### priority = [int]
@@ -470,10 +470,9 @@ Prefix for common iteration variables such as {count}, {total:results}, {switch}
 		parse_tags="yes" 
 		parse_conditionals="yes" 
 		process="end" 
-		prefix="ft"
+		prefix="my_prefix"
 	}
-	
-		{if ft:count == 1}
+		{if my_prefix:count == 1}
 		<table class="data" cellpadding="0" cellspacing="0">
 
 			<thead>
@@ -486,33 +485,30 @@ Prefix for common iteration variables such as {count}, {total:results}, {switch}
 
 			<tbody>
 		{/if}
-		
-				<tr class="{ft:switch='|rowAlt'}">
+				<tr class="{my_prefix:switch='|rowAlt'}">
 					<td class="left first"><a href="{topic_url}"><strong>{topic_title}</strong></a></td>
 					<td><a href="{last_author_url}">{last_author_name}</a></td>
 					<td>{last_post_date}</td>
 				</tr>
-
-		{if ft:count == ft:total_results}
+		{if my_prefix:count == my_prefix:total_results}
 			</tbody>
 		</table>
 		<p><a href="/forum/viewforum/{stash:forum}">View all topics in this forum &raquo;</a></p>
 		{/if}
-
-		{if ft:no_results}
+		
+		{if my_prefix:no_results}
 		<p>No forum topics yet. <a href="/forum/newtopic/{stash:forum}">Start a discussion &raquo;</a></p>
 		{/if}
 
 	{/exp:stash:get_list}
 
-
 ### process = ['inline'|'end']
 When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
 
-#### process="inline"
+#### `process="inline"`
 Retrieve the variable in the natural parse order of the template (like a standard EE tag)
 
-#### process="end"
+#### `process="end"`
 Retrieve the variable at the end of template parsing after other tags and variables have been parsed
 
 ### priority = [int]
@@ -622,13 +618,13 @@ Note: set `stash_file_sync = true` in your EE config to override this value glob
 ### process = ['start'|'inline'|'end']
 When in the parse order of your EE template do you want the embed to be included (default='end').
 
-#### process="start"
+#### `process="start"`
 Embed the template before any other variables and tags in your template are parsed (similar to an EE snippet).
 
-#### process="inline"
+#### `process="inline"`
 Embed the template in the natural parse order of the template.
 
-#### process="end"
+#### `process="end"`
 Embed the template at the end of template parsing after other tags and variables have been parsed (like a standard EE embed).
 
 ### priority = [int]
@@ -637,13 +633,13 @@ Determines the order in which the template is parsed when using process="end". L
 ### parse_stage = ['set'|'get'|'both']
 When to parse the template: parse and cached, or cache then parsed on retrieval, or do both (default="get").
 
-#### parse_stage = "set"
+#### `parse_stage = "set"`
 Parse the template the first time it is read from the file, and cache the rendered result. Subsequent retrievals will return the cached template from the database and not the original template file (unless replace="yes" or stash_file_sync = true).
 
-#### parse_stage = "get"
+#### `parse_stage = "get"`
 Read the template file and cache it to the database. When output to the template on the first and subsequent retrievals the template will be parsed. This is similar to how EE templates work.
 
-#### parse_stage="both"
+#### `parse_stage="both"`
 Parse the template before caching AND after it is retrieved. This can be very useful when enclosing regions of your template with {stash:nocache}{/stash:nocache}. On SET the template code inside {stash:nocache} will not be parsed, but everything else will. On GET it will be parsed. This provides a way to partially cache some of your template code while leaving other areas dynamic.
 
 ### parse_depth = [int]
