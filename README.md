@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.7 beta
+## Version 2.2.8 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -165,9 +165,9 @@ This approach can save you a huge number of queries and processing time.
 	{/exp:stash:set}
 
 ### Advanced example: using tag pairs to set multiple variables at once
-{exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
+`{exp:stash:set}` called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs `{stash:variable1}...{/stash:variable1}` etc. These tag pairs can even be nested. 
 
-In this example we want to ensure that the inner {exp:channel:entries} tag is parsed so we set parse_tags="yes". Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
+In this example we want to ensure that the inner `{exp:channel:entries}` tag is parsed so we set `parse_tags="yes"`. Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
 
 	{exp:stash:set parse_tags="yes"}
 		{stash:content}
@@ -190,7 +190,7 @@ In this example we want to ensure that the inner {exp:channel:entries} tag is pa
 
 
 ## {exp:stash:append} tag pair	
-Works the same as {exp:stash:set}, except the value is appended to an existing variable.
+Works the same as `{exp:stash:set}`, except the value is appended to an existing variable.
 
 ### Example usage of append, with match/against:
 
@@ -200,23 +200,23 @@ Works the same as {exp:stash:set}, except the value is appended to an existing v
 		{/exp:stash:append}
 	{/exp:channel:entries}
 
-The above would capture all 'people' entries whose last name {person_lname} starts with A-F.
+The above would capture all 'people' entries whose last name `{person_lname}` starts with A-F.
 
 ## {exp:stash:prepend} tag pair	
-Works the same as {exp:stash:set}, except the value is prepended to an existing variable.
+Works the same as `{exp:stash:set}`, except the value is prepended to an existing variable.
 
 ## {exp:stash:set_value} single tag
 Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a plugin as a tag parameter (always use with parse="inward"). For example:
 
 	{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
 
-In this case {title} would be set to the parsed value of {exp:another:tag}
+In this case `{title}` would be set to the parsed value of `{exp:another:tag}`
 
 ## {exp:stash:append_value} single tag
-Works the same as {exp:stash:append}, except the value is passed as a parameter.
+Works the same as `{exp:stash:append}`, except the value is passed as a parameter.
 
 ## {exp:stash:prepend_value} single tag
-Works the same as {exp:stash:prepend}, except the value is passed as a parameter.
+Works the same as `{exp:stash:prepend}`, except the value is passed as a parameter.
 	
 ## {exp:stash:get}
 
@@ -231,22 +231,22 @@ Look in the $_POST and $_GET superglobals arrays, for the variable (optional, de
 If Stash doesn't find the variable in the superglobals, it will look in the uri segment array for the variable name and takes the value from the next segment, e.g.: /variable_name/variable_value
 
 ### file = ['yes'|'no'] 
-[deprecated - use {stash:embed}]
+[deprecated - use `{stash:embed}`]
 Set to yes to tell Stash to look for a file in the Stash template folder (optional, default is 'no').
 See [working_with_files](https://github.com/croxton/Stash/blob/dev/docs/working_with_files.md)
 
 ### file_name = [string] 
-[deprecated - use {stash:embed}]       
+[deprecated - use `{stash:embed}`]       
 The file name (without the extension) - only required if your filename is different from the variable name
 
 ### save = ['yes'|'no']
 When using dynamic="yes" or file="yes", do you want to store the value we have retrieved in the database so that it persists across page loads? (optional, default is 'no')
 
 ### refresh = [int]
-When using save="yes", this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
+When using `save="yes"`, this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
 
 ### replace = ['yes'|'no']                
-When using dynamic="yes" or file="yes", do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
+When using `dynamic="yes"` or `file="yes"`, do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
 
 ### default = [string]
 Default value to return if variable is not set or empty (optional, default is an empty string). If a default value is supplied and the variable has not been set previously, then the variable will be set in the user's session. Thus subsequent attempt to get the variable will return the default value specified by the first call.
@@ -344,7 +344,7 @@ Set the current context (namespace) for variables that you set/get.
 	{@:title}
 
 ## {exp:stash:not_empty}
-Has exactly the same parameters as {exp:stash:get}
+Has exactly the same parameters as `{exp:stash:get}`
 Returns 0 or 1 depending on whether the variable is empty or not. Useful for conditionals.
 
 ### Example usage
@@ -355,9 +355,16 @@ Returns 0 or 1 depending on whether the variable is empty or not. Useful for con
 	
 ## {exp:stash:set_list} tag pair
 
-Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}my_value{/stash:my_key}
+Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}my_value{/stash:my_key}.
+Automatically detects and captures multiple rows of variables pairs, so can be used to capture data from tags and tag pairs that loop
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as {exp:stash:set}, but in addition match/against can be used to match a value against a specific column in the list:
+
+### match = [#regex#]
+Match a column in the list against a regular expression. Only rows in the list that match will be appended to the list. 
+
+### against = [list column]
+Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole block of tagdata passed to set_list.
 
 ### Example usage 1
 	{exp:stash:set_list name="my_list"}
@@ -374,13 +381,38 @@ Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}m
 	        {stash:item_copy}{copy}{/stash:item_copy}
 	    {/exp:stash:set_list}
 	{/exp:channel:entries}
+	
+### Example usage 3: capturing caching Playa / Matrix tag pairs
+	{exp:channel:entries channel="blog" entry_id="123"}
+		{exp:stash:set_list name="blog_related_entries" parse_tags="yes" save="yes" scope="site"}
+			{blog_related}
+				{stash:item_title}{title}{/stash:item_title}
+			{/blog_related}
+		{/exp:stash:set_list}	
+	{/exp:channel:entries}	
+	
+### Example usage 4: match against - set items where the topic title begins with 'A'
+	{exp:stash:set_list name="recent_discussion_topics" parse_tags="yes" match="#^A#" against="topic_title"}
+		{exp:forum:topic_titles 
+			orderby="post_date" 
+			sort="desc" 
+			limit="5" 
+			forums="1"
+		}	
+			{stash:topic_url}{thread_path='forum/viewthread'}{/stash:topic_url}
+			{stash:topic_title}{title}{/stash:topic_title}
+			{stash:last_author_url}{last_author_profile_path='member'}{/stash:last_author_url}
+			{stash:last_author_name}{last_author}{/stash:last_author_name}
+			{stash:last_post_date}{last_post_date}{/stash:last_post_date}
+		{/exp:forum:topic_titles}
+	{/exp:stash:set_list}	
 
 ## {exp:stash:append_list} tag pair
 
 Append an array of variables to a list to create *multiple rows* of variables (i.e. a multidimensional array). 
 If the list does not exist, it will be created.
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as `{exp:stash:set}`
 
 ### Example usage
 	{!-- set a list of entries in the products channel with a title that starts with the letter 'C' --}
@@ -391,26 +423,11 @@ If the list does not exist, it will be created.
  		{/exp:stash:append_list}
 	{/exp:channel:entries}
 	
-### Advanced usage: caching lists
-Generating a list of related items from a Playa custom field 'blog_related' and caching the result so that the Channel Entries and Playa tags do not run on subsequent views of the template:
-
-	{exp:switchee variable="'{exp:stash:not_empty name='blog_related_entries' scope='site'}'" parse="inward"}
-		{case value="'0'"}
-			{exp:channel:entries channel="blog" entry_id="123"}
-				{blog_related}
-					{exp:stash:append_list name="blog_related_entries" save="yes" scope="site"}
-						{stash:item_title}{title}{/stash:item_title}
-					{/exp:stash:append_list}	
-				{/blog_related}
-			{/exp:channel:entries}
-		{/case}	
-	{/exp:switchee}
-	
 ## {exp:stash:prepend_list} tag pair
 
 Prepend an array of variables to a list.
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as `{exp:stash:set}`
 
 ### Example usage
 	{exp:channel:entries channel="products"}
@@ -443,7 +460,7 @@ Offset from 0 (optional, default is 0).
 Match a column in the list against a regular expression. Only rows in the list that match will be returned.
 
 ### against = [list column]
-Column to match against. If against is not specified or is not a valid list column, match="#regex#" will be applied to the whole string return by get_list.
+Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole string return by get_list.
 
 ### prefix = [string]
 Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
@@ -558,7 +575,7 @@ Embed a Stash template file in your template. Works similar to an EE embed, with
 
 * Control over the process stage (when in the parse order of the host template that the embed is included)
 * Control over the parse stage (whether the template is parsed and cached, or cached then parsed on retrieval, or both)
-* Non caching regions of the template can be demarcated with {stash:nocache}{/stash:nocache} tag pairs
+* Non caching regions of the template can be demarcated with `{stash:nocache}{/stash:nocache}` tag pairs
 * Precisely control the order of processing of embeds with the priority parameter
 * Precisely control the parse depth when a template is parsed (the number of passes made by EEs template parser)
 * Set caching duration per embed
@@ -566,8 +583,8 @@ Embed a Stash template file in your template. Works similar to an EE embed, with
 
 ### Setting up
 * Make sure you follow the installation instructions (above) to set up a Stash template folder
-* During development, set stash_file_sync = TRUE to keep your Stash template files in sync with the database
-* For production use I highly recommend setting stash_file_sync = FALSE so that cached Stash templates are served from your database, unless you have added the replace="yes" parameter for a particular embed. Be careful to test first!
+* During development, set `stash_file_sync = TRUE` to keep your Stash template files in sync with the database
+* For production use I highly recommend setting `stash_file_sync = FALSE` so that cached Stash templates are served from your database, unless you have added the replace="yes" parameter for a particular embed. Be careful to test first!
 
 ### Example usage
 
@@ -600,7 +617,7 @@ How long to cache the template output for in seconds (default='1440').
 
 ### replace = ['yes'|'no']
 Do you want the cache to be recreated if it already exists? (default='no')
-Note: set stash_file_sync = true in your EE config to override this value globally. You will need to do this during development.
+Note: set `stash_file_sync = true` in your EE config to override this value globally. You will need to do this during development.
 
 ### process = ['start'|'inline'|'end']
 When in the parse order of your EE template do you want the embed to be included (default='end').

@@ -1212,7 +1212,10 @@ class Stash {
 			{
 				$this->EE->TMPL->tagdata = $row;
 				$this->_serialize_stash_tag_pairs();
-				$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
+				if ( ! empty($this->EE->TMPL->tagdata))
+				{
+					$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
+				}
 			}
 			$this->EE->TMPL->tagdata = $tagdata;
 		}
