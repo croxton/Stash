@@ -62,6 +62,12 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 
 ## {exp:stash:set} tag pair
 
+### Example usage:
+
+	{exp:channel:entries limit="1" disable="member_data|pagination|categories"}	
+		{exp:stash:set name="title"}{title}{/exp:stash:set}
+	{/exp:channel:entries}
+
 ### name = [string]
 The name of your variable (optional). 
 This should be a unique name. Use underscores for spaces and use only alphanumeric characters.
@@ -115,7 +121,6 @@ Tip: Use '@' to refer to the current context:
 	...
 	{exp:stash:set}
 
-
 ### scope = ['user'|'site']
 When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
@@ -131,13 +136,16 @@ The value is appended to the existing variable. (optional, default is 'no'). Equ
 ### prepend = ['yes'|'no']
 The value is prepended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:prepend}`
 
-### Example usage:
+### no_results_prefix = [string]
+Prefix for `{if no_results}...{/if}` for use in any *nested* tags:
 
-	{exp:channel:entries limit="1" disable="member_data|pagination|categories"}	
-		{exp:stash:set name="title" type="snippet"}{title}{/exp:stash:set}
-	{/exp:channel:entries}
+	{exp:stash:set name="content" no_results_prefix="my_prefix" parse_tags="yes" output="yes"}
+		{exp:channel:entries channel="blog" dynamic="no"}
+			{if my_prefix:no_results}no results{/if}
+		{/exp:channel:entries}
+	{/exp:stash:set}
 	
-### Advanced usage 1	
+### Advanced example: caching a variable	
 Caching the output of a channel entries tag for 60 minutes. The first time the template is viewed the channel entries tag is run and its output is captured and saved to the database. On subsequent visits within the following 60 minutes, the output is retrieved from the database and the channel entries tag does NOT run. At the end of the 60 minutes  the variable expires from the database, and on the next view of the template the cache is regenerated. 
 
 This approach can save you a huge number of queries and processing time.
@@ -156,7 +164,7 @@ This approach can save you a huge number of queries and processing time.
 		{/exp:channel:entries}
 	{/exp:stash:set}
 
-### Advanced usage 2
+### Advanced example: using tag pairs to set multiple variables at once
 {exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
 
 In this example we want to ensure that the inner {exp:channel:entries} tag is parsed so we set parse_tags="yes". Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
@@ -438,7 +446,48 @@ Match a column in the list against a regular expression. Only rows in the list t
 Column to match against. If against is not specified or is not a valid list column, match="#regex#" will be applied to the whole string return by get_list.
 
 ### prefix = [string]
-Prefix for common iteration variables such as {count}, {total:results} and {switch}. Useful when outputting a list inside another tag.
+Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
+
+	{exp:stash:get_list 
+		name="recent_discussion_topics" 
+		parse_tags="yes" 
+		parse_conditionals="yes" 
+		process="end" 
+		prefix="ft"
+	}
+	
+		{if ft:count == 1}
+		<table class="data" cellpadding="0" cellspacing="0">
+
+			<thead>
+				<tr>
+					<th class="left first">Title</th>
+					<th>Last post</th>
+					<th>Date</th>
+				</tr>
+			</thead>
+
+			<tbody>
+		{/if}
+		
+				<tr class="{ft:switch='|rowAlt'}">
+					<td class="left first"><a href="{topic_url}"><strong>{topic_title}</strong></a></td>
+					<td><a href="{last_author_url}">{last_author_name}</a></td>
+					<td>{last_post_date}</td>
+				</tr>
+
+		{if ft:count == ft:total_results}
+			</tbody>
+		</table>
+		<p><a href="/forum/viewforum/{stash:forum}">View all topics in this forum &raquo;</a></p>
+		{/if}
+
+		{if ft:no_results}
+		<p>No forum topics yet. <a href="/forum/newtopic/{stash:forum}">Start a discussion &raquo;</a></p>
+		{/if}
+
+	{/exp:stash:get_list}
+
 
 ### process = ['inline'|'end']
 When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
@@ -451,6 +500,7 @@ Retrieve the variable at the end of template parsing after other tags and variab
 
 ### priority = [int]
 Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
+
 
 ### variables
 
@@ -590,6 +640,50 @@ Pass variables to the Stash template as parameters in the form stash:my_variable
 	
 	{!-- inside my_template inline variables can be accessed like so --}
 	{stash:my_var}	
+	
+### Advanced example: dynamic Stash embeds using the static context pointer '@'
+
+	{!-- file at stash_templates/my_context/my_template.html --}
+
+	{!-- standard embed syntax --}
+	{stash:embed name="my_context:my_template"}
+
+	{!-- shortcut embed syntax --}
+	{stash:embed:my_context:my_template}
+
+	{!-- set embed name dynamically from a Stash variable --}
+	{stash:embed name="{stash:layout}"}
+	{exp:stash:set_value name="layout" value="my_context:my_template"}
+	
+	{!-- using the static context pointer '@' --}
+	{exp:stash:context name="my_context"}
+	{stash:embed name="my_template" context="@"}
+	
+	{!-- or use the pointer in the name parameter --}
+	{stash:embed name="@:my_template"}
+	
+	{!-- for multiple cached instances of same base template, use the file_name parameter --}
+	{stash:embed name="another_instance_of_my_template" file_name="@:my_template"}
+	
+	{!-- 'template partials' example using dynamic context --}
+	{stash:embed name="my_layout" context="@"}
+	
+	{exp:switchee variable="{segment_1}" parse="inward"}
+	
+	   {!-- left to right layout for latin languages --}
+	   {case value="en|fr|it"}
+	      {!-- template at stash_templates/ltr/my_layout.html --}
+	      {exp:stash:context name="ltr"}
+	      {exp:stash:set name="content"}My language specific content{/exp:stash:set}
+	   {/case}
+	
+	   {!-- right to left layout for arabic --}
+	   {case value="ar"}
+	      {!-- template at stash_templates/rtl/my_layout.html --}
+	      {exp:stash:context name="rtl"}
+	      {exp:stash:set name="content"}بلدي محتوى لغة معينة{/exp:stash:set}
+	   {/case}
+	{/exp:switchee}	
 	
 ## {exp:stash:parse} tag pair
 Parse arbitrary regions of your template.

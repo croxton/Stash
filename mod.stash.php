@@ -27,7 +27,7 @@ class Stash {
 	protected $parse_depth = 1;
 	protected $parse_complete = FALSE;
 	protected $bundle_id = 1;
-	protected static $context = NULL;
+	public static $context = NULL;
 	protected static $bundles = array();
 	protected $process = 'inline';
 	protected $priority = 1;
@@ -451,6 +451,13 @@ class Stash {
 		
 		if ($set)
 		{
+			// Check for a no_results prefix to avoid no_results parse conflicts
+			if($no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix'))
+			{
+				$this->EE->TMPL->tagdata = str_replace($no_results_prefix.'no_results', 'no_results', $this->EE->TMPL->tagdata);
+				$this->EE->TMPL->tagdata = str_replace($no_results_prefix.':no_results', 'no_results', $this->EE->TMPL->tagdata);
+			}
+			
 			if ( ($this->parse_tags || $this->parse_vars || $this->parse_conditionals) && ! $this->parse_complete)
 			{	
 				$this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
@@ -460,12 +467,6 @@ class Stash {
 			// apply any string manipulations
 			$this->EE->TMPL->tagdata = $this->_clean_string($this->EE->TMPL->tagdata);
 
-			// Check for a no_results prefix to avoid no_results parse conflicts
-			if($no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix'))
-			{
-				$this->EE->TMPL->tagdata = str_replace($no_results_prefix.'no_results', 'no_results', $this->EE->TMPL->tagdata);
-			}
-			
 			if ( !! $name )
 			{					
 				// get params
@@ -556,7 +557,7 @@ class Stash {
 						array($name => $this->_stash[$name])
 					);
 				}
-							
+			
 				if ($save)
 				{	
 					// optionally clean data before inserting
@@ -1016,7 +1017,6 @@ class Stash {
 				}
 				*/
 			}
-			
 			return $value;
 		}
 	}
@@ -1187,8 +1187,40 @@ class Stash {
 		// do any parsing and string transforms before making the list
 		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
 		
-		//  get the stash var pairs values
-		$this->_serialize_stash_tag_pairs();
+		// get the first key and see if it repeats
+		$keys = array_keys($this->EE->TMPL->var_pair);
+		$first_key = $keys[0];
+
+		preg_match_all('/'. LD . $first_key . RD . '/', $this->EE->TMPL->tagdata, $matches);
+		
+		if (count($matches[0]) > 1)
+		{
+			// yes we have repeating keys, so let's split the tagdata up into rows
+			$this->EE->TMPL->tagdata = str_replace(
+					LD . $first_key . RD, 
+					$this->_list_delimiter . LD . $first_key . RD,
+					$this->EE->TMPL->tagdata
+			);
+			
+			// get an array of rows, remove first element which will be empty
+			$rows = explode($this->_list_delimiter, $this->EE->TMPL->tagdata);
+			array_shift($rows);
+			
+			// serialize each row and append
+			$tagdata = '';
+			foreach($rows as $row)
+			{
+				$this->EE->TMPL->tagdata = $row;
+				$this->_serialize_stash_tag_pairs();
+				$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
+			}
+			$this->EE->TMPL->tagdata = $tagdata;
+		}
+		else
+		{
+			//  get the stash var pairs values
+			$this->_serialize_stash_tag_pairs();
+		}
 		
 		if ( $this->not_empty($this->EE->TMPL->tagdata))
 		{
@@ -1245,7 +1277,7 @@ class Stash {
 	 * @return string 
 	 */
 	public function get_list()
-	{				
+	{							
 		/* Sample use
 		---------------------------------------------------------
 		{exp:stash:get_list name="page_items" orderby="item_title" sort="asc"}
@@ -1269,15 +1301,21 @@ class Stash {
 		$prefix			= $this->EE->TMPL->fetch_param('prefix', NULL); // optional namespace for common vars like {count}
 		
 		$list_html 		= '';
-		$list_markers	= array();
-
+		$list_markers	= array();	
+		
+		// check for prefixed no_results block
+		if ( ! is_null($prefix))
+		{
+			$this->_prep_no_results($prefix);
+		}
+					
 		// retrieve the list array
 		$list = $this->_rebuild_list();
 
 		// return no results if this variable has no value
 		if ($list == '')
-		{
-			return $this->EE->TMPL->no_results();
+		{	
+			return $this->_no_results();
 		}
 		
 		// order by multidimensional array key
@@ -1379,7 +1417,7 @@ class Stash {
 		}
 		else
 		{
-			return $this->EE->TMPL->no_results();
+			return $this->_no_results();
 		}
 	}
 	
@@ -1999,7 +2037,7 @@ class Stash {
 			}
 		}
 		
-		// match/against: optionally match against the value of one of the list keys, rather than the whole seriliazed variable
+		// match/against: optionally match against the value of one of the list keys, rather than the whole serialized variable
 		if  ( ! is_null($match) 
 			&& preg_match('/^#(.*)#$/', $match) 
 			&& ! is_null($against) 
@@ -2412,6 +2450,7 @@ class Stash {
 		// parse tags?
 		if ( ($this->parse_tags || $this->parse_vars || $this->parse_conditionals) && ! $this->parse_complete)
 		{	
+			// do parsing
 			$this->EE->TMPL->tagdata = $value;
 			$this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
 			$value = $this->EE->TMPL->tagdata;
@@ -2666,6 +2705,51 @@ class Stash {
 	// ---------------------------------------------------------
 	
 	/**
+	 * prep a prefixed no_results block in current template tagdata
+	 * 
+	 * @access private
+	 * @param string $prefix
+	 * @return String	
+	 */	
+	function _prep_no_results($prefix)
+	{
+		if (strpos($this->EE->TMPL->tagdata, 'if '.$prefix.':no_results') !== FALSE 
+				&& preg_match("/".LD."if ".$prefix.":no_results".RD."(.*?)".LD.'\/'."if".RD."/s", $this->EE->TMPL->tagdata, $match)) 
+		{
+			if (stristr($match[1], LD.'if'))
+			{
+				$match[0] = $this->EE->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+			}
+		
+			$no_results = substr($match[0], strlen(LD."if ".$prefix.":no_results".RD), -strlen(LD.'/'."if".RD));
+			$no_results_block = $match[0];
+			
+			// remove {if prefix:no_results}..{/if} block from template
+			$this->EE->TMPL->tagdata = str_replace($no_results_block, '', $this->EE->TMPL->tagdata);
+			
+			// set no_result variable in Template class
+			$this->EE->TMPL->no_results = $no_results;
+		}
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * parse and return no_results content
+	 * 
+	 * @access private
+	 * @param string $prefix
+	 * @return String	
+	 */	
+	function _no_results()
+	{
+		$this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
+		return $this->EE->TMPL->no_results();
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
 	 * get a users real IP address
 	 * 
 	 * @access private
@@ -2690,7 +2774,7 @@ class Stash {
 			$ip = $_SERVER['REMOTE_ADDR'];
 		}
 		return $ip;
-	}	
+	}
 }
 
 /* End of file mod.stash.php */

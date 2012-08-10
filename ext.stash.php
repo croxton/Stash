@@ -220,9 +220,11 @@ class Stash_ext {
 					}
 				}
 					
-				// set as a global variable so it gets replaced into the template early by the Template class
+				// Set as a global variable so it gets replaced into the template early by the Template class
 				// $row is a copy not a reference, so this is the only way to change stuff in the actual template!
-				$this->EE->config->_global_vars[$tag] = $out;
+				// Make sure the stash embeds are prepended to beginning of the globals array so that any global vars
+				// passed as parameters get parsed later by EE 
+				$this->EE->config->_global_vars = array($tag => $out) + $this->EE->config->_global_vars;
 			}
 		}
 
@@ -261,9 +263,16 @@ class Stash_ext {
 			// run any postponed stash tags
 			if ( ! empty($cache))
 			{	
+				$context = '';
+				
 				if ( ! class_exists('Stash'))
 				{
 					include_once PATH_THIRD . 'stash/mod.stash.php';
+				}
+				else
+				{
+					// get static context if it has been set
+					$context = Stash::$context;
 				}
 
 				$s = new Stash();
@@ -286,6 +295,26 @@ class Stash_ext {
 						
 						$this->EE->TMPL->tagparams = $tag['tagparams'];
 						$this->EE->TMPL->tagdata = $tag['tagdata'];
+						
+						// restore context @ pointer in context parameter
+						if (isset($this->EE->TMPL->tagparams['context']) && $this->EE->TMPL->tagparams['context'] == '@')
+						{
+							$this->EE->TMPL->tagparams['context'] = $context;
+						}
+						
+						// restore context @ pointer if harcoded in name parameter
+						if (isset($this->EE->TMPL->tagparams['name']) 
+							&& strncmp($this->EE->TMPL->tagparams['name'], '@:', 2) == 0)
+						{
+							$this->EE->TMPL->tagparams['name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['name']);
+						}
+						
+						// restore context @ pointer if harcoded in file_name parameter
+						if (isset($this->EE->TMPL->tagparams['file_name']) 
+							&& strncmp($this->EE->TMPL->tagparams['file_name'], '@:', 2) == 0)
+						{
+							$this->EE->TMPL->tagparams['file_name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['file_name']);
+						}
 					
 						$s->init(TRUE);
 					
