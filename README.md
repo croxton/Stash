@@ -382,7 +382,7 @@ Column to match against. If against is not specified or is not a valid list colu
 	    {/exp:stash:set_list}
 	{/exp:channel:entries}
 	
-### Example usage 3: capturing caching Playa / Matrix tag pairs
+### Example usage 3: capturing and caching Playa / Matrix tag pairs
 	{exp:channel:entries channel="blog" entry_id="123"}
 		{exp:stash:set_list name="blog_related_entries" parse_tags="yes" save="yes" scope="site"}
 			{blog_related}
@@ -406,7 +406,37 @@ Column to match against. If against is not specified or is not a valid list colu
 			{stash:last_post_date}{last_post_date}{/stash:last_post_date}
 		{/exp:forum:topic_titles}
 	{/exp:stash:set_list}	
+	
+### Example usage 5: nesting. Yep, you really can do this...
 
+	{exp:stash:set_list name="my_entries" parse_tags="yes" parse_depth="2"}
+		{exp:channel:entries channel="clients" limit="5"}
+
+			{stash:entry_title}{title}{/stash:entry_title}
+			{stash:entry_id}{entry_id}{/stash:entry_id}
+		
+			{exp:stash:set_list:nested name="related_entries_{entry_id}" parse_tags="yes"}
+		
+				{!-- this is a matrix tag pair --}
+				{contact_docs}
+					{stash:related_title}{mx_doc_title}{/stash:related_title}
+				{/contact_docs}
+			{/exp:stash:set_list:nested}	
+		
+		{/exp:channel:entries}	
+	{/exp:stash:set_list}
+
+	{exp:stash:get_list name="my_entries"}
+
+		Entry title: {entry_title}
+	
+		Related:
+		{exp:stash:get_list:nested name="related_entries_{entry_id}"}
+			{related_title}
+		{/exp:stash:get_list:nested}
+	
+	{/exp:stash:get_list}
+	
 ## {exp:stash:append_list} tag pair
 
 Append an array of variables to a list to create *multiple rows* of variables (i.e. a multidimensional array). 
