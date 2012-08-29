@@ -128,8 +128,13 @@ class Stash_ext {
 			$row = $this->EE->extensions->last_call;
 		}	
 		
-		// do we have any stash embeds? {stash:embed name=""} or {stash:embed:name}
+		// Remove EE comments
+		$row['template_data'] = $this->EE->TMPL->remove_ee_comments($row['template_data']);
+		
 		$matches = array();
+		
+		// do we have any stash embeds? {stash:embed name=""} or {stash:embed:name}
+		
 		if ( ! preg_match_all("/(".LD."stash:embed)([\s|:].*?)".RD."/s", $row['template_data'], $matches))
 		{
 			return $row;
