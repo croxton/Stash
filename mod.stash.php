@@ -1187,6 +1187,10 @@ class Stash {
 		// do any parsing and string transforms before making the list
 		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
 		
+		// regenerate tag variable pairs array using the parsed tagdata
+		$tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
+		$this->EE->TMPL->var_pair = $tag_vars['var_pair'];
+		
 		// get the first key and see if it repeats
 		$keys = array_keys($this->EE->TMPL->var_pair);
 		$first_key = $keys[0];

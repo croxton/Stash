@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.8 beta
+## Version 2.2.9 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
