@@ -670,14 +670,14 @@ Parse the template the first time it is read from the file, and cache the render
 Read the template file and cache it to the database. When output to the template on the first and subsequent retrievals the template will be parsed. This is similar to how EE templates work.
 
 #### `parse_stage="both"`
-Parse the template before caching AND after it is retrieved. This can be very useful when enclosing regions of your template with {stash:nocache}{/stash:nocache}. On SET the template code inside {stash:nocache} will not be parsed, but everything else will. On GET it will be parsed. This provides a way to partially cache some of your template code while leaving other areas dynamic.
+Parse the template before caching AND after it is retrieved. This can be very useful when enclosing regions of your template with `{stash:nocache}{/stash:nocache}`. On SET the template code inside {stash:nocache} will not be parsed, but everything else will. On GET it will be parsed. This provides a way to partially cache some of your template code while leaving other areas dynamic.
 
 ### parse_depth = [int]
 How many passes of the template to make by the parser? (default is 3)
 
 ### stash:my_variable="value"
 
-Pass variables to the Stash template as parameters in the form stash:my_variable="value":
+Pass variables to the Stash template as parameters in the form `stash:my_variable="value"`:
 
 	{exp:stash:embed name="my_template" stash:my_var="my_value"}
 	
@@ -734,10 +734,10 @@ Parse arbitrary regions of your template.
 ### process = ['inline'|'end']
 When in the parse order of your EE template do you want the tags to be parsed (default='inline')
 
-#### process="inline"
+#### `process="inline"`
 Parse the enclosed tagdata in the natural parse order of the template
 
-#### process="end"
+#### `process="end"`
 Parse the enclosed tagdata at the end of template parsing after other tags and variables have been parsed
 
 ### priority = [int]
