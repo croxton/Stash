@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.2.9 beta
+## Version 2.3.0 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -492,6 +492,9 @@ Match a column in the list against a regular expression. Only rows in the list t
 ### against = [list column]
 Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole string return by get_list.
 
+### unique = ['yes'|'no']
+Remove duplicate list rows (optional, default is 'no')
+
 ### prefix = [string]
 Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
 
@@ -544,7 +547,6 @@ Retrieve the variable at the end of template parsing after other tags and variab
 ### priority = [int]
 Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
 
-
 ### variables
 
 * {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
@@ -560,6 +562,35 @@ Determines the order in which the variable is retrieved when using process="end"
 		<p>This is item {count} of {total_results} rows curently being displayed.</p>
 		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
 	{/exp:stash:get_list}	
+
+## {exp:stash:unset} (requires PHP 5.2.3+) OR {exp:stash:destroy}
+Unset an existing variable.
+
+### name = [string]
+The name of your variable (optional). If name is not passed, then ALL variables in the specified scope will be unset. 
+
+### type = ['variable'|'snippet']
+The type of variable to unset (optional, default is 'variable').
+
+### scope = ['user'|'site']
+Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
+
+### context = [string]
+The variable namespace (optional)
+
+### flush_cache = ['yes'|'no']
+Delete the variable value from the database, if it has been saved (optional, default is 'yes').
+
+### Example usage
+
+	{!-- unset 'my_var' --}
+	{exp:stash:unset name="my_var"}
+	
+	{!-- unset 'my_var' snippet --}
+	{exp:stash:unset name="my_var" type="snippet"}
+	
+	{!-- unset all user-scoped variables --}
+	{exp:stash:unset scope="user"}
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.

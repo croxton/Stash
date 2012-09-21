@@ -298,17 +298,27 @@ class Stash {
 		{/exp:stash:set}
 		--------------------------------------------------------- */
 		
-		// if there is an extra tagpart, then we have a context and a name
-		if (isset($this->EE->TMPL->tagparts[2]))
-		{	
-			$this->EE->TMPL->tagparams['context'] = $name;
-			$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];	
+		switch($name)
+        {
+			case 'unset' :
+				// make 'unset' - a reserved word - an alias of destroy()
+				return call_user_func_array(array($this, 'destroy'), $arguments);
+			break;
+
+			default :
+			
+			// if there is an extra tagpart, then we have a context and a name
+			if (isset($this->EE->TMPL->tagparts[2]))
+			{	
+				$this->EE->TMPL->tagparams['context'] = $name;
+				$this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];	
+			}
+			else
+			{
+				$this->EE->TMPL->tagparams['name'] = $name;
+			}
+			return $this->EE->TMPL->tagdata ? $this->set() : $this->get();
 		}
-		else
-		{
-			$this->EE->TMPL->tagparams['name'] = $name;
-		}
-		return $this->EE->TMPL->tagdata ? $this->set() : $this->get();
 	}
 
 	
@@ -322,7 +332,7 @@ class Stash {
 	 * @param  string 	 $scope The scope of the variable
 	 * @return void 
 	 */
-	public function set($params = array(), $value='', $type='variable', $scope='user')
+	public function set($params=array(), $value='', $type='variable', $scope='user')
 	{	
 		/* Sample use
 		---------------------------------------------------------
@@ -335,33 +345,7 @@ class Stash {
 		// is this method being called statically?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
 		{	
-			// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
-			if ( ! class_exists('EE_Template'))
-			{
-				$this->_load_EE_TMPL();
-			}
-			else
-			{
-				// make sure we have a clean array if class has already been instatiated
-				$this->EE->TMPL->tagparams = array();
-			}
-			
-			if ( is_array($params))
-			{
-				$this->EE->TMPL->tagparams = $params;
-			}
-			else
-			{
-				$this->EE->TMPL->tagparams['name']    = $params;
-				$this->EE->TMPL->tagparams['type']    = $type;
-				$this->EE->TMPL->tagparams['scope']   = $scope;
-			}
-		
-			$this->EE->TMPL->tagdata = $value;
-		
-			// as this function is called statically, we need to get an instance of this object and run set()
-			$self = new self();	
-			return $self->set();
+			return self::_static_call(__FUNCTION__, $params, $type, $scope, $value);
 		}
 		
 		// do we want to set the variable?
@@ -687,6 +671,77 @@ class Stash {
 			return $this->EE->TMPL->tagdata;
 		}
 	}
+		
+	/**
+	 * Unset variable(s) in the current session, optionally flush from db
+	 *
+	 * @access public
+	 * @param  mixed 	 $params The name of the variable to unset, or an array of key => value pairs
+	 * @param  string 	 $type  The type of variable
+	 * @param  string 	 $scope The scope of the variable
+	 * @return void 
+	 */
+	public function destroy($params=array(), $type='variable', $scope='user')
+	{
+		// is this method being called statically?
+		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+		{	
+			return self::_static_call(__FUNCTION__, $params, $type, $scope);
+		}
+		
+		// register params
+		$name = strtolower($this->EE->TMPL->fetch_param('name', FALSE));		
+		$context = $this->EE->TMPL->fetch_param('context', NULL);
+		$scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user'));
+		$flush_cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('flush_cache', 'yes'));
+		
+		// narrow the scope to user?
+		$session_id = $scope === 'user' ? $this->_session_id : '_global';
+		
+		// unset a single variable?
+		if ($name)
+		{
+			if ($context !== NULL && count( explode(':', $name) == 1 ) )
+			{
+				$name = $context . ':' . $name;
+			}
+			
+			// remove from session
+			if ( isset($this->_stash[$name]))
+			{
+				unset($this->_stash[$name]);
+			}
+			
+			// remove from cache?
+			if ($flush_cache)
+			{
+				// replace '@' placeholders with the current context
+				$stash_key = $this->_parse_context($name);
+				
+				$this->EE->stash_model->delete_key(
+					$stash_key, 
+					$this->bundle_id,
+					$session_id, 
+					$this->site_id
+				);
+			}
+		}	
+		elseif($scope === 'user' || $scope === 'site')
+		{
+			// unset ALL user-scoped variables in the current session
+			$this->_stash = array();
+			
+			// remove from cache
+			if ($flush_cache)
+			{
+				$this->EE->stash_model->delete_session_keys(
+					$bundle_id, 
+					$session_id, 
+					$site_id
+				);
+			}
+		}
+	}
 	
 	// ---------------------------------------------------------
 	
@@ -712,31 +767,7 @@ class Stash {
 		// is this method being called statically?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
 		{	
-			// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
-			if ( ! class_exists('EE_Template'))
-			{
-				$this->_load_EE_TMPL();
-			}
-			else
-			{		
-				// make sure we have a clean array if class has already been instatiated
-				$this->EE->TMPL->tagparams = array();
-			}
-			
-			if ( is_array($params))
-			{
-				$this->EE->TMPL->tagparams = $params;
-			}
-			else
-			{
-				$this->EE->TMPL->tagparams['name']    = $params;
-				$this->EE->TMPL->tagparams['type']    = $type;
-				$this->EE->TMPL->tagparams['scope']   = $scope;
-			}
-			
-			// as this function is called statically, we need to get an instance of this object
-			$self = new self();			
-			return $self->get();
+			return self::_static_call(__FUNCTION__, $params, $type, $scope);
 		}
 		
 		if ( $this->process !== 'inline') 
@@ -1960,6 +1991,7 @@ class Stash {
 	{
 		$match 	 = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
 		$against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
+		$unique = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique'));
 		
 		// make sure any parsing is done AFTER the list has been replaced in to the template 
 		// not when it's still a serialized array
@@ -1981,26 +2013,31 @@ class Stash {
 			{
 				$value = $this->_list_row_explode($value);
 			}
+			unset($value);
 			
 			// match/against: match the value of one of the list keys (specified by the against param) against a regex
 			if ( ! is_null($match) && preg_match('/^#(.*)#$/', $match) && ! is_null($against))
 			{
 				$new_list = array();
 				
-				// note: $value is still a reference so use another name
-				// NOT a bug! See https://bugs.php.net/bug.php?id=50485
-				foreach($list as $key => $part)
+				foreach($list as $key => $value)
 				{
-					if ( isset($part[$against]) )
+					if ( isset($value[$against]) )
 					{
-						if ($this->_matches($match, $part[$against]))
+						if ($this->_matches($match, $value[$against]))
 						{
 							// match found
-							$new_list[] = $part;
+							$new_list[] = $value;
 						}
 					}
 				}
 				$list = $new_list;
+			}
+			
+			// ensure we have unique rows?
+			if ($unique)
+			{
+				$list = array_map('unserialize', array_unique(array_map('serialize', $list)));
 			}
 		}		
 		return $list;
@@ -2714,7 +2751,7 @@ class Stash {
 	/**
 	 * prep a prefixed no_results block in current template tagdata
 	 * 
-	 * @access private
+	 * @access public
 	 * @param string $prefix
 	 * @return String	
 	 */	
@@ -2744,7 +2781,7 @@ class Stash {
 	/**
 	 * parse and return no_results content
 	 * 
-	 * @access private
+	 * @access public
 	 * @param string $prefix
 	 * @return String	
 	 */	
@@ -2752,6 +2789,53 @@ class Stash {
 	{
 		$this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
 		return $this->EE->TMPL->no_results();
+	}
+	
+	// ---------------------------------------------------------
+	
+	/**
+	 * call a Stash method statically
+	 * 
+	 * @access public
+	 * @param string $method
+	 * @param mixed $params variable name or an array of parameters
+	 * @param string $type
+	 * @param string $scope
+	 * @param string $value
+	 * @return void	
+	 */	
+	private function _static_call($method, $params, $type, $scope, $value=NULL)
+	{
+		// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
+		if ( ! class_exists('EE_Template'))
+		{
+			$this->_load_EE_TMPL();
+		}
+		else
+		{
+			// make sure we have a clean array if class has already been instatiated
+			$this->EE->TMPL->tagparams = array();
+		}
+		
+		if ( is_array($params))
+		{
+			$this->EE->TMPL->tagparams = $params;
+		}
+		else
+		{
+			$this->EE->TMPL->tagparams['name']    = $params;
+			$this->EE->TMPL->tagparams['type']    = $type;
+			$this->EE->TMPL->tagparams['scope']   = $scope;
+		}
+		
+		if ( ! is_null($value))
+		{
+			$this->EE->TMPL->tagdata = $value;
+		}
+	
+		// as this function is called statically, we need to get a Stash object instance and run the requested method
+		$self = new self();	
+		return $self->{$method}();
 	}
 	
 	// ---------------------------------------------------------
