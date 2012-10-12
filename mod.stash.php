@@ -735,9 +735,9 @@ class Stash {
 			if ($flush_cache)
 			{
 				$this->EE->stash_model->delete_session_keys(
-					$bundle_id, 
+					$this->bundle_id,
 					$session_id, 
-					$site_id
+					$this->site_id
 				);
 			}
 		}
@@ -1333,10 +1333,12 @@ class Stash {
 		$sort_type 		= strtolower($this->EE->TMPL->fetch_param('sort_type', 'string')); // string || integer
 		$orderby 		= $this->EE->TMPL->fetch_param('orderby', FALSE);
 		$limit 			= $this->EE->TMPL->fetch_param('limit',  FALSE);
-		$offset 		= $this->EE->TMPL->fetch_param('offset', FALSE);
+		$offset 		= $this->EE->TMPL->fetch_param('offset', 0);
 		$default 		= $this->EE->TMPL->fetch_param('default', ''); // default value
 		$filter			= $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
 		$prefix			= $this->EE->TMPL->fetch_param('prefix', NULL); // optional namespace for common vars like {count}
+		$paginate		= $this->EE->TMPL->fetch_param('paginate', FALSE);
+		$paginate_param = $this->EE->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination, e.g. ?p=1
 		
 		$list_html 		= '';
 		$list_markers	= array();	
@@ -1349,6 +1351,60 @@ class Stash {
 					
 		// retrieve the list array
 		$list = $this->_rebuild_list();
+		
+		// absolute results total
+		$absolute_results = count($list);
+		
+		// pagination
+		if ($paginate)
+		{	
+			// remove prefix if used in the paginate tag pair
+			if ( ! is_null($prefix))
+			{
+				if (preg_match("/(".LD.$prefix.":paginate".RD.".+?".LD.'\/'.$prefix.":paginate".RD.")/s", $this->EE->TMPL->tagdata, $paginate_match))
+				{
+					$paginate_template = str_replace($prefix.':','', $paginate_match[1]);
+					$this->EE->TMPL->tagdata = str_replace($paginate_match[1], $paginate_template, $this->EE->TMPL->tagdata);
+				}
+			}
+					
+			// pagination template
+			$this->EE->load->library('pagination');
+			
+			// are we passing the offset in the query string?
+			if ( ! is_null($paginate_param))
+			{
+				// prep the base pagination object
+				$this->EE->pagination->query_string_segment = $paginate_param;
+				$this->EE->pagination->page_query_string = TRUE;
+			}
+			
+			$this->pagination = new Pagination_object(__CLASS__);
+
+			// pass the offset to the pagination object
+			if ( ! is_null($paginate_param))
+			{
+				// we only want the offset integer, ignore the 'P' prefix inserted by EE_Pagination
+				$this->pagination->offset = filter_var($this->EE->input->get($paginate_param, TRUE), FILTER_SANITIZE_NUMBER_INT);
+				
+				if ( ! is_null($this->EE->TMPL->fetch_param('paginate_base', NULL)))
+				{
+					// make sure paginate_base ends with a '?', if specified
+					$this->EE->TMPL->tagparams['paginate_base'] = rtrim($this->EE->TMPL->tagparams['paginate_base'], '?') . '?';
+				}
+			}
+			else
+			{
+				$this->pagination->offset = 0;
+			}
+			
+			// build that mother
+			$this->pagination->per_page   = $limit ? $limit : 100; // same default limit as channel entries module
+			$this->pagination->total_rows = $absolute_results - $offset;
+			$this->pagination->get_template();
+			$this->pagination->build(); 
+			$offset = $offset + $this->pagination->offset;
+		}
 
 		// return no results if this variable has no value
 		if ($list == '')
@@ -1391,7 +1447,7 @@ class Stash {
 		}
 		
 		// {absolute_results} - record the total number of list rows
-		$list_markers['absolute_results'] = count($list);
+		$list_markers['absolute_results'] = $absolute_results;
 		
 		// slice array depending on limit/offset
 		if ($limit && $offset)
@@ -1449,6 +1505,12 @@ class Stash {
 		
 			// parse other markers
 			$list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
+			
+			// render pagination
+			if ($paginate)
+			{
+				$list_html = $this->pagination->render($list_html);
+			}
 		
 			// now apply final output transformations / parsing
 			return $this->_parse_output($list_html, NULL, $filter, $default);
@@ -2809,7 +2871,7 @@ class Stash {
 		// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
 		if ( ! class_exists('EE_Template'))
 		{
-			$this->_load_EE_TMPL();
+			self::_load_EE_TMPL();
 		}
 		else
 		{
