@@ -48,11 +48,14 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 3. Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
 4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
 
+###
+	
 	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
 	$assign_to_config['stash_file_sync'] = TRUE; // set to FALSE for production
 	$assign_to_config['stash_cookie'] = 'stashid'; // the stash cookie name
 	$assign_to_config['stash_cookie_expire'] = 0; // seconds - 0 means expire at end of session
 	$assign_to_config['stash_default_scope'] = 'user';
+
 
 (of course if you're using a custom config bootstrap file, add the config items there instead)
 
@@ -81,7 +84,7 @@ The type of variable to create (optional, default is 'variable').
 A variable is stored in the Stash session, and can be retrieved using `{exp:stash:get name="my_var"}` or `{exp:stash:my_var}`
 
 #### `type = "snippet"`
-A 'snippet' works just like snippets in ExpressionEngine, and can be used in the same way, e.g. `{my_var}`. When using snippets it is possible to overwrite existing EE global variables in the current request. Note that EE snippets can also be retrieved using {exp:stash:get name="a_snippet" type="snippet"}
+A 'snippet' works just like snippets in ExpressionEngine, and can be used in the same way, e.g. `{my_var}`. When using snippets it is possible to overwrite existing EE global variables in the current request. Note that EE snippets can also be retrieved using `{exp:stash:get name="a_snippet" type="snippet"}`
 
 ### save = ['yes'|'no']
 Do you want to store the variable in the database so that it persists across page loads? (optional, default is 'no')
@@ -141,7 +144,7 @@ A 'user' variable behaves like a local variable but can optionally be saved to t
 Use for pagination, search queries, or chunks of personalised content that you need to persist across pages. 
 
 #### `scope = "site"`
-A 'site' / 'global' variable is set only once until it expires, and is visible to ALL site visitors. Use for caching common parts of your template.
+A 'site' variable is set only once until it expires, and is visible to ALL site visitors. Use for caching common parts of your template.
 
 ### append = ['yes'|'no']
 The value is appended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:append}`
@@ -219,7 +222,7 @@ The above would capture all 'people' entries whose last name `{person_lname}` st
 Works the same as `{exp:stash:set}`, except the value is prepended to an existing variable.
 
 ## {exp:stash:set_value} single tag
-Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a plugin as a tag parameter (always use with parse="inward"). For example:
+Works the same as `{exp:stash:set}`, except the value is passed as a parameter. This can be useful for when you need to use a plugin as a tag parameter (always use with parse="inward"). For example:
 
 	{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
 
@@ -574,21 +577,20 @@ Override the normal pagination link locations and point instead to the explicitl
 A parameter containing the page offset value. If set to a value, query-string style pagination links are created (e.g, ?page=P10) instead of the default segment style links (/P10); this can be useful when working with Structure / Page module uris. 
 
 ### prefix = [string]
-Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
+Prefix for common iteration variables such as `{count}`, `{total:results}`, `{switch}` and `{if no_results}`. Useful when outputting a list inside another tag.
 
 ### single variables
 
-* {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
-* {total_results} -  the total number of rows in the list currently being displayed
-* {absolute_count} - The absolute "count" of the current row being displayed by the tag, regardless of limit / offset.
-* {absolute_results} - the absolute total number of rows in the list, regardless of limit / offset.
-* {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
-* 
+* `{count}` - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
+* `{total_results}` -  the total number of rows in the list currently being displayed
+* `{absolute_count}` - The absolute "count" of the current row being displayed by the tag, regardless of limit / offset.
+* `{absolute_results}` - the absolute total number of rows in the list, regardless of limit / offset.
+* `{switch="one|two|three"}` - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
 
 ### pagination variables
 
 Pagination variables use the same syntax as [Channel Entry pagination](http://expressionengine.com/user_guide/modules/channel/pagination_page.html)
-The {paginate}{/paginate} tag pair can optionally be prefixed, if using `prefix=""`
+The `{paginate}{/paginate}` tag pair can optionally be prefixed, if using `prefix=""`
 
 ### Example usage
 
