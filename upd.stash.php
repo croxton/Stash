@@ -133,15 +133,22 @@ class Stash_upd {
 	 */
 	public function update($current = '')
 	{
-		if ($current == '' OR $current == $this->version)
+		if ($current == '' OR version_compare($current, $this->version) === 0)
 		{
 			// up to date
 			return FALSE;
 		}
+		
+		// Update to 2.3.1
+		if (version_compare($current, '2.3.1', '<'))
+		{
+			$this->EE->load->model('stash_model');
+			$this->EE->stash_model->prune_last_activity(0);
+		}
 
-		// update table row with current version
-		$this->EE->db->where('module_name', 'Stash');
-		$this->EE->db->update('modules', array('module_version' => $this->version));
+		// update version number
+		return TRUE;
+		
 	}
 }
 

@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.3.0 beta
+## Version 2.3.1 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -49,16 +49,17 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
 
 	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
-
-	$assign_to_config['stash_file_sync'] = TRUE;
+	$assign_to_config['stash_file_sync'] = TRUE; // set to FALSE for production
+	$assign_to_config['stash_cookie'] = 'stashid'; // the stash cookie name
+	$assign_to_config['stash_cookie_expire'] = 0; // seconds - 0 means expire at end of session
+	$assign_to_config['stash_default_scope'] = 'user';
 
 (of course if you're using a custom config bootstrap file, add the config items there instead)
 
-## Upgrading from <2.1.0 or earlier
+## Upgrading
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
-2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link for the Stash module
-3. In the CP, navigate to Add-ons > Extensions and click the 'activate' link for the Stash extension
+2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link
 
 ## {exp:stash:set} tag pair
 
@@ -75,13 +76,16 @@ Note: if you use the same variable twice the second one will overwrite the first
 
 ### type = ['variable'|'snippet']
 The type of variable to create (optional, default is 'variable').
-A 'variable' is stored in the session, and must be retrieved using {exp:stash:get name=""}.
-A 'snippet' works just like snippets in ExpressionEngine, and can be used directly as a tag {my_variable}
-If using snippets, please be careful to namespace them so as not to overwrite any existing EE globals. 
+
+#### `type = "variable"`
+A variable is stored in the Stash session, and can be retrieved using `{exp:stash:get name="my_var"}` or `{exp:stash:my_var}`
+
+#### `type = "snippet"`
+A 'snippet' works just like snippets in ExpressionEngine, and can be used in the same way, e.g. `{my_var}`. When using snippets it is possible to overwrite existing EE global variables in the current request. Note that EE snippets can also be retrieved using {exp:stash:get name="a_snippet" type="snippet"}
 
 ### save = ['yes'|'no']
 Do you want to store the variable in the database so that it persists across page loads? (optional, default is 'no')
-Note that you should never cache any sensitive user data.
+Note that you should never save user data that is sensitive.
 
 ### refresh = [int]
 The number of minutes to store the variable (optional, default is 1440 - or one day)
@@ -113,6 +117,10 @@ Variable will only be set if the content matches the supplied regular expression
 String to match against if using the match= parameter (optional).
 By default, the variable content is used.
 
+### site_id = [int]
+When using MSM specify the site id here (optional). 
+By default, the site_id of the site currently being viewed will be used.
+
 ### context = [string]
 If you want to assign the variable to a context, add it here. 
 Tip: Use '@' to refer to the current context:
@@ -121,14 +129,19 @@ Tip: Use '@' to refer to the current context:
 	...
 	{exp:stash:set}
 
-### scope = ['user'|'site']
-When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
+### scope = ['local'|'user'|'site']
+Determines if an instance of the variable is set for the current page only, for the current user, or globally (set for everyone who visits the site) (optional, default is 'user').
+
+#### `scope = "local"`
+A 'local' variable exists in memory for the duration of the current HTTP request, and expires once the page has been rendered. It cannot be saved to the database.
 
 #### `scope = "user"`
-A 'user' variable is linked to the users session id. Only they will see it. Use for pagination, search queries, or chunks of personalised content that you need to cache across multiple pages. 
+A 'user' variable behaves like a local variable but can optionally be saved to the database for persistence across page loads (with `save="yes"`). When saved, the variable is linked to the user's session id, and so it's content is only visible to that user. While a user-scoped variable can be set to expire after an arbitrary time period (with `refresh=""`), by default it will expire anyway once the users' session has ended. For persistence of user-scoped variables beyond the user's current browser session set the 'stash_cookie_expire' configuration setting to the desired number of seconds.
+
+Use for pagination, search queries, or chunks of personalised content that you need to persist across pages. 
 
 #### `scope = "site"`
-A 'global' variable is set only once until it expires, and is accessible to ALL site visitors. Use in combination with [Switchee](https://github.com/croxton/Switchee) for caching and reusing rendered content throughout your site.
+A 'site' / 'global' variable is set only once until it expires, and is visible to ALL site visitors. Use for caching common parts of your template.
 
 ### append = ['yes'|'no']
 The value is appended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:append}`
@@ -254,6 +267,10 @@ Default value to return if variable is not set or empty (optional, default is an
 ### output = ['yes'|'no']
 Do you want to output the variable or just get the variable quietly in the background? (optional, default is 'yes')
 
+### site_id = [int]
+When using MSM specify the site id here (optional). 
+By default, the site_id of the site currently being viewed will be used. This parameter allows you to share variables across multiple sites.
+
 ### context = [string]
 If the variable was defined within a context, set it here
 Tip: you can also hardcode the context in the variable name, and use '@' to refer to the current context:
@@ -262,8 +279,8 @@ Tip: you can also hardcode the context in the variable name, and use '@' to refe
 	{exp:stash:get name="@:title"}
 	{exp:stash:get name="news:title"}
 
-### scope = ['user'|'site']
-Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
+### scope = ['local'|'user'|'site']
+Is the variable set for the current page only, for the current user, or globally (set for everyone who visits the site) (optional, default is 'user').
 Note: use the same scope that you used when you set the variable.
 
 ### process = ['inline'|'end']
@@ -366,6 +383,9 @@ Match a column in the list against a regular expression. Only rows in the list t
 ### against = [list column]
 Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole block of tagdata passed to set_list.
 
+### prefix = [string]
+Prefix for `{if no_results}`, e.g. `{if my_prefix:no_results}`
+
 ### Example usage 1
 	{exp:stash:set_list name="my_list"}
         {stash:item_title}My title{/stash:item_title}
@@ -436,7 +456,33 @@ Column to match against. If against is not specified or is not a valid list colu
 		{/exp:stash:get_list:nested}
 	
 	{/exp:stash:get_list}
+
+### Example usage 6: handling no_results
+
+no_results should ideally be handled by get_list, however it is possible to set a variable within the no_results block
+
+    {exp:stash:set_list parse_tags="yes" name="my_entries"}
+    	{exp:channel:entries 
+    		channel="clients" 
+    		limit="20"
+    	}
+    	    {stash:entry_title}{title}{/stash:entry_title}
+			{stash:entry_id}{entry_id}{/stash:entry_id}
+		
+    		 {if no_results}
+          		{exp:stash:set name="my_message"}No results{/exp:stash:set}
+        	{/if}
 	
+    	{/exp:channel:entries}
+    {/exp:stash:set_list}
+    
+    {exp:stash:get name="message" default="Showing results"}
+
+    {exp:stash:get_list name="my_entries" limit="5"}
+        {entry_title} ({entry_id})
+    {/exp:stash:get_list}
+
+
 ## {exp:stash:append_list} tag pair
 
 Append an array of variables to a list to create *multiple rows* of variables (i.e. a multidimensional array). 
@@ -469,12 +515,14 @@ Prepend an array of variables to a list.
 	
 ## {exp:stash:get_list} tag pair
 
-Retrieve a list and apply a custom order, sort, limit and offset.
+Retrieve a list and apply a custom order, sort, limit and offset. 
+
+* Accepts the same parameters as {exp:stash:get} and the following:
 
 ### orderby = [string]
 The variable you want to sort the list by.
 
-### sort = [asc|desc]
+### sort = ['asc'|'desc']
 The sort order, either ascending (asc) or descending (desc) (optional, default is "asc").
 
 ### sort_type = [string|integer]
@@ -495,8 +543,63 @@ Column to match against. If against is not specified or is not a valid list colu
 ### unique = ['yes'|'no']
 Remove duplicate list rows (optional, default is 'no')
 
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+
+#### `process="inline"`
+Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+
+#### `process="end"`
+Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
+
+### paginate = ['bottom'|'top'|'both']
+This parameter is for use with list pagination and determines where the pagination code will appear.
+
+#### `paginate="top"` 
+The navigation text and links will appear above your list.
+
+#### `paginate="bottom"` 
+The navigation text and links will appear below your list.
+
+#### `paginate="both"` 
+The navigation text and links will appear both above and below your list.
+
+### paginate_base = [string]
+Override the normal pagination link locations and point instead to the explicitly stated uri. This parameter is essential when using query string style pagination with `pagination_param=""`
+
+### paginate_param = [string]
+A parameter containing the page offset value. If set to a value, query-string style pagination links are created (e.g, ?page=P10) instead of the default segment style links (/P10); this can be useful when working with Structure / Page module uris. 
+
 ### prefix = [string]
 Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
+
+### single variables
+
+* {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
+* {total_results} -  the total number of rows in the list currently being displayed
+* {absolute_count} - The absolute "count" of the current row being displayed by the tag, regardless of limit / offset.
+* {absolute_results} - the absolute total number of rows in the list, regardless of limit / offset.
+* {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
+* 
+
+### pagination variables
+
+Pagination variables use the same syntax as [Channel Entry pagination](http://expressionengine.com/user_guide/modules/channel/pagination_page.html)
+The {paginate}{/paginate} tag pair can optionally be prefixed, if using `prefix=""`
+
+### Example usage
+
+	{exp:stash:get_list name="product_entries" orderby="item_title" sort="asc" limit="10"}
+		<h2 class="{switch="one|two|three"}">{item_title}</h2>
+   		<p>{item_teaser}</p>
+		<p>This is item {count} of {total_results} rows curently being displayed.</p>
+		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
+	{/exp:stash:get_list}
+	
+### Advanced usage
 
 	{exp:stash:get_list 
 		name="recent_discussion_topics" 
@@ -504,6 +607,7 @@ Prefix for common iteration variables such as {count}, {total:results}, {switch}
 		parse_conditionals="yes" 
 		process="end" 
 		prefix="my_prefix"
+		paginate="bottom"
 	}
 		{if my_prefix:count == 1}
 		<table class="data" cellpadding="0" cellspacing="0">
@@ -532,36 +636,34 @@ Prefix for common iteration variables such as {count}, {total:results}, {switch}
 		{if my_prefix:no_results}
 		<p>No forum topics yet. <a href="/forum/newtopic/{stash:forum}">Start a discussion &raquo;</a></p>
 		{/if}
+		
+		{my_prefix:paginate}
+    		{pagination_links}
+    	    <ul>
+    			{first_page}
+    			        <li><a href="{pagination_url}" class="page-first">First Page</a></li>
+    			{/first_page}
 
-	{/exp:stash:get_list}
+    			{previous_page}
+    			        <li><a href="{pagination_url}" class="page-previous">Previous Page</a></li>
+    			{/previous_page}
 
-### process = ['inline'|'end']
-When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+    			{page}
+    			        <li><a href="{pagination_url}" class="page-{pagination_page_number} {if current_page}active{/if}">{pagination_page_number}</a></li>
+    			{/page}
 
-#### `process="inline"`
-Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+    			{next_page}
+    			        <li><a href="{pagination_url}" class="page-next">Next Page</a></li>
+    			{/next_page}
 
-#### `process="end"`
-Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+    			{last_page}
+    			        <li><a href="{pagination_url}" class="page-last">Last Page</a></li>
+    			{/last_page}
+    	    </ul>
+    		{/pagination_links}
+    	{/my_prefix:paginate}
 
-### priority = [int]
-Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
-
-### variables
-
-* {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
-* {total_results} -  the total number of rows in the list currently being displayed
-* {absolute_count} - The absolute "count" of the current row being displayed by the tag, regardless of limit / offset.
-* {absolute_results} - the absolute total number of rows in the list, regardless of limit / offset.
-* {switch="one|two|three"} - this variable permits you to rotate through any number of values as the list rows are displayed. The first row will use "one", the second will use "two", the third "option_three", the fourth "option_one", and so on.
-
-### Example usage
-	{exp:stash:get_list name="product_entries" orderby="item_title" sort="asc" limit="10"}
-		<h2 class="{switch="one|two|three"}">{item_title}</h2>
-   		<p>{item_teaser}</p>
-		<p>This is item {count} of {total_results} rows curently being displayed.</p>
-		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
-	{/exp:stash:get_list}	
+	{/exp:stash:get_list}		
 
 ## {exp:stash:unset} (requires PHP 5.2.3+) OR {exp:stash:destroy}
 Unset an existing variable.
@@ -572,8 +674,8 @@ The name of your variable (optional). If name is not passed, then ALL variables 
 ### type = ['variable'|'snippet']
 The type of variable to unset (optional, default is 'variable').
 
-### scope = ['user'|'site']
-Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
+### scope = ['local'|'user'|'site']
+The variable scope (optional, default is 'user').
 
 ### context = [string]
 The variable namespace (optional)
