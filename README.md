@@ -547,6 +547,9 @@ Retrieve the variable at the end of template parsing after other tags and variab
 ### priority = [int]
 Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
 
+### parse_conditionals = ['yes'|'no']
+Allows conditionals to be parsed or not (default="no")
+
 ### variables
 
 * {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
