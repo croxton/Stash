@@ -2,9 +2,11 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.1.0
+## Version 2.3.0 beta
 
-* Requires: ExpressionEngine 2
+This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
+
+* Requires: ExpressionEngine 2.4+
 
 ## Description
 
@@ -29,12 +31,42 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 * apply text tranformations and parsing to retrieved variables and lists
 * Advanced uses: partial/full page caching, form field persistence, template partials/viewModel pattern implementation
 
+## New in v2.2.0
+* {stash:embed} - embed a Stash template file at different points in the parse order of the host template: start (before template parsing), inline (normal), end (post-process after normal template parsing has completed).
+* Stash embeds can be nested, but unlike EE embeds you can use pre-parsing to create a single cache of the assembled templates (by setting parse_stage="set" on the parent embed). Which gives you the benefits of encapsulation without the overhead.
+* {exp:stash:parse} - post-process arbitary sections of template code 
+* {exp:stash:get} and {exp:stash:get_list} can be post processed.
+* parse_stage="get|set|both" parameter for {exp:stash:set} allows saved variables to be post-parsed (get), pre-parsed (set) or both.
+* The precise parse order of post-processed tags (get, get_list, parse, embed) can be determined with the new priority="" parameter
+* {exp:stash:get_list} has a new prefix parameter for namespacing {count} and other common loop variables.
+* Match against individual list key values when setting or getting a list, to filter the rows.
+
 ## Installation
 
 1. Copy the stash folder to ./system/expressionengine/third_party/
-2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module
+2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module and the Stash extension
+3. Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
+4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
+
+	$assign_to_config['stash_file_basepath'] = '/path/to/stash_templates/';
+
+	$assign_to_config['stash_file_sync'] = TRUE;
+
+(of course if you're using a custom config bootstrap file, add the config items there instead)
+
+## Upgrading from <2.1.0 or earlier
+
+1. Copy the stash folder to ./system/expressionengine/third_party/
+2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link for the Stash module
+3. In the CP, navigate to Add-ons > Extensions and click the 'activate' link for the Stash extension
 
 ## {exp:stash:set} tag pair
+
+### Example usage:
+
+	{exp:channel:entries limit="1" disable="member_data|pagination|categories"}	
+		{exp:stash:set name="title"}{title}{/exp:stash:set}
+	{/exp:channel:entries}
 
 ### name = [string]
 The name of your variable (optional). 
@@ -89,23 +121,31 @@ Tip: Use '@' to refer to the current context:
 	...
 	{exp:stash:set}
 
-
 ### scope = ['user'|'site']
 When save ="yes", determines if the variable is locally scoped to the User's session, or globally (set for everyone who visits the site) (optional, default is 'user').
 
-#### scope = "user"
+#### `scope = "user"`
 A 'user' variable is linked to the users session id. Only they will see it. Use for pagination, search queries, or chunks of personalised content that you need to cache across multiple pages. 
 
-#### scope = "site"
+#### `scope = "site"`
 A 'global' variable is set only once until it expires, and is accessible to ALL site visitors. Use in combination with [Switchee](https://github.com/croxton/Switchee) for caching and reusing rendered content throughout your site.
 
-### Example usage:
+### append = ['yes'|'no']
+The value is appended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:append}`
 
-	{exp:channel:entries limit="1" disable="member_data|pagination|categories"}	
-		{exp:stash:set name="title" type="snippet"}{title}{/exp:stash:set}
-	{/exp:channel:entries}
+### prepend = ['yes'|'no']
+The value is prepended to the existing variable. (optional, default is 'no'). Equivalent to using `{exp:stash:prepend}`
+
+### no_results_prefix = [string]
+Prefix for `{if no_results}...{/if}` for use in any *nested* tags:
+
+	{exp:stash:set name="content" no_results_prefix="my_prefix" parse_tags="yes" output="yes"}
+		{exp:channel:entries channel="blog" dynamic="no"}
+			{if my_prefix:no_results}no results{/if}
+		{/exp:channel:entries}
+	{/exp:stash:set}
 	
-### Advanced usage 1	
+### Advanced example: caching a variable	
 Caching the output of a channel entries tag for 60 minutes. The first time the template is viewed the channel entries tag is run and its output is captured and saved to the database. On subsequent visits within the following 60 minutes, the output is retrieved from the database and the channel entries tag does NOT run. At the end of the 60 minutes  the variable expires from the database, and on the next view of the template the cache is regenerated. 
 
 This approach can save you a huge number of queries and processing time.
@@ -124,10 +164,10 @@ This approach can save you a huge number of queries and processing time.
 		{/exp:channel:entries}
 	{/exp:stash:set}
 
-### Advanced usage 2
-{exp:stash:set} called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs {stash:variable1}....{/stash:variable1} etc. These tag pairs can even be nested. 
+### Advanced example: using tag pairs to set multiple variables at once
+`{exp:stash:set}` called WITHOUT a name="" parameter can be used to set multiple variables wrapped by tag pairs `{stash:variable1}...{/stash:variable1}` etc. These tag pairs can even be nested. 
 
-In this example we want to ensure that the inner {exp:channel:entries} tag is parsed so we set parse_tags="yes". Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
+In this example we want to ensure that the inner `{exp:channel:entries}` tag is parsed so we set `parse_tags="yes"`. Then we want to capture the the unordered list and the total count of entries so we can use them elsewhere in the same template:
 
 	{exp:stash:set parse_tags="yes"}
 		{stash:content}
@@ -150,7 +190,7 @@ In this example we want to ensure that the inner {exp:channel:entries} tag is pa
 
 
 ## {exp:stash:append} tag pair	
-Works the same as {exp:stash:set}, except the value is appended to an existing variable.
+Works the same as `{exp:stash:set}`, except the value is appended to an existing variable.
 
 ### Example usage of append, with match/against:
 
@@ -160,23 +200,23 @@ Works the same as {exp:stash:set}, except the value is appended to an existing v
 		{/exp:stash:append}
 	{/exp:channel:entries}
 
-The above would capture all 'people' entries whose last name {person_lname} starts with A-F.
+The above would capture all 'people' entries whose last name `{person_lname}` starts with A-F.
 
 ## {exp:stash:prepend} tag pair	
-Works the same as {exp:stash:set}, except the value is prepended to an existing variable.
+Works the same as `{exp:stash:set}`, except the value is prepended to an existing variable.
 
 ## {exp:stash:set_value} single tag
 Works the same as {exp:stash:set}, except the value is passed as a parameter. This can be useful for when you need to use a plugin as a tag parameter (always use with parse="inward"). For example:
 
 	{exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
 
-In this case {title} would be set to the parsed value of {exp:another:tag}
+In this case `{title}` would be set to the parsed value of `{exp:another:tag}`
 
 ## {exp:stash:append_value} single tag
-Works the same as {exp:stash:append}, except the value is passed as a parameter.
+Works the same as `{exp:stash:append}`, except the value is passed as a parameter.
 
 ## {exp:stash:prepend_value} single tag
-Works the same as {exp:stash:prepend}, except the value is passed as a parameter.
+Works the same as `{exp:stash:prepend}`, except the value is passed as a parameter.
 	
 ## {exp:stash:get}
 
@@ -190,21 +230,23 @@ The type of variable to retrieve (optional, default is 'variable').
 Look in the $_POST and $_GET superglobals arrays, for the variable (optional, default is 'no').
 If Stash doesn't find the variable in the superglobals, it will look in the uri segment array for the variable name and takes the value from the next segment, e.g.: /variable_name/variable_value
 
-### file = ['yes'|'no']
+### file = ['yes'|'no'] 
+[deprecated - use `{stash:embed}`]
 Set to yes to tell Stash to look for a file in the Stash template folder (optional, default is 'no').
 See [working_with_files](https://github.com/croxton/Stash/blob/dev/docs/working_with_files.md)
 
-### file_name = [string]        
+### file_name = [string] 
+[deprecated - use `{stash:embed}`]       
 The file name (without the extension) - only required if your filename is different from the variable name
 
 ### save = ['yes'|'no']
 When using dynamic="yes" or file="yes", do you want to store the value we have retrieved in the database so that it persists across page loads? (optional, default is 'no')
 
 ### refresh = [int]
-When using save="yes", this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
+When using `save="yes"`, this parameter sets the number of minutes to store the variable (optional, default is 1440 - or one day)
 
 ### replace = ['yes'|'no']                
-When using dynamic="yes" or file="yes", do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
+When using `dynamic="yes"` or `file="yes"`, do you want the variable to be overwritten if it already exists? (optional, default is 'yes')
 
 ### default = [string]
 Default value to return if variable is not set or empty (optional, default is an empty string). If a default value is supplied and the variable has not been set previously, then the variable will be set in the user's session. Thus subsequent attempt to get the variable will return the default value specified by the first call.
@@ -223,6 +265,18 @@ Tip: you can also hardcode the context in the variable name, and use '@' to refe
 ### scope = ['user'|'site']
 Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
 Note: use the same scope that you used when you set the variable.
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+
+#### `process="inline"`
+Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+
+#### `process="end"`
+Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
 
 ### strip_tags = ['yes'|'no']
 Strip HTML tags from the returned variable? (optional, default is 'no').
@@ -290,7 +344,7 @@ Set the current context (namespace) for variables that you set/get.
 	{@:title}
 
 ## {exp:stash:not_empty}
-Has exactly the same parameters as {exp:stash:get}
+Has exactly the same parameters as `{exp:stash:get}`
 Returns 0 or 1 depending on whether the variable is empty or not. Useful for conditionals.
 
 ### Example usage
@@ -301,9 +355,16 @@ Returns 0 or 1 depending on whether the variable is empty or not. Useful for con
 	
 ## {exp:stash:set_list} tag pair
 
-Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}my_value{/stash:my_key}
+Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}my_value{/stash:my_key}.
+Automatically detects and captures multiple rows of variables pairs, so can be used to capture data from tags and tag pairs that loop
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as {exp:stash:set}, but in addition match/against can be used to match a value against a specific column in the list:
+
+### match = [#regex#]
+Match a column in the list against a regular expression. Only rows in the list that match will be appended to the list. 
+
+### against = [list column]
+Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole block of tagdata passed to set_list.
 
 ### Example usage 1
 	{exp:stash:set_list name="my_list"}
@@ -320,13 +381,68 @@ Set an array of key/value pairs, defined by stash variable pairs {stash:my_key}m
 	        {stash:item_copy}{copy}{/stash:item_copy}
 	    {/exp:stash:set_list}
 	{/exp:channel:entries}
+	
+### Example usage 3: capturing and caching Playa / Matrix tag pairs
+	{exp:channel:entries channel="blog" entry_id="123"}
+		{exp:stash:set_list name="blog_related_entries" parse_tags="yes" save="yes" scope="site"}
+			{blog_related}
+				{stash:item_title}{title}{/stash:item_title}
+			{/blog_related}
+		{/exp:stash:set_list}	
+	{/exp:channel:entries}	
+	
+### Example usage 4: match against - set items where the topic title begins with 'A'
+	{exp:stash:set_list name="recent_discussion_topics" parse_tags="yes" match="#^A#" against="topic_title"}
+		{exp:forum:topic_titles 
+			orderby="post_date" 
+			sort="desc" 
+			limit="5" 
+			forums="1"
+		}	
+			{stash:topic_url}{thread_path='forum/viewthread'}{/stash:topic_url}
+			{stash:topic_title}{title}{/stash:topic_title}
+			{stash:last_author_url}{last_author_profile_path='member'}{/stash:last_author_url}
+			{stash:last_author_name}{last_author}{/stash:last_author_name}
+			{stash:last_post_date}{last_post_date}{/stash:last_post_date}
+		{/exp:forum:topic_titles}
+	{/exp:stash:set_list}	
+	
+### Example usage 5: nesting. Yep, you really can do this...
 
+	{exp:stash:set_list name="my_entries" parse_tags="yes" parse_depth="2"}
+		{exp:channel:entries channel="clients" limit="5"}
+
+			{stash:entry_title}{title}{/stash:entry_title}
+			{stash:entry_id}{entry_id}{/stash:entry_id}
+		
+			{exp:stash:set_list:nested name="related_entries_{entry_id}" parse_tags="yes"}
+		
+				{!-- this is a matrix tag pair --}
+				{contact_docs}
+					{stash:related_title}{mx_doc_title}{/stash:related_title}
+				{/contact_docs}
+			{/exp:stash:set_list:nested}	
+		
+		{/exp:channel:entries}	
+	{/exp:stash:set_list}
+
+	{exp:stash:get_list name="my_entries"}
+
+		Entry title: {entry_title}
+	
+		Related:
+		{exp:stash:get_list:nested name="related_entries_{entry_id}"}
+			{related_title}
+		{/exp:stash:get_list:nested}
+	
+	{/exp:stash:get_list}
+	
 ## {exp:stash:append_list} tag pair
 
 Append an array of variables to a list to create *multiple rows* of variables (i.e. a multidimensional array). 
 If the list does not exist, it will be created.
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as `{exp:stash:set}`
 
 ### Example usage
 	{!-- set a list of entries in the products channel with a title that starts with the letter 'C' --}
@@ -337,26 +453,11 @@ If the list does not exist, it will be created.
  		{/exp:stash:append_list}
 	{/exp:channel:entries}
 	
-### Advanced usage: caching lists
-Generating a list of related items from a Playa custom field 'blog_related' and caching the result so that the Channel Entries and Playa tags do not run on subsequent views of the template:
-
-	{exp:switchee variable="'{exp:stash:not_empty name='blog_related_entries' scope='site'}'" parse="inward"}
-		{case value="'0'"}
-			{exp:channel:entries channel="blog" entry_id="123"}
-				{blog_related}
-					{exp:stash:append_list name="blog_related_entries" save="yes" scope="site"}
-						{stash:item_title}{title}{/stash:item_title}
-					{/exp:stash:append_list}	
-				{/blog_related}
-			{/exp:channel:entries}
-		{/case}	
-	{/exp:switchee}
-	
 ## {exp:stash:prepend_list} tag pair
 
 Prepend an array of variables to a list.
 
-* Accepts the same parameters as {exp:stash:set}
+* Accepts the same parameters as `{exp:stash:set}`
 
 ### Example usage
 	{exp:channel:entries channel="products"}
@@ -385,6 +486,70 @@ Limit the number of rows returned (optional).
 ### offset = [int]
 Offset from 0 (optional, default is 0).
 
+### match = [#regex#]
+Match a column in the list against a regular expression. Only rows in the list that match will be returned.
+
+### against = [list column]
+Column to match against. If against is not specified or is not a valid list column, `match="#regex#"` will be applied to the whole string return by get_list.
+
+### unique = ['yes'|'no']
+Remove duplicate list rows (optional, default is 'no')
+
+### prefix = [string]
+Prefix for common iteration variables such as {count}, {total:results}, {switch} and {if no_results}. Useful when outputting a list inside another tag.
+
+	{exp:stash:get_list 
+		name="recent_discussion_topics" 
+		parse_tags="yes" 
+		parse_conditionals="yes" 
+		process="end" 
+		prefix="my_prefix"
+	}
+		{if my_prefix:count == 1}
+		<table class="data" cellpadding="0" cellspacing="0">
+
+			<thead>
+				<tr>
+					<th class="left first">Title</th>
+					<th>Last post</th>
+					<th>Date</th>
+				</tr>
+			</thead>
+
+			<tbody>
+		{/if}
+				<tr class="{my_prefix:switch='|rowAlt'}">
+					<td class="left first"><a href="{topic_url}"><strong>{topic_title}</strong></a></td>
+					<td><a href="{last_author_url}">{last_author_name}</a></td>
+					<td>{last_post_date}</td>
+				</tr>
+		{if my_prefix:count == my_prefix:total_results}
+			</tbody>
+		</table>
+		<p><a href="/forum/viewforum/{stash:forum}">View all topics in this forum &raquo;</a></p>
+		{/if}
+		
+		{if my_prefix:no_results}
+		<p>No forum topics yet. <a href="/forum/newtopic/{stash:forum}">Start a discussion &raquo;</a></p>
+		{/if}
+
+	{/exp:stash:get_list}
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the variable to be retrieved (default='inline')
+
+#### `process="inline"`
+Retrieve the variable in the natural parse order of the template (like a standard EE tag)
+
+#### `process="end"`
+Retrieve the variable at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the variable is retrieved when using process="end". Lower numbers are parsed first (default="1")
+
+### parse_conditionals = ['yes'|'no']
+Allows conditionals to be parsed or not (default="no")
+
 ### variables
 
 * {count} - The "count" out of the row being displayed. If five rows are being displayed, then for the fourth row the {count} variable would have a value of "4".
@@ -400,6 +565,35 @@ Offset from 0 (optional, default is 0).
 		<p>This is item {count} of {total_results} rows curently being displayed.</p>
 		<p>This is item {absolute_count} of {absolute_results} rows saved in this list</p>
 	{/exp:stash:get_list}	
+
+## {exp:stash:unset} (requires PHP 5.2.3+) OR {exp:stash:destroy}
+Unset an existing variable.
+
+### name = [string]
+The name of your variable (optional). If name is not passed, then ALL variables in the specified scope will be unset. 
+
+### type = ['variable'|'snippet']
+The type of variable to unset (optional, default is 'variable').
+
+### scope = ['user'|'site']
+Is the variable locally scoped to the User's session, or global (set for everyone who visits the site) (optional, default is 'user').
+
+### context = [string]
+The variable namespace (optional)
+
+### flush_cache = ['yes'|'no']
+Delete the variable value from the database, if it has been saved (optional, default is 'yes').
+
+### Example usage
+
+	{!-- unset 'my_var' --}
+	{exp:stash:unset name="my_var"}
+	
+	{!-- unset 'my_var' snippet --}
+	{exp:stash:unset name="my_var" type="snippet"}
+	
+	{!-- unset all user-scoped variables --}
+	{exp:stash:unset scope="user"}
 	
 ## {exp:stash:flush_cache}
 Add this tag to a page to clear all cached variables. You have to be logged in a Super Admin to clear the cache.
@@ -433,3 +627,166 @@ This parameter sets the number of minutes to store the bundle (optional, default
 	
 	{!-- now you could use like this in an embedded view template --}
 	<input name="orderby" value="{@:orderby}">
+	
+	
+## {stash:embed}
+
+Embed a Stash template file in your template. Works similar to an EE embed, with the following advantages:
+
+* Control over the process stage (when in the parse order of the host template that the embed is included)
+* Control over the parse stage (whether the template is parsed and cached, or cached then parsed on retrieval, or both)
+* Non caching regions of the template can be demarcated with `{stash:nocache}{/stash:nocache}` tag pairs
+* Precisely control the order of processing of embeds with the priority parameter
+* Precisely control the parse depth when a template is parsed (the number of passes made by EEs template parser)
+* Set caching duration per embed
+* Use multiple instances of the same template without extra overhead
+
+### Setting up
+* Make sure you follow the installation instructions (above) to set up a Stash template folder
+* During development, set `stash_file_sync = TRUE` to keep your Stash template files in sync with the database
+* For production use I highly recommend setting `stash_file_sync = FALSE` so that cached Stash templates are served from your database, unless you have added the replace="yes" parameter for a particular embed. Be careful to test first!
+
+### Example usage
+
+	{!-- Stash template file at /path/to/stash_templates/test.html --}
+	{stash:embed name="test"}
+	
+	{!-- ...or using the shortcut syntax --}
+	{stash:embed:test}
+	
+	{!-- Stash template file at /path/to/stash_templates/foo/bar.html --}
+	{stash:embed name="foo:bar" process="start" stash:my_var="value"}
+	
+	{!-- could also be written as... --}
+	{stash:embed context="foo" name="bar" process="start" stash:my_var="value"}
+	
+	{!-- ...or using the shortcut syntax --}
+	{stash:embed:foo:bar process="start" stash:my_var="value"}
+
+### name = [string]
+The name of the template instance and the filename of your template (without the suffix), if file_name parameter is not set.
+
+### context = [string]
+The variable namespace, which must have a corresponding subfolder in the Stash template folder.	
+
+### file_name = [string]
+The file name (without the suffix) if different from the variable name, e.g. 'my_file' or 'my_context:my_file'.
+
+### refresh = [int]
+How long to cache the template output for in seconds (default='1440').
+
+### replace = ['yes'|'no']
+Do you want the cache to be recreated if it already exists? (default='no')
+Note: set `stash_file_sync = true` in your EE config to override this value globally. You will need to do this during development.
+
+### process = ['start'|'inline'|'end']
+When in the parse order of your EE template do you want the embed to be included (default='end').
+
+#### `process="start"`
+Embed the template before any other variables and tags in your template are parsed (similar to an EE snippet).
+
+#### `process="inline"`
+Embed the template in the natural parse order of the template.
+
+#### `process="end"`
+Embed the template at the end of template parsing after other tags and variables have been parsed (like a standard EE embed).
+
+### priority = [int]
+Determines the order in which the template is parsed when using process="end". Lower numbers are parsed first (default="0").
+
+### parse_stage = ['set'|'get'|'both']
+When to parse the template: parse and cached, or cache then parsed on retrieval, or do both (default="get").
+
+#### `parse_stage = "set"`
+Parse the template the first time it is read from the file, and cache the rendered result. Subsequent retrievals will return the cached template from the database and not the original template file (unless replace="yes" or stash_file_sync = true).
+
+#### `parse_stage = "get"`
+Read the template file and cache it to the database. When output to the template on the first and subsequent retrievals the template will be parsed. This is similar to how EE templates work.
+
+#### `parse_stage="both"`
+Parse the template before caching AND after it is retrieved. This can be very useful when enclosing regions of your template with `{stash:nocache}{/stash:nocache}`. On SET the template code inside {stash:nocache} will not be parsed, but everything else will. On GET it will be parsed. This provides a way to partially cache some of your template code while leaving other areas dynamic.
+
+### parse_depth = [int]
+How many passes of the template to make by the parser? (default is 3)
+
+### stash:my_variable="value"
+
+Pass variables to the Stash template as parameters in the form `stash:my_variable="value"`:
+
+	{exp:stash:embed name="my_template" stash:my_var="my_value"}
+	
+	{!-- inside my_template inline variables can be accessed like so --}
+	{stash:my_var}	
+	
+### Advanced example: dynamic Stash embeds using the static context pointer '@'
+
+	{!-- file at stash_templates/my_context/my_template.html --}
+
+	{!-- standard embed syntax --}
+	{stash:embed name="my_context:my_template"}
+
+	{!-- shortcut embed syntax --}
+	{stash:embed:my_context:my_template}
+
+	{!-- set embed name dynamically from a Stash variable --}
+	{stash:embed name="{stash:layout}"}
+	{exp:stash:set_value name="layout" value="my_context:my_template"}
+	
+	{!-- using the static context pointer '@' --}
+	{exp:stash:context name="my_context"}
+	{stash:embed name="my_template" context="@"}
+	
+	{!-- or use the pointer in the name parameter --}
+	{stash:embed name="@:my_template"}
+	
+	{!-- for multiple cached instances of same base template, use the file_name parameter --}
+	{stash:embed name="another_instance_of_my_template" file_name="@:my_template"}
+	
+	{!-- 'template partials' example using dynamic context --}
+	{stash:embed name="my_layout" context="@"}
+	
+	{exp:switchee variable="{segment_1}" parse="inward"}
+	
+	   {!-- left to right layout for latin languages --}
+	   {case value="en|fr|it"}
+	      {!-- template at stash_templates/ltr/my_layout.html --}
+	      {exp:stash:context name="ltr"}
+	      {exp:stash:set name="content"}My language specific content{/exp:stash:set}
+	   {/case}
+	
+	   {!-- right to left layout for arabic --}
+	   {case value="ar"}
+	      {!-- template at stash_templates/rtl/my_layout.html --}
+	      {exp:stash:context name="rtl"}
+	      {exp:stash:set name="content"}بلدي محتوى لغة معينة{/exp:stash:set}
+	   {/case}
+	{/exp:switchee}	
+	
+## {exp:stash:parse} tag pair
+Parse arbitrary regions of your template.
+
+### process = ['inline'|'end']
+When in the parse order of your EE template do you want the tags to be parsed (default='inline')
+
+#### `process="inline"`
+Parse the enclosed tagdata in the natural parse order of the template
+
+#### `process="end"`
+Parse the enclosed tagdata at the end of template parsing after other tags and variables have been parsed
+
+### priority = [int]
+Determines the order in which the enclosed tagadata is parsed when using process="end". Lower numbers are parsed first (default="1")
+
+### parse_depth = [int]
+How many passes of the enclosed tagdata to make by the parser? (default is 3)
+
+## Shortcut tags
+
+### {exp:stash:your_var_name} or {exp:stash:your_context:your_var_name}
+
+On ExpressionEngine 2.5+, you may use this shortcut tag. When used as a single tag, this is equivalent to `{exp:stash:get name="your_var_name"}`. When used as a tag pair, this is equivalent to `{exp:stash:set name="your_var_name"}Hello World{/exp:stash:set}`.
+
+### {stash:embed:your_template} or {stash:embed:your_context:your_template}
+
+Alternative syntax for stash embeds for ExpressionEngine 2.5+ only.
+

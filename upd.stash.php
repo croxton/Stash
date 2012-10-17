@@ -1,19 +1,21 @@
 <?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
+require_once PATH_THIRD . 'stash/config.php';
+
 /**
  * Set and get template variables, EE snippets and persistent variables.
  *
  * @package             Stash
- * @version				2.1.0
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
- * @copyright           Copyright (c) 2011 Hallmark Design
+ * @copyright           Copyright (c) 2012 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
  * @link                http://hallmark-design.co.uk
  */
 
 class Stash_upd {
 	
-	public $version = '2.1.0';
+	public $name	= STASH_NAME;
+	public $version = STASH_VER;
 	
 	/**
 	 * Stash_upd
@@ -40,7 +42,7 @@ class Stash_upd {
 		$this->EE->db->insert(
 			'modules',
 			array(
-				'module_name' => 'Stash',
+				'module_name' => $this->name,
 				'module_version' => $this->version, 
 				'has_cp_backend' => 'n',
 				'has_publish_fields' => 'n'
@@ -131,7 +133,15 @@ class Stash_upd {
 	 */
 	public function update($current = '')
 	{
-		return FALSE;
+		if ($current == '' OR $current == $this->version)
+		{
+			// up to date
+			return FALSE;
+		}
+
+		// update table row with current version
+		$this->EE->db->where('module_name', 'Stash');
+		$this->EE->db->update('modules', array('module_version' => $this->version));
 	}
 }
 
