@@ -22,6 +22,7 @@ class Stash {
 	public $stash_cookie;
 	public $stash_cookie_expire;
 	public $default_scope;
+	public $limit_bots;
 	public static $context = NULL;
 	
 	protected $xss_clean;
@@ -46,6 +47,7 @@ class Stash {
 	private $_list_row_delimiter = '|&|';
 	private $_list_row_glue = '|=|';
 	private $_embed_nested = FALSE;
+	private static $_is_human = TRUE;
 
 	/*
 	 * Constructor
@@ -68,6 +70,7 @@ class Stash {
 		$this->stash_cookie			= $this->EE->config->item('stash_cookie') 		 ? $this->EE->config->item('stash_cookie') : 'stashid';
 		$this->stash_cookie_expire  = $this->EE->config->item('stash_cookie_expire') ? $this->EE->config->item('stash_cookie_expire') : 0;
 		$this->default_scope  		= $this->EE->config->item('stash_default_scope') ? $this->EE->config->item('stash_default_scope') : 'user';
+		$this->limit_bots 			= $this->EE->config->item('stash_limit_bots') 	 ? $this->EE->config->item('stash_limit_bots') : FALSE;
 		
 		// initialise tag parameters
 		$this->init();
@@ -93,6 +96,13 @@ class Stash {
 			}
 			else
 			{
+				if ($this->limit_bots)
+				{
+					// Is the user a human? Legitimate bots don't set cookies so will end up here every page load
+					// Humans who accept cookies only get checked when the cookie is first set
+					self::$_is_human = ($this->_is_bot() ? FALSE : TRUE);
+				}
+				
 				// NO - let's generate a unique id
 				$unique_id = $this->EE->functions->random();
 				
@@ -528,7 +538,8 @@ class Stash {
 				}
 				
 				// allow user- and site- scoped variables to be saved to the db
-				if ($save && $scope !== 'local')
+				// stop bots saving data to reduce unnecessary load on the server
+				if ($save && $scope !== 'local' && self::$_is_human)
 				{	
 					// optionally clean data before inserting
 					$parameters = $this->_stash[$name];
@@ -2917,31 +2928,38 @@ class Stash {
 	
 	// ---------------------------------------------------------
 	
-	/**
-	 * get a users real IP address
-	 * 
-	 * @access private
-	 * @return String	
-	 */ 
-	private function _get_real_ip() 
+	/** 
+	 * Check if the user agent is a bot
+	 *
+	 * @access public
+	 * @return void
+	 */	
+	private function _is_bot() 
 	{	
-		$ip = '';
-		
-		// check ip from share internet 
-		if ( ! empty($_SERVER['HTTP_CLIENT_IP']))
+		$bot_test = strtolower($_SERVER['HTTP_USER_AGENT']);
+		$is_bot = FALSE;
+	
+		if (empty($bot_test)) 
 		{
-			$ip = $_SERVER['HTTP_CLIENT_IP'];
+			$is_bot = TRUE; // no UA string, assume it's a bot
 		}
-		// check ip is pass from proxy 
-		elseif ( ! empty($_SERVER['HTTP_X_FORWARDED_FOR']))
+		else
 		{
-			$ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+			// Most active *legitimate* bots will contain one of these strings in the UA
+			$bot_list = $this->EE->config->item('stash_bots') ? 
+						$this->EE->config->item('stash_bots') : 
+						array('bot', 'crawl', 'spider', 'archive', 'search', 'java', 'yahoo', 'teoma');
+	
+			foreach($bot_list as $bot) 
+			{
+		        if(strpos($bot_test, $bot) !== FALSE) 
+				{
+					$is_bot = TRUE;
+		            break; // stop right away to save processing
+		        }
+		    }
 		}
-		elseif ( ! empty($_SERVER['REMOTE_ADDR']))
-		{
-			$ip = $_SERVER['REMOTE_ADDR'];
-		}
-		return $ip;
+	    return $is_bot;
 	}
 	
 	// ---------------------------------------------------------
@@ -2976,9 +2994,20 @@ class Stash {
 		
 		if ($cookie_data !== FALSE)
 		{
+			// make sure the cookie hasn't been monkeyed with
 			if ( isset($cookie_data['id']) && isset($cookie_data['dt']))
 			{
-				return $cookie_data;
+				// make sure we have a valid 40-character SHA-1 hash
+				if ( (bool) preg_match('/^[0-9a-f]{40}$/i', $cookie_data['id']) )
+				{
+					// make sure we have a valid timestamp
+					if ( ((int) $cookie_data['dt'] === $cookie_data['dt']) 
+        				&& ($cookie_data['dt'] <= PHP_INT_MAX)
+        				&& ($cookie_data['dt'] >= ~PHP_INT_MAX) )
+					{
+						return $cookie_data;
+					}
+				}
 			}
 		}
 		return FALSE;
