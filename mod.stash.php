@@ -773,7 +773,7 @@ class Stash {
 		}
 
 		$name			= strtolower($this->EE->TMPL->fetch_param('name'));
-		$default		= $this->EE->TMPL->fetch_param('default', ''); // default value
+		$default		= $this->EE->TMPL->fetch_param('default', NULL); // default value
 		$dynamic		= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('dynamic'));
 		$save			= (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));		
 		$scope			= strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
@@ -885,7 +885,7 @@ class Stash {
 			}
 
 			// Are we looking for a superglobal or uri segment?
-			if ( ($dynamic && $value == NULL) || ($dynamic && $this->replace) )
+			if ( ($dynamic && $value === NULL) || ($dynamic && $this->replace) )
 			{	
 				$from_global = FALSE;
 					
@@ -943,7 +943,7 @@ class Stash {
 			}
 			
 			// Are we reading a file?
-			if ( ($file && $value == NULL) || ($file && $this->replace) || ($file && $this->file_sync) )
+			if ( ($file && $value === NULL) || ($file && $this->replace) || ($file && $this->file_sync) )
 			{					
 				$this->EE->TMPL->log_item("Stash: reading from file");
 				
@@ -976,30 +976,24 @@ class Stash {
 					return;
 				}
 			}
-						
-			// set default if we still don't have a value
-			if ($value == NULL)
-			{	
-				$value = $default;
-				$set = TRUE;	
-			}
-			
-			// create/update value of variable if required
-			// note: don't save if we're updating a variable (to avoid recursion)
-			if ( $set && ! $this->_update)
-			{
-				$this->EE->TMPL->tagparams['name'] = $name;
-				$this->EE->TMPL->tagparams['output'] = 'yes';
-				$this->EE->TMPL->tagdata = $value;
-				$this->replace = TRUE;
-				$value = $this->set();
-			}
 		}
 		
-		// set to default value if it is exactly '' (this permits '0' to be a valid Stash value)
-		if ($value === '' && $default !== '')
+		// set to default value if it NULL or empty string (this permits '0' to be a valid value)
+		if ( ($value === NULL || $value === '') && ! is_null($default))
 		{	
-			$value = $default;	
+			$value = $default;
+			$set = TRUE;	
+		}
+		
+		// create/update value of variable if required
+		// note: don't save if we're updating a variable (to avoid recursion)
+		if ( $set && ! $this->_update)
+		{
+			$this->EE->TMPL->tagparams['name'] = $name;
+			$this->EE->TMPL->tagparams['output'] = 'yes';
+			$this->EE->TMPL->tagdata = $value;
+			$this->replace = TRUE;
+			$value = $this->set();
 		}
 			
 		$this->EE->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value ' . $value);
@@ -1739,9 +1733,10 @@ class Stash {
 				}
 				
 				// stash the data under a single key
-				$this->EE->TMPL->tagparams['name'] = $bundle_entry_key;
+				$this->EE->TMPL->tagparams['name']  = $bundle_entry_key;
 				$this->EE->TMPL->tagparams['label'] = $bundle_entry_label;
-				$this->EE->TMPL->tagparams['save'] = 'yes';
+				$this->EE->TMPL->tagparams['save']  = 'yes';
+				$this->EE->TMPL->tagparams['scope'] = 'user';
 				$this->EE->TMPL->tagdata = serialize(self::$bundles[$bundle]);
 				$this->bundle_id = $bundle_id;
 				
@@ -1811,7 +1806,8 @@ class Stash {
 		{
 			// build a string of parameters to inject into nested stash tags
 			$context = $this->EE->TMPL->fetch_param('context', NULL);
-			$params = 'bundle="'.$bundle.'"';
+			$params = 'bundle="' . $bundle . '" scope="local"';
+			
 			if ($context !== NULL )
 			{
 				$params .=	' context="'.$context.'"';

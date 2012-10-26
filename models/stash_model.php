@@ -137,6 +137,9 @@ class Stash_model extends CI_Model {
 			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 			self::$inserted_keys[] = $cache_key;
 			
+			// cache result to eliminate need for a query in future gets
+			self::$keys[$cache_key] = $parameters;
+			
 			// return insert id
 			return $this->db->insert_id();
 		}
@@ -189,9 +192,14 @@ class Stash_model extends CI_Model {
 		}		
 		
 		if ($result = $this->db->update('stash', $data))		 		   
-		{
-			// 0 affected rows = no update, likely key doesn't exist
-			return (bool) $this->db->affected_rows();
+		{		
+			if ( (bool) $this->db->affected_rows())
+			{
+				// success - update cache
+				$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
+				self::$keys[$cache_key] = $parameters;
+				return TRUE;
+			}	
 		}
 		else
 		{
@@ -257,17 +265,25 @@ class Stash_model extends CI_Model {
 						$this->refresh_key($key, $bundle_id, $session_id, $site_id, $refresh);	
 					}
 				}
-			
+							
 				// cache result
 				self::$keys[$cache_key] = $result->row($col);
 			}
 			else
 			{
-				// don't cache a negative result, in case the variable is created later on in this session
-				return FALSE;
+				// Cache empty result, this will get overwritten if the key is inserted later on
+				// Otherwise it will prevent repeated unecessary queries for empty variables
+				self::$keys[$cache_key] = '';
 			}
 		}
-		return self::$keys[$cache_key];
+		if (self::$keys[$cache_key] === '')
+		{
+			return FALSE;
+		}
+		else
+		{
+			return self::$keys[$cache_key];
+		}
 	}
 	
 	/**

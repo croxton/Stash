@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-## Version 2.3.2 beta
+## Version 2.3.3 beta
 
 This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
 
@@ -54,7 +54,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 	$assign_to_config['stash_file_sync'] = TRUE; // set to FALSE for production
 	$assign_to_config['stash_cookie'] = 'stashid'; // the stash cookie name
 	$assign_to_config['stash_cookie_expire'] = 0; // seconds - 0 means expire at end of session
-	$assign_to_config['stash_default_scope'] = 'user'; // default variable scope if not specified
+	$assign_to_config['stash_default_scope'] = 'local'; // default variable scope if not specified
 	$assign_to_config['stash_limit_bots'] = TRUE; // stop database writes by bots to reduce load on busy sites
 	$assign_to_config['stash_bots'] = array('bot', 'crawl', 'spider', 'archive', 'search', 'java', 'yahoo', 'teoma');
 
