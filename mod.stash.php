@@ -1207,7 +1207,24 @@ class Stash {
 		{/exp:stash:set_list}
 		--------------------------------------------------------- */
 		
-		// no results 
+		// name and context
+		$name = strtolower($this->EE->TMPL->fetch_param('name', FALSE));		
+		$context = $this->EE->TMPL->fetch_param('context', NULL);
+		$scope	= strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
+		
+		if ( !! $name)
+		{
+			if ($context !== NULL && count( explode(':', $name) == 1 ) )
+			{
+				$name = $context . ':' . $name;
+				$this->EE->TMPL->tagparams['context'] = NULL;
+			}
+		}
+		
+		// replace '@' placeholders with the current context
+		$stash_key = $this->_parse_context($name);
+		
+		// no results prefix
 		$prefix = $this->EE->TMPL->fetch_param('prefix', NULL);
 		
 		// check for prefixed no_results block
@@ -1215,73 +1232,115 @@ class Stash {
 		{
 			$this->_prep_no_results($prefix);
 		}
-				
-		// do any parsing and string transforms before making the list
-		$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
 		
-		// regenerate tag variable pairs array using the parsed tagdata
-		$tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
-		$this->EE->TMPL->var_pair = $tag_vars['var_pair'];
-		
-		// get the first key and see if it repeats
-		$keys = array_keys($this->EE->TMPL->var_pair);
-		
-		if ( ! empty($keys))
-		{
-			$first_key = $keys[0];
+		// do we want to replace an existing list variable?
+		$set = TRUE;
 
-			preg_match_all('/'. LD . $first_key . RD . '/', $this->EE->TMPL->tagdata, $matches);
-		
-			if (count($matches[0]) > 1)
+		if ( ! $this->replace && ! $this->_update)
+		{	
+			// try to get existing value
+			$existing_value = FALSE;
+			
+			if ( array_key_exists($name, $this->_stash))
 			{
-				// yes we have repeating keys, so let's split the tagdata up into rows
-				$this->EE->TMPL->tagdata = str_replace(
-						LD . $first_key . RD, 
-						$this->_list_delimiter . LD . $first_key . RD,
-						$this->EE->TMPL->tagdata
+				$existing_value = $this->_stash[$name];
+			}
+			elseif ($scope !== 'local')
+			{
+				// narrow the scope to user?
+				$session_id = $scope === 'user' ? $this->_session_id : '_global';
+				
+				$existing_value = $this->EE->stash_model->get_key(
+					$stash_key, 
+					$this->bundle_id,
+					$session_id, 
+					$this->site_id
 				);
-			
-				// get an array of rows, remove first element which will be empty
-				$rows = explode($this->_list_delimiter, $this->EE->TMPL->tagdata);
-				array_shift($rows);
-			
-				// serialize each row and append
-				$tagdata = '';
-				foreach($rows as $row)
-				{
-					$this->EE->TMPL->tagdata = $row;
-					$this->_serialize_stash_tag_pairs();
-					if ( ! empty($this->EE->TMPL->tagdata))
-					{
-						$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
-					}
-				}
-				$this->EE->TMPL->tagdata = $tagdata;
 			}
-			else
-			{
-				//	get the stash var pairs values
-				$this->_serialize_stash_tag_pairs();
+
+			if ( $existing_value !== FALSE)
+			{	
+				// yes, it's already been stashed, make sure it's in the stash memory cache
+				$this->EE->TMPL->tagdata = $this->_stash[$name] = $existing_value;
+				
+				// don't overwrite existing value
+				$set = FALSE;
 			}
-		
-			if ( $this->not_empty($this->EE->TMPL->tagdata))
-			{
-				return $this->set();	
-			}
+			unset($existing_value);
 		}
-		else
-		{
-			if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'))) // default="no"
-			{ 
-				// optionally parse and return no_results tagdata
-				// note: output="yes" with set_list should only be used for debugging
-				return $this->_no_results(); 
+		
+		if ($set)
+		{	
+			// do any parsing and string transforms before making the list
+			$this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+		
+			// regenerate tag variable pairs array using the parsed tagdata
+			$tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
+			$this->EE->TMPL->var_pair = $tag_vars['var_pair'];
+		
+			// get the first key and see if it repeats
+			$keys = array_keys($this->EE->TMPL->var_pair);
+		
+			if ( ! empty($keys))
+			{
+				$first_key = $keys[0];
+
+				preg_match_all('/'. LD . $first_key . RD . '/', $this->EE->TMPL->tagdata, $matches);
+		
+				if (count($matches[0]) > 1)
+				{
+					// yes we have repeating keys, so let's split the tagdata up into rows
+					$this->EE->TMPL->tagdata = str_replace(
+							LD . $first_key . RD, 
+							$this->_list_delimiter . LD . $first_key . RD,
+							$this->EE->TMPL->tagdata
+					);
+			
+					// get an array of rows, remove first element which will be empty
+					$rows = explode($this->_list_delimiter, $this->EE->TMPL->tagdata);
+					array_shift($rows);
+			
+					// serialize each row and append
+					$tagdata = '';
+					foreach($rows as $row)
+					{
+						$this->EE->TMPL->tagdata = $row;
+						$this->_serialize_stash_tag_pairs();
+						if ( ! empty($this->EE->TMPL->tagdata))
+						{
+							$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
+						}
+					}
+					$this->EE->TMPL->tagdata = $tagdata;
+				}
+				else
+				{
+					//	get the stash var pairs values
+					$this->_serialize_stash_tag_pairs();
+				}
+		
+				if ( $this->not_empty($this->EE->TMPL->tagdata))
+				{
+					return $this->set();	
+				}
 			}
 			else
-			{ 
-				// parse no_results tagdata, but don't output
-				// note: unless parse_tags="yes", no parsing would occur
-				$this->_no_results();
+			{
+				// make sure this variable is marked as empty, so subsquent get_list() calls return no_results
+				$this->_stash[$name] = '';
+				
+				if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'))) // default="no"
+				{ 
+					// optionally parse and return no_results tagdata
+					// note: output="yes" with set_list should only be used for debugging
+					return $this->_no_results(); 
+				}
+				else
+				{ 	
+					// parse no_results tagdata, but don't output
+					// note: unless parse_tags="yes", no parsing would occur
+					$this->_no_results();
+				}
 			}
 		}
 	}
@@ -2871,7 +2930,11 @@ class Stash {
 	 */ 
 	function _no_results()
 	{
-		$this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
+		if ( ! empty($this->EE->TMPL->no_results))
+		{
+			// parse the no_results block if it's got content
+			$this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
+		}
 		return $this->EE->TMPL->no_results();
 	}
 	
