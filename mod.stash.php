@@ -1217,7 +1217,6 @@ class Stash {
 			if ($context !== NULL && count( explode(':', $name) == 1 ) )
 			{
 				$name = $context . ':' . $name;
-				$this->EE->TMPL->tagparams['context'] = NULL;
 			}
 		}
 		
