@@ -2145,10 +2145,10 @@ class Stash {
 		// renable parsing
 		$this->parse_complete = FALSE;
 
-		if ($list !== '')
+		if ($list !== '' && $list !== NULL)
 		{
-			// trim and explode
-			$list = trim($list, $this->_list_delimiter);
+			// left trim and explode
+			$list = ltrim($list, $this->_list_delimiter);
 			$list = explode( $this->_list_delimiter, $list);
 		
 			foreach($list as $key => &$value)
@@ -2181,7 +2181,11 @@ class Stash {
 			{
 				$list = array_map('unserialize', array_unique(array_map('serialize', $list)));
 			}
-		}		
+		}
+		else
+		{
+			$list = ''; // make sure we return a string
+		}	
 		return $list;
 	}
 	
