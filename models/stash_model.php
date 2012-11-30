@@ -137,6 +137,9 @@ class Stash_model extends CI_Model {
 			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 			self::$inserted_keys[] = $cache_key;
 			
+			// cache result to eliminate need for a query in future gets
+			self::$keys[$cache_key] = $parameters;
+			
 			// return insert id
 			return $this->db->insert_id();
 		}
@@ -189,9 +192,14 @@ class Stash_model extends CI_Model {
 		}		
 		
 		if ($result = $this->db->update('stash', $data))		 		   
-		{
-			// 0 affected rows = no update, likely key doesn't exist
-			return (bool) $this->db->affected_rows();
+		{		
+			if ( (bool) $this->db->affected_rows())
+			{
+				// success - update cache
+				$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
+				self::$keys[$cache_key] = $parameters;
+				return TRUE;
+			}	
 		}
 		else
 		{
@@ -257,23 +265,32 @@ class Stash_model extends CI_Model {
 						$this->refresh_key($key, $bundle_id, $session_id, $site_id, $refresh);	
 					}
 				}
-			
+							
 				// cache result
 				self::$keys[$cache_key] = $result->row($col);
 			}
 			else
 			{
-				// don't cache a negative result, in case the variable is created later on in this session
-				return FALSE;
+				// Cache empty result, this will get overwritten if the key is inserted later on
+				// Otherwise it will prevent repeated unecessary queries for empty variables
+				self::$keys[$cache_key] = '';
 			}
 		}
-		return self::$keys[$cache_key];
+		if (self::$keys[$cache_key] === '')
+		{
+			return FALSE;
+		}
+		else
+		{
+			return self::$keys[$cache_key];
+		}
 	}
 	
 	/**
 	 * Delete key(s), optionally limited to keys registered with the user session
 	 *
 	 * @param string $key
+	 * @param integer $bundle_id
 	 * @param string $session_id
 	 * @param integer $site_id
 	 * @return boolean
@@ -286,12 +303,52 @@ class Stash_model extends CI_Model {
 				
 		if ( ! empty($session_id))
 		{
-			$this->db->where('session_id', $session_id)
-					 ->limit(1);
+			$this->db->where('session_id', $session_id);
+			
+			if ($session_id !== '_global')
+			{
+				// make sure we only delete the user's variable
+				$this->db->limit(1);
+			}
 		}
 		
 		if ($this->EE->db->delete('stash')) 
 		{
+			// deleted, now cleanup the static key cache
+			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
+		
+			if ( isset(self::$keys[$cache_key]))
+			{
+				unset(self::$keys[$cache_key]);
+			}
+			
+			return TRUE;
+		}
+		else
+		{
+			return FALSE;
+		}
+	}
+	
+	/**
+	 * Delete keys scoped to a user session
+	 *
+	 * @param integer $bundle_id
+	 * @param string $session_id
+	 * @param integer $site_id
+	 * @return boolean
+	 */
+	function delete_session_keys($bundle_id = 1, $session_id, $site_id = 1)
+	{
+		$this->db->where('bundle_id', $bundle_id)
+				 ->where('key_name !=',  '_last_activity')
+				 ->where('site_id', $site_id)
+				 ->where('session_id', $session_id);
+		
+		if ($this->EE->db->delete('stash')) 
+		{
+			// deleted, now reset the static key cache
+			self::$keys = array();
 			return TRUE;
 		}
 		else
