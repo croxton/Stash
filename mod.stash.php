@@ -1300,6 +1300,7 @@ class Stash {
 					array_shift($rows);
 			
 					// serialize each row and append
+					// bracket the serilaized string with delimiters
 					$tagdata = '';
 					foreach($rows as $row)
 					{
@@ -1310,7 +1311,7 @@ class Stash {
 							$tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
 						}
 					}
-					$this->EE->TMPL->tagdata = $tagdata;
+					$this->EE->TMPL->tagdata = trim($tagdata, $this->_list_delimiter);
 				}
 				else
 				{
@@ -1379,7 +1380,7 @@ class Stash {
 		
 		if ( $this->not_empty($this->EE->TMPL->tagdata))
 		{
-			$this->EE->TMPL->tagdata .=	 $this->_list_delimiter;
+			$this->EE->TMPL->tagdata =  $this->EE->TMPL->tagdata . $this->_list_delimiter;
 			return $this->prepend();	
 		}
 	}
@@ -1428,7 +1429,7 @@ class Stash {
 		}
 					
 		// retrieve the list array
-		$list = $this->_rebuild_list();
+		$list = $this->rebuild_list();
 		
 		// absolute results total
 		$absolute_results = count($list);
@@ -1613,7 +1614,7 @@ class Stash {
 		$against		= $this->EE->TMPL->fetch_param('against', NULL); // key to test $match against	
 				
 		// retrieve the list array
-		$list = $this->_rebuild_list();
+		$list = $this->rebuild_list();
 
 		// return 0 if this variable has no value
 		if ($list == '') return '0';
@@ -2023,35 +2024,18 @@ class Stash {
 	 * Parse tagdata
 	 *
 	 * @param  array $params an array of key => value pairs representing tag parameters
+	 * @param  string $value string to parse, defaults to template tagdata
 	 * @access public
 	 * @return string 
 	 */
-	public function parse($params = array())
+	public function parse($params = array(), $value=NULL)
 	{		
 		// is this method being called statically?
-		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+		if ( !(isset($this) && get_class($this) == __CLASS__))
 		{	
-			// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
-			if ( ! class_exists('EE_Template'))
-			{
-				$this->_load_EE_TMPL();
-			}
-			else
-			{		
-				// make sure we have a clean array if class has already been instatiated
-				$this->EE->TMPL->tagparams = array();
-			}
-			
-			if ( ! empty($params))
-			{
-				$this->EE->TMPL->tagparams = $params;
-			}
-
-			// as this function is called statically, we need to get an instance of this object
-			$self = new self();			
-			return $self->parse();
+			return self::_static_call(__FUNCTION__, $params, '', '', $value);
 		}
-		
+
 		// mandatory parameter values
 		$this->EE->TMPL->tagparams['parse_tags']		  = 'yes';
 		$this->EE->TMPL->tagparams['parse_vars']		  = 'yes';
@@ -2126,11 +2110,20 @@ class Stash {
 	/**
 	 * Retrieve and rebuild list, or optionally part of a list
 	 *
-	 * @access private
-	 * @return string
+	 * @access public
+	 * @param  mixed	 $params The name of the variable to retrieve, or an array of key => value pairs
+	 * @param  string	 $type	The type of variable
+	 * @param  string	 $scope The scope of the variable
+	 * @return array
 	 */
-	private function _rebuild_list()
+	public function rebuild_list($params='', $type='variable', $scope='user')
 	{
+		// is this method being called statically?
+		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+		{	
+			return self::_static_call(__FUNCTION__, $params, $type, $scope);
+		}
+
 		$match	 = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
 		$against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
 		$unique = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique'));
@@ -2148,7 +2141,7 @@ class Stash {
 		if ($list !== '' && $list !== NULL)
 		{
 			// left trim and explode
-			$list = ltrim($list, $this->_list_delimiter);
+			$list = trim($list, $this->_list_delimiter);
 			$list = explode( $this->_list_delimiter, $list);
 		
 			foreach($list as $key => &$value)
@@ -2324,7 +2317,7 @@ class Stash {
 	 */
 	protected function sort_by_string($a, $b) 
 	{
-		return (strcasecmp($a[$this->_key2sort], $b[$this->_key2sort]));
+		return (@strcasecmp($a[$this->_key2sort], $b[$this->_key2sort]));
 	}
 	
 	// --------------------------------------------------------- 
@@ -2435,6 +2428,12 @@ class Stash {
 		{	
 			// note: each pass can expose more variables to be parsed after tag processing
 			$TMPL2->tagdata = $this->_parse_template_vars($TMPL2->tagdata);
+		}
+
+		// Remove any EE comments that might have been exposed before parsing tags
+		if (strpos($TMPL2->tagdata, '{!--') !== FALSE) 
+		{
+			$TMPL2->tagdata = preg_replace("/\{!--.*?--\}/s", '', $TMPL2->tagdata);
 		}
 		
 		// parse tags, but check that there really are unparsed tags in the current shell	
@@ -2954,7 +2953,7 @@ class Stash {
 	 * @param string $value
 	 * @return void 
 	 */ 
-	private function _static_call($method, $params, $type, $scope, $value=NULL)
+	private function _static_call($method, $params, $type='variable', $scope='user', $value=NULL)
 	{
 		// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
 		if ( ! class_exists('EE_Template'))

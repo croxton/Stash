@@ -142,6 +142,7 @@ class Stash_upd {
 		// Update to 2.3.1
 		if (version_compare($current, '2.3.1', '<'))
 		{
+			$this->EE->load->add_package_path(PATH_THIRD.'stash/', TRUE);
 			$this->EE->load->model('stash_model');
 			$this->EE->stash_model->prune_last_activity(0);
 		}
