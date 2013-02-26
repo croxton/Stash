@@ -649,7 +649,7 @@ class Stash {
 				{
 					if (strncmp($key, 'stash:', 6) ==  0)
 					{
-						$pattern = '/stash:([a-zA-Z0-9\-_]+)=([\042\047])?(.*?)\\2/Usi';
+						$pattern = '/stash:([a-zA-Z0-9\-_]+)\s*=\s*([\042\047])?(.*?)\\2/Usi';
 						preg_match($pattern, $key, $matches);
 						if (!empty($matches))
 						{		
@@ -2243,7 +2243,7 @@ class Stash {
 		{
 			if (strncmp($key, 'stash:', 6) ==  0)
 			{
-				$pattern = '/stash:([a-zA-Z0-9\-_]+)=([\042\047])?(.*?)\\2/Usi';
+				$pattern = '/stash:([a-zA-Z0-9\-_]+)\s*=\s*([\042\047])?(.*?)\\2/Usi';
 				preg_match($pattern, $key, $matches);
 				if (!empty($matches))
 				{
