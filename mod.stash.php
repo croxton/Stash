@@ -620,10 +620,12 @@ class Stash {
 				{
 					$tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
 					$tag_pairs = $tag_vars['var_pair'];
+					$tag_singles = $tag_vars['var_single'];
 				}
 				else
 				{
 					$tag_pairs =& $this->EE->TMPL->var_pair;
+					$tag_singles =& $this->EE->TMPL->var_single;
 				}
 			
 				foreach($tag_pairs as $key => $val)
@@ -640,6 +642,23 @@ class Stash {
 							$this->parse_complete = TRUE; // don't allow tagdata to be parsed
 							$this->set();
 						}	
+					}
+				}
+			
+				foreach($tag_singles as $key => $val)
+				{
+					if (strncmp($key, 'stash:', 6) ==  0)
+					{
+						$pattern = '/stash:([a-zA-Z0-9\-_]+)=([\042\047])?(.*?)\\2/Usi';
+						preg_match($pattern, $key, $matches);
+						if (!empty($matches))
+						{		
+							// set the variable, but cleanup first in case there are any nested tags
+							$this->EE->TMPL->tagparams['name'] = $prefix . $matches[1];
+							$this->EE->TMPL->tagdata = $matches[3];
+							$this->parse_complete = TRUE; // don't allow tagdata to be parsed
+							$this->set();
+						}
 					}
 				}
 			
@@ -2215,6 +2234,28 @@ class Stash {
 					{
 						// default: set key value to an empty string
 						$stash_vars[substr($key, 6)] = '';
+					}
+				}
+			}
+		}
+			
+		foreach($tag_singles as $key => $val)
+		{
+			if (strncmp($key, 'stash:', 6) ==  0)
+			{
+				$pattern = '/stash:([a-zA-Z0-9\-_]+)=([\042\047])?(.*?)\\2/Usi';
+				preg_match($pattern, $key, $matches);
+				if (!empty($matches))
+				{
+					// don't save a string containing just white space, but be careful to preserve zeros 0
+					if ( $this->not_empty($matches[3]) || $matches[3] === '0')
+					{
+						$stash_vars[$matches[1]] = $matches[3];
+					}
+					else
+					{
+						// default: set key value to an empty string
+						$stash_vars[$matches[1]] = '';
 					}
 				}
 			}
