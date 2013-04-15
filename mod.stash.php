@@ -2997,7 +2997,7 @@ class Stash {
 	 */	
 	private function _is_bot() 
 	{	
-		$bot_test = strtolower($_SERVER['HTTP_USER_AGENT']);
+		$bot_test = isset($_SERVER['HTTP_USER_AGENT']) ? strtolower($_SERVER['HTTP_USER_AGENT']) : (php_sapi_name() === 'cli' ? 'cli' : 'other');
 		$is_bot = FALSE;
 	
 		if (empty($bot_test)) 
