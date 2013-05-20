@@ -43,7 +43,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 
 ## Installation
 
-1. Copy the stash folder to ./system/expressionengine/third_party/
+1. Copy the /system/expressionengine/third_party/stash/ folder to ./system/expressionengine/third_party/
 2. In the CP, navigate to Add-ons > Modules and click the 'Install' link for the Stash module and the Stash extension
 3. Create a folder to contain your Stash template files. Ideally this should be above the public webroot of your website.
 4. Open your webroot index.php file, find the "CUSTOM CONFIG VALUES" section and add the following lines:
@@ -63,7 +63,7 @@ Stash is inspired by John D Wells' article on [template partials](http://johndwe
 
 ## Upgrading
 
-1. Copy the stash folder to ./system/expressionengine/third_party/
+1. Copy the /system/expressionengine/third_party/stash/ folder to ./system/expressionengine/third_party/
 2. In the CP, navigate to Add-ons > Modules and click the 'Run module upgrades' link
 
 ## {exp:stash:set} tag pair
