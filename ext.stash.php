@@ -183,33 +183,66 @@ class Stash_ext {
 				$out = '';
 				
 				if ( ! empty($param))
-				{
+				{	
 					// process early?
 					if ( isset($param['process']) && $param['process'] == 'start')
 					{
 						// mandatory parameters
-						$param['scope'] 			 = 'site';
-						$param['file']  			 = 'yes';
-						$param['save']  			 = 'yes';
-						$param['process'] 			 = 'inline';
+						$param['scope'] 	= 'site';
+						$param['file']  	= 'yes';
+						$param['save']  	= 'yes';
+						$param['bundle'] 	= 'template';
+						#$param['process'] 	= 'inline';
 						
-						// tags can't be parsed at this stage, so let's make sure of that
-						$param['parse_tags'] 		 = 'no';
-						$param['parse_vars'] 		 = 'no';
-						$param['parse_conditionals'] = 'no';
-						
-						// get the file
-						$out = Stash::get($param);
+						// set default parse parameters
+						$param['parse_tags'] 		 = isset($param['parse_tags']) ? $param['parse_tags'] : 'no';
+						$param['parse_vars'] 		 = isset($param['parse_vars']) ? $param['parse_vars'] : 'no';
+						$param['parse_conditionals'] = isset($param['parse_conditionals']) ? $param['parse_conditionals'] : 'no';
+						$param['parse_depth'] 		 = isset($param['parse_depth']) ? $param['parse_depth'] : 4;
+						$param['parse_stage'] 		 = isset($param['parse_stage']) ? $param['parse_stage'] : 'get';
+						$param['replace'] 		 	 = isset($param['replace']) ? $param['replace'] : 'no';
+
+						// We need to load modules/plugins, which hasn't been done by the template class at this stage in the parse order.
+						// This only runs once - the template class won't run it again if modules[] array is populated.
+						if (count($this->EE->TMPL->modules) == 0)
+						{
+							$this->EE->TMPL->fetch_addons();
+						}
 						
 						// parse stash embed vars passed as parameters in the form stash:my_var
+						$embed_vars = array();
+
 						foreach ($param as $key => $val)
 						{
 							if (strncmp($key, 'stash:', 6) == 0)
 							{
-								$out = str_replace(LD.$key.RD, $val, $out);
+								$embed_vars[substr($key, 6)] = $val;
 							}
 						}
-						
+
+						// merge embed variables into the session cache in case they are used in another nested (or later-parsed) stash template
+						if ( ! empty($embed_vars))
+						{
+							// create a stash array in the session if we don't have one
+							if ( ! array_key_exists('stash', $this->EE->session->cache) )
+							{
+								$this->EE->session->cache['stash'] = array();
+							}	
+							$this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+						}
+
+						// get the file
+						$out = Stash::get($param);
+
+						// minimal replace of embed vars if we're not using Stash to parse the template variables
+						if ($param['parse_vars'] == 'no')
+						{
+							foreach ($embed_vars as $key => $val)
+							{
+								$out = str_replace(LD.'stash:'.$key.RD, $val, $out);
+							}
+						}
+
 						// convert any nested {stash:embed} into {exp:stash:embed} tags
 						$out = str_replace(LD.'stash:embed', LD.'exp:stash:embed', $out);
 					}
@@ -242,7 +275,7 @@ class Stash_ext {
 	 * @return 	string	Template string
 	 */
 	public function template_post_parse($template, $sub, $site_id)
-	{		
+	{	
 		// play nice with other extensions on this hook
 		if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
 		{
@@ -258,7 +291,11 @@ class Stash_ext {
 				$this->EE->session->cache['stash']['__template_post_parse__'] = array();
 			}
 
+			// an array of tags needing to be post-parsed
 			$cache = $this->EE->session->cache['stash']['__template_post_parse__'];
+
+			// are we capturing the final output of the rendered EE host template?
+			$save_output = FALSE;
 		
 			// run any postponed stash tags
 			if ( ! empty($cache))
@@ -276,10 +313,10 @@ class Stash_ext {
 				}
 
 				$s = new Stash();
-		
+
 				// save TMPL values for later
-				$tagparams = $this->EE->TMPL->tagparams;
-				$tagdata = $this->EE->TMPL->tagdata;
+				$tagparams 	= isset($this->EE->TMPL->tagparams) ? $this->EE->TMPL->tagparams : array();
+				$tagdata 	= isset($this->EE->TMPL->tagdata)   ? $this->EE->TMPL->tagdata : '';
 		
 				// sort by priority
 				$cache = $s->sort_by_key($cache, 'priority', 'sort_by_integer');
@@ -302,34 +339,55 @@ class Stash_ext {
 							$this->EE->TMPL->tagparams['context'] = $context;
 						}
 						
-						// restore context @ pointer if harcoded in name parameter
+						// restore context @ pointer if hardcoded in name parameter
 						if (isset($this->EE->TMPL->tagparams['name']) 
 							&& strncmp($this->EE->TMPL->tagparams['name'], '@:', 2) == 0)
 						{
 							$this->EE->TMPL->tagparams['name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['name']);
 						}
 						
-						// restore context @ pointer if harcoded in file_name parameter
+						// restore context @ pointer if hardcoded in file_name parameter
 						if (isset($this->EE->TMPL->tagparams['file_name']) 
 							&& strncmp($this->EE->TMPL->tagparams['file_name'], '@:', 2) == 0)
 						{
 							$this->EE->TMPL->tagparams['file_name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['file_name']);
 						}
+
+						// has the save_output tag been called?
+						if ( $tag['method'] === 'save_output')
+						{
+							$save_output = $tag;
+							$save_output['placeholder'] = $placeholder;
+						}
+						else
+						{
+							$s->init(TRUE);
 					
-						$s->init(TRUE);
+							$out = $s->{$tag['method']}();
 					
-						$out = $s->{$tag['method']}();
+							$template = str_replace(LD.$placeholder.RD, $out, $template);	
 					
-						$template = str_replace(LD.$placeholder.RD, $out, $template);	
-					
-						// remove the placeholder from the cache so we don't iterate over it in future calls of this hook
-						unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
+							// remove the placeholder from the cache so we don't iterate over it in future calls of this hook
+							unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
+						}
 					}
 				}
 				
 				// restore original TMPL values
 				$this->EE->TMPL->tagparams = $tagparams;
 				$this->EE->TMPL->tagdata = $tagdata;
+			}
+
+			// cache output to a static file
+			if($save_output)
+			{
+				$this->EE->TMPL->tagparams = $save_output['tagparams'];
+				$s->init(TRUE);
+				$template = str_replace(LD.$save_output['placeholder'].RD, '', $template);	
+				$s->{$save_output['method']}($template);
+
+				// restore original TMPL values
+				$this->EE->TMPL->tagparams = $tagparams;
 			}
 
 			// cleanup

@@ -13,98 +13,25 @@
 class Stash_model extends CI_Model {
 	
 	public $EE;
+	
 	protected static $keys = array();
 	protected static $inserted_keys = array();
-	protected static $bundle_ids = array();
+
+	// default bundle types
+	protected static $bundle_ids = array(
+			'default' 	=> 1,
+			'template' 	=> 2,
+			'static'	=> 3
+	);
+
+	// name of cache files
+	private $_static_file = 'index.html';
 
     function __construct()
     {
         parent::__construct();
 		$this->EE = get_instance();
     }
-    
-	/**
-	 * Delete last activity records older than given expiration period
-	 *
-	 * @param integer $expire
-	 * @return boolean
-	 */
-    function prune_last_activity($expire=7200)
-    {
-       if ($result = $this->db->delete('stash', array(
-			'key_name' 		=> '_last_activity', 
-			'created <' 	=> $this->EE->localize->now - $expire
-		)))
-		{
-			return TRUE;
-		}
-		return FALSE;
-    }
-
-	/**
-	 * Get the last activity date for the current session
-	 *
-	 * @param string $session_id
-	 * @param integer $site_id
-	 * @return integer
-	 */
-	function get_last_activity_date($session_id, $site_id)
-	{	
-		$result = $this->db->select('created')
-				 		  ->from('stash')
-				 		  ->where('key_name', '_last_activity')
-				 		  ->where('site_id', $site_id)
-				 		  ->where('session_id', $session_id)
-				 		  ->limit(1)
-				 		  ->get();
-		
-		if ($result->num_rows() == 1) 
-		{
-			return $result->row('created');
-		}
-		else
-		{
-			return FALSE;
-		}
-	}
-	
-	/**
-	 * Update last activity date for the current session
-	 *
-	 * @param string $session_id
-	 * @param integer $site_id
-	 * @return integer
-	 */
-	function update_last_activity($session_id, $site_id)
-	{	
-		if ($result = $this->update_key('_last_activity', 1, $session_id, $site_id)) 
-		{
-			return (bool) $this->db->affected_rows();
-		}
-		else
-		{
-			return FALSE;
-		}
-	}
-	
-	/**
-	 * Insert last activity date for the current session
-	 *
-	 * @param string $session_id
-	 * @param integer $site_id
-	 * @return integer
-	 */
-	function insert_last_activity($session_id, $site_id, $parameters = '')
-	{	
-		if ($result = $this->insert_key('_last_activity', 1, $session_id, $site_id, 0, $parameters)) 
-		{
-			return $this->db->insert_id();
-		}
-		else
-		{
-			return FALSE;
-		}
-	}
 	
 	/**
 	 * Insert key for user session
@@ -139,6 +66,9 @@ class Stash_model extends CI_Model {
 			
 			// cache result to eliminate need for a query in future gets
 			self::$keys[$cache_key] = $parameters;
+
+			// write to static file cache?
+			$this->write_static_cache($key, $bundle_id, $site_id, $parameters);
 			
 			// return insert id
 			return $this->db->insert_id();
@@ -198,6 +128,10 @@ class Stash_model extends CI_Model {
 				// success - update cache
 				$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 				self::$keys[$cache_key] = $parameters;
+
+				// write to static file cache?
+				$this->write_static_cache($key, $bundle_id, $site_id, $parameters);
+
 				return TRUE;
 			}	
 		}
@@ -287,7 +221,7 @@ class Stash_model extends CI_Model {
 	}
 	
 	/**
-	 * Delete key(s), optionally limited to keys registered with the user session
+	 * Delete key by name, optionally limited to keys registered with the user session
 	 *
 	 * @param string $key
 	 * @param integer $bundle_id
@@ -314,13 +248,16 @@ class Stash_model extends CI_Model {
 		
 		if ($this->EE->db->delete('stash')) 
 		{
-			// deleted, now cleanup the static key cache
+			// deleted, now remove the key from the static key cache
 			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 		
 			if ( isset(self::$keys[$cache_key]))
 			{
 				unset(self::$keys[$cache_key]);
 			}
+
+			// delete associated static cache file
+			$this->delete_static_cache($bundle_id, $key);
 			
 			return TRUE;
 		}
@@ -329,32 +266,100 @@ class Stash_model extends CI_Model {
 			return FALSE;
 		}
 	}
-	
+
 	/**
-	 * Delete keys scoped to a user session
+	 * Delete key(s) matching a regular expression, and/or scope, and/or bundle
 	 *
-	 * @param integer $bundle_id
+	 * @param integer/boolean $bundle_id
 	 * @param string $session_id
 	 * @param integer $site_id
+	 * @param string $regex a regular expression
 	 * @return boolean
 	 */
-	function delete_session_keys($bundle_id = 1, $session_id, $site_id = 1)
+	function delete_matching_keys($bundle_id = FALSE, $session_id=NULL, $site_id = 1, $regex=NULL)
 	{
-		$this->db->where('bundle_id', $bundle_id)
-				 ->where('key_name !=',  '_last_activity')
-				 ->where('site_id', $site_id)
-				 ->where('session_id', $session_id);
-		
-		if ($this->EE->db->delete('stash')) 
+		$deleted = FALSE;
+
+		$this->db->where('site_id', $site_id);
+
+		// match a specific bundle
+		if ($bundle_id) 
 		{
-			// deleted, now reset the static key cache
-			self::$keys = array();
-			return TRUE;
+			$this->db->where('bundle_id', $bundle_id);
+		}
+
+		// match session_id		 
+		if ( ! is_null($session_id))	
+		{	
+			// scope supplied?
+			if ($session_id === 'user')
+			{
+				// all user-scoped variables
+				$this->db->where('session_id !=', '_global');
+			}
+			elseif($session_id === 'site')
+			{
+				// all site-scoped variables
+				$this->db->where('session_id', '_global');
+			}
+			else
+			{
+				// a specific user session
+				$this->db->where('session_id', $session_id);
+			}
+		}
+
+		// match key_name regex		 
+		if ( ! is_null($regex))	
+		{	 
+			$this->db->where('key_name RLIKE ', $this->db->escape($regex), FALSE);
+		
+			// get matching keys
+			$query = $this->db->select('id, bundle_id, key_name')->get('stash');
+
+			if ($query->num_rows() > 0)
+			{
+				$ids = array();
+
+				foreach ($query->result() as $row)
+				{
+					$ids[] = $row->id; // save for later
+
+					// delete any corresponding static cache files individually
+					$this->delete_static_cache($row->key_name, $row->bundle_id, $site_id);
+				}
+
+				// delete the records
+				if ($this->EE->db->where_in('id', $ids)->delete('stash')) 
+				{
+					$deleted = TRUE;
+				}
+			}
 		}
 		else
 		{
-			return FALSE;
+			if ($this->db->delete('stash'))
+			{
+				// delete entire static cache for this site if bundle is 'static' or not specified
+				// and scope is 'site', 'all' or not specified
+				if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
+				{
+					if ( is_null($session_id) || $session_id === 'site' || $session_id === 'all')
+					{
+						$this->_delete_dir('/', $site_id);
+					}
+				}
+				$deleted = TRUE;
+			}
 		}
+
+		if ($deleted)
+		{
+			// deleted sucessfully, reset the static key cache
+			self::$keys = array();
+		}
+
+		return $deleted;	
 	}
 	
 	/**
@@ -378,42 +383,20 @@ class Stash_model extends CI_Model {
 	}
 	
 	/**
-	 * Flush cache
-	 *
-	 * @param integer $site_id
-	 * @return boolean
-	 */
-	function flush_cache($site_id = 1, $bundle_id = 1)
-	{
-		$this->db->where('site_id', $site_id)
-				 ->where('key_name !=',  '_last_activity')
-				 ->where('bundle_id',  $bundle_id);
-
-		if ($this->EE->db->delete('stash')) 
-		{
-			return TRUE;
-		}
-		else
-		{
-			return FALSE;
-		}
-	}
-	
-	/**
 	 * Get a bundle id from the name
 	 *
+	 * @param string $bundle
 	 * @return integer
 	 */
-	function get_bundle_by_name($bundle, $site_id = 1)
+	function get_bundle_by_name($bundle)
 	{
-		$cache_key = $bundle . '_' . $site_id;
+		$cache_key = $bundle;
 		
 		if ( ! isset(self::$bundle_ids[$cache_key]))
 		{
 			$result = $this->db->select('id')
 					 ->from('stash_bundles')
 					 ->where('bundle_name', $bundle)
-					 ->where('site_id', $site_id)
 					 ->limit(1)
 					 ->get();
 				
@@ -428,6 +411,37 @@ class Stash_model extends CI_Model {
 		}		
 		return self::$bundle_ids[$cache_key];
 	}
+
+
+	/**
+	 * Get a bundle name from the id
+	 *
+	 * @param integer $bundle_id
+	 * @return integer
+	 */
+	function get_bundle_by_id($bundle_id)
+	{
+		if ( ! $bundle_name = array_search($bundle_id, self::$bundle_ids) )
+		{
+			$result = $this->db->select('bundle_name')
+					 ->from('stash_bundles')
+					 ->where('id', $bundle_id)
+					 ->limit(1)
+					 ->get();
+				
+			if ($result->num_rows() == 1) 
+			{
+				$bundle_name = $result->row('bundle_name');
+				self::$bundle_ids[$bundle_name] = $bundle_id;
+			}
+			else
+			{
+				$bundle_name = FALSE;
+			}
+		}
+
+		return $bundle_name;
+	}
 	
 	/**
 	 * Insert a bundle
@@ -436,11 +450,10 @@ class Stash_model extends CI_Model {
 	 * @param integer $site_id
 	 * @param integer $bundle_label
 	 */
-	function insert_bundle($bundle, $site_id = 1, $bundle_label = '')
+	function insert_bundle($bundle, $bundle_label = '')
 	{
 		$data = array(	
 				'bundle_name' 	=> $bundle,
-				'site_id'		=> $site_id,
 				'bundle_label'	=> $bundle_label
 		);
 		
@@ -500,6 +513,161 @@ class Stash_model extends CI_Model {
 			return 0;
 		}
 	}
+
+
+	/*
+	================================================================
+	Static cache handler
+	================================================================
+	*/
+
+	/**
+	* Check if the variable can be cached as a static file and write it
+	 *
+	 * @param string $key
+	 * @param integer $bundle_id
+	 * @param string $parameters
+	 * @return boolean
+	 */
+	protected function write_static_cache($key, $bundle_id, $site_id, $parameters)
+	{
+		// write to static file cache?
+		if ($this->_can_static_cache($bundle_id))
+		{
+			// extract the associated uri from the variable key
+			$uri = explode(':', $key);
+			$uri = $uri[0] == '[index]' ? '' : $uri[0];
+
+			// cache that mother
+			return $this->_write_file($uri, $site_id, $parameters);
+		}
+
+		return FALSE;
+	}
+
+	/**
+	* Delete the associated static file for a given variable
+	 *
+	 * @param integer $key
+	 * @param string $bundle_id
+	 * @return boolean
+	 */
+	protected function delete_static_cache($key, $bundle_id, $site_id)
+	{
+		// write to static file cache?
+		if ($this->_can_static_cache($bundle_id))
+		{
+			// extract the associated uri from the variable key
+			$uri = explode(':', $key);
+			$uri = $uri[0] == '[index]' ? '' : $uri[0];
+
+			// delete the cache file
+			return $this->_delete_file($uri, $site_id);
+		}
+
+		return FALSE;
+	}
+
+	/**
+	 * Write a static file
+	 *
+	 * @param string $uri
+	 * @param string $parameters
+	 * @return boolean
+	 */
+	private function _write_file($uri, $site_id, $parameters = NULL)
+	{
+		$this->EE->load->helper('file');
+
+		if ($path = $this->_path($uri, $site_id))
+		{
+		  	// Make sure the directory exists
+		  	if (file_exists($path) || @mkdir($path, 0777, TRUE))
+		  	{
+		  		// Write the static file
+		  		if (@write_file($path.$this->_static_file, $parameters, 'w+'))
+		  		{
+		    		return TRUE;
+				}
+
+			}
+		}
+		return FALSE;
+	}
+
+	/**
+	* Delete a static file
+	* 
+	* @param string $uri
+	* @return boolean
+	*/
+	private function _delete_file($uri = '/', $site_id)
+	{
+		if ($path = $this->_path($uri, $site_id) && @unlink($this->_path($uri, $site_id).$this->_static_file))
+		{
+			return TRUE;
+		}
+		return FALSE;
+	}
+
+	/**
+	* Recursively delete directories and files in a static cache directory
+	* 
+	* @param string $uri
+	* @return boolean
+	*/
+	private function _delete_dir($uri, $site_id)
+	{
+		$this->EE->load->helper('file');
+
+		if ( $path = $this->_path($uri, $site_id) && delete_files($this->_path($uri, $site_id), TRUE) )
+		{
+			return TRUE;
+		}
+		return FALSE;
+	}
+
+   /**
+   	* Returns the path to the cache directory, if it exists
+   	* 
+   	* @param string $uri
+	* @return string/boolean
+   	*/
+	private function _path($uri = '/', $site_id)
+	{
+		// Get parts
+		$path = $this->EE->config->item('stash_static_basepath');
+
+		// Check the supplied cache path exists
+		if ( ! file_exists($path))
+		{
+	  		return FALSE;
+	  	}
+
+		// Build the path
+		return trim($path.'/'.$site_id.'/'.trim($uri, '/')).'/';
+	}
+
+   /**
+   	* Check that static cache is enabled, and the bundle is static
+   	* 
+   	* @param integer $bundle_id
+	* @return boolean
+   	*/
+	private function _can_static_cache($bundle_id)
+	{
+		if ( $this->EE->config->item('stash_static_cache_enabled'))
+		{
+			if ($this->get_bundle_by_id($bundle_id) === 'static')
+			{
+				return TRUE;
+			}
+		}
+
+		return FALSE;
+	}
+
+ 
 }
 
 /* End of file stash_model.php */
