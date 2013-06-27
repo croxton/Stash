@@ -257,7 +257,7 @@ class Stash_model extends CI_Model {
 			}
 
 			// delete associated static cache file
-			$this->delete_static_cache($bundle_id, $key);
+			$this->delete_static_cache($bundle_id, $key, $site_id);
 			
 			return TRUE;
 		}
