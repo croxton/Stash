@@ -27,6 +27,9 @@ class Stash_model extends CI_Model {
 	// name of cache files
 	private $_static_file = 'index.html';
 
+	// placeholder for indexes
+	private $_index_key = '[index]';
+
     function __construct()
     {
         parent::__construct();
@@ -221,21 +224,26 @@ class Stash_model extends CI_Model {
 	}
 	
 	/**
-	 * Delete key by name, optionally limited to keys registered with the user session
+	 * Delete key(s) by name, optionally limited to keys registered with the user session
 	 *
 	 * @param string $key
-	 * @param integer $bundle_id
+	 * @param integer/boolean $bundle_id
 	 * @param string $session_id
 	 * @param integer $site_id
 	 * @return boolean
 	 */
-	function delete_key($key, $bundle_id = 1, $session_id = '', $site_id = 1)
+	function delete_key($key, $bundle_id = FALSE, $session_id = NULL, $site_id = 1)
 	{
 		$this->db->where('key_name', $key)
-				 ->where('bundle_id', $bundle_id)
 				 ->where('site_id', $site_id);
+
+		// match a specific bundle
+		if ($bundle_id) 
+		{
+			$this->db->where('bundle_id', $bundle_id);
+		}		 
 				
-		if ( ! empty($session_id))
+		if ( ! is_null($session_id))
 		{
 			$this->db->where('session_id', $session_id);
 			
@@ -246,25 +254,26 @@ class Stash_model extends CI_Model {
 			}
 		}
 		
-		if ($this->EE->db->delete('stash')) 
-		{
-			// deleted, now remove the key from the static key cache
-			$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
-		
-			if ( isset(self::$keys[$cache_key]))
-			{
-				unset(self::$keys[$cache_key]);
-			}
+		// get matching key(s)
+		$query = $this->db->select('id, key_name, key_label, bundle_id, session_id')->get('stash');
 
-			// delete associated static cache file
-			$this->delete_static_cache($bundle_id, $key, $site_id);
+		if ($query->num_rows() > 0)
+		{	
+			if ( $this->delete_cache($query->result(), $site_id))
+			{
+				// deleted, now remove the key from the internal key cache
+				$cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 			
-			return TRUE;
+				if ( isset(self::$keys[$cache_key]))
+				{
+					unset(self::$keys[$cache_key]);
+				}
+
+				return TRUE;
+			}
 		}
-		else
-		{
-			return FALSE;
-		}
+
+		return FALSE;
 	}
 
 	/**
@@ -315,42 +324,39 @@ class Stash_model extends CI_Model {
 			$this->db->where('key_name RLIKE ', $this->db->escape($regex), FALSE);
 		
 			// get matching keys
-			$query = $this->db->select('id, bundle_id, key_name')->get('stash');
+			$query = $this->db->select('id, key_name, key_label, bundle_id, session_id')->get('stash');
 
 			if ($query->num_rows() > 0)
 			{
-				$ids = array();
-
-				foreach ($query->result() as $row)
-				{
-					$ids[] = $row->id; // save for later
-
-					// delete any corresponding static cache files individually
-					$this->delete_static_cache($row->key_name, $row->bundle_id, $site_id);
-				}
-
-				// delete the records
-				if ($this->EE->db->where_in('id', $ids)->delete('stash')) 
-				{
-					$deleted = TRUE;
-				}
+				$deleted = $this->delete_cache($query->result(), $site_id);
 			}
 		}
-		else
+		elseif ($this->db->delete('stash'))
 		{
-			if ($this->db->delete('stash'))
+			// -------------------------------------
+			// 'stash_delete' hook
+			// -------------------------------------
+			if ($this->EE->extensions->active_hook('stash_delete') === TRUE)
 			{
-				// delete entire static cache for this site if bundle is 'static' or not specified
-				// and scope is 'site', 'all' or not specified
-				if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
-				{
-					if ( is_null($session_id) || $session_id === 'site' || $session_id === 'all')
-					{
-						$this->_delete_dir('/', $site_id);
-					}
-				}
-				$deleted = TRUE;
+				$this->EE->extensions->call('stash_delete', array(
+					'key_name' 	 	=> FALSE, 
+					'key_label' 	=> FALSE, 
+					'bundle_id'		=> $bundle_id, 
+					'session_id'	=> $session_id, 
+					'site_id'		=> $site_id
+				));
 			}
+
+			// delete entire static cache for this site if bundle is 'static' or not specified
+			// and scope is 'site', 'all' or not specified
+			if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
+			{
+				if ( is_null($session_id) || $session_id === 'site' || $session_id === 'all')
+				{
+					$this->_delete_dir('/', $site_id);
+				}
+			}
+			$deleted = TRUE;
 		}
 
 		if ($deleted)
@@ -360,6 +366,49 @@ class Stash_model extends CI_Model {
 		}
 
 		return $deleted;	
+	}
+
+
+	/**
+	 * Delete an array of variables in a given site
+	 *
+	 * @param array $vars An array of objects
+	 * @param integer $site_id
+	 * @return boolean
+	 */
+	protected function delete_cache($vars, $site_id = 1)
+	{
+		$ids = array();
+
+		foreach ($vars as $row)
+		{
+			$ids[] = $row->id;
+
+			// -------------------------------------
+			// 'stash_delete' hook
+			// -------------------------------------
+			if ($this->EE->extensions->active_hook('stash_delete') === TRUE)
+			{
+				$this->EE->extensions->call('stash_delete', array(
+					'key_name'		=> $row->key_name,
+					'key_label' 	=> $row->key_label, 
+					'bundle_id'		=> $row->bundle_id, 
+					'session_id'	=> $row->session_id, 
+					'site_id'		=> $site_id
+				));
+			}
+
+			// delete any corresponding static cache files, individually
+			$this->delete_static_cache($row->key_name, $row->bundle_id, $site_id);
+		}
+
+		// delete any db records
+		if ($this->EE->db->where_in('id', $ids)->delete('stash')) 
+		{
+			return TRUE;
+		}
+
+		return FALSE;
 	}
 	
 	/**
@@ -535,8 +584,7 @@ class Stash_model extends CI_Model {
 		if ($this->_can_static_cache($bundle_id))
 		{
 			// extract the associated uri from the variable key
-			$uri = explode(':', $key);
-			$uri = $uri[0] == '[index]' ? '' : $uri[0];
+			$uri = $this->parse_uri_from_key($key);
 
 			// cache that mother
 			return $this->_write_file($uri, $site_id, $parameters);
@@ -558,8 +606,7 @@ class Stash_model extends CI_Model {
 		if ($this->_can_static_cache($bundle_id))
 		{
 			// extract the associated uri from the variable key
-			$uri = explode(':', $key);
-			$uri = $uri[0] == '[index]' ? '' : $uri[0];
+			$uri = $this->parse_uri_from_key($key);
 
 			// delete the cache file
 			return $this->_delete_file($uri, $site_id);
@@ -667,6 +714,34 @@ class Stash_model extends CI_Model {
 		return FALSE;
 	}
 
+
+	/*
+	================================================================
+	Utility
+	================================================================
+	*/
+
+   /**
+   	* Parse a URI from a stash variable key (typically, the uri of a cached page)
+   	* 
+   	* @param string $key
+	* @return string
+   	*/
+	public function parse_uri_from_key($key)
+	{
+		$uri = explode(':', $key);
+		return $uri[0] == $this->_index_key ? '' : $uri[0];
+	}
+
+   /**
+   	* Getter: returns the index key placeholder
+   	* 
+	* @return string
+   	*/
+	public function get_index_key()
+	{
+		return $this->_index_key;
+	}
  
 }
 

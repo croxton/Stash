@@ -2865,7 +2865,7 @@ class Stash {
 
 		// replace '@URI:' with the current URI
 		$uri = $this->EE->uri->uri_string();
-		$uri = empty($uri) ? '[index]' : $uri;
+		$uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
 
 		if (strncmp($name, '@URI:', 5) == 0)
 		{
