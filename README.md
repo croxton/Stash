@@ -2,9 +2,9 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-### Version 2.3.8
+### Version 2.3.9
 
-This is the development version of Stash, and introduces Stash embeds and post/pre parsing of variables. Use with caution!
+This is the development version of Stash. Test thoroughly before using in production.
 
 * Requires: ExpressionEngine 2.4+
 
