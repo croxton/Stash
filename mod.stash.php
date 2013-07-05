@@ -2987,6 +2987,7 @@ class Stash {
 			$this->EE->TMPL->var_pair	= array();
 			$this->EE->TMPL->plugins = $TMPL2->plugins;
 			$this->EE->TMPL->modules = $TMPL2->modules;
+			$this->EE->TMPL->module_data = $TMPL2->module_data;
 			$this->EE->TMPL->parse_tags();
 			$this->EE->TMPL->process_tags();
 			$this->EE->TMPL->loop_count = 0;
