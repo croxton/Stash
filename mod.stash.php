@@ -938,7 +938,8 @@ class Stash {
 
 				if ( file_exists($file_path))
 				{				
-					$value = file_get_contents($file_path);
+					$value = str_replace("\r\n", "\n", file_get_contents($file_path));
+
 					$set = TRUE;
 					
 					// disable tag parsing on set when parse_stage is 'get'
@@ -2333,26 +2334,27 @@ class Stash {
 			return self::_static_call(__FUNCTION__, $params, '', '', $value);
 		}
 
-		// mandatory parameter values
-		$this->EE->TMPL->tagparams['parse_tags']		  = 'yes';
-		$this->EE->TMPL->tagparams['parse_vars']		  = 'yes';
-		$this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
-
-		// set a default parse depth of 3
-		$this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 3);
+		// default parameter values
+		$this->EE->TMPL->tagparams['parse_tags']		  = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
+		$this->EE->TMPL->tagparams['parse_vars']		  = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
+		$this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
+		$this->EE->TMPL->tagparams['parse_depth'] 		  = $this->EE->TMPL->fetch_param('parse_depth', 3);
 		
 		// postpone tag processing?
 		if ( $this->process !== 'inline') 
 		{	
 			if ($out = $this->_post_parse(__FUNCTION__)) return $out;
 		}
+
+		// re-initialise Stash with the new default params
+		$this->init();
 		
 		// do the business
 		$this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
 		
-		// do we want to output the parsed tagdata (default: yes)
+		// output the parsed template data?
 		$output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
-		
+
 		if ($output)
 		{
 			return $this->EE->TMPL->tagdata;
