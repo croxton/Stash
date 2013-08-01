@@ -247,9 +247,20 @@ class Stash {
 	 */
 	private function _load_EE_TMPL()
 	{
-		require APPPATH.'libraries/Template.php';
-		$this->EE->TMPL = new EE_Template();
-		$this->EE->TMPL->modules = array('stash');
+		// -------------------------------------------
+		// 'stash_load_template_class' hook.
+		//  - Allows substituting one's own template parsing class
+		//
+		if ($this->EE->extensions->active_hook('stash_load_template_class') === TRUE)
+		{
+			$this->EE->TMPL = $this->EE->extensions->call('stash_load_template_class');
+		} else {
+			require_once APPPATH.'libraries/Template.php';
+			$this->EE->TMPL = new EE_Template();
+			$this->EE->TMPL->modules = array('stash');
+		}
+		//
+		// -------------------------------------------
 	}
 	
 	/*
