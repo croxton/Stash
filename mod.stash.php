@@ -247,20 +247,19 @@ class Stash {
 	 */
 	private function _load_EE_TMPL()
 	{
-		// -------------------------------------------
-		// 'stash_load_template_class' hook.
-		//  - Allows substituting one's own template parsing class
-		//
+		// -------------------------------------
+		// 'stash_load_template_class' hook
+		// -------------------------------------
 		if ($this->EE->extensions->active_hook('stash_load_template_class') === TRUE)
 		{
 			$this->EE->TMPL = $this->EE->extensions->call('stash_load_template_class');
-		} else {
+		} 
+		else 
+		{
 			require_once APPPATH.'libraries/Template.php';
 			$this->EE->TMPL = new EE_Template();
 			$this->EE->TMPL->modules = array('stash');
 		}
-		//
-		// -------------------------------------------
 	}
 	
 	/*
@@ -1519,16 +1518,16 @@ class Stash {
 		// absolute results total
 		$absolute_results = count($list);
 
+		// does limit contain a fraction?
+		if ($limit)
+		{	
+			$limit = $this->_parse_fraction($limit, $offset, $absolute_results);
+		}
+
 		// does offset contain a fraction, e.g. '1/3' ?
 		if ($offset)
 		{
-			$offset = $this->_parse_fraction($offset, $absolute_results);
-		}
-
-		// does limit contain a fraction?
-		if ($limit)
-		{
-			$limit = $this->_parse_fraction($limit, $absolute_results);
+			$offset = $this->_parse_fraction($offset, 0, $absolute_results);
 		}
 		
 		// pagination
@@ -2836,20 +2835,89 @@ class Stash {
 	/** 
 	 * get a fraction from a parameter value
 	 *
-	 * @access protected
+	 * @access private
+	 * @param string
 	 * @param string
 	 * @param integer
 	 * @return integer
 	 */
-	private function _parse_fraction($fraction, $total)
+	private function _parse_fraction($fraction, $offset=0, $total)
 	{
 		if (strstr($fraction, '/'))
 		{
 			$fraction = explode('/', $fraction);
 
-			if (isset($fraction[1]))
+			if (isset($fraction[1]) && $fraction[1] > 0)
 			{
-				return ceil( ($fraction[0] / $fraction[1]) * $total);
+				$p = $fraction[1]; // the default number of partitions
+				$start = 0; // index of the first partition
+			    $end = $fraction[0]; // index of the last partition
+
+				 // do we have an offset?
+				if ($offset)
+				{
+					if (strstr($offset, '/'))
+					{
+						// we were passed a fraction
+						$offset = explode('/', $offset);
+					}
+					elseif( intval($offset) === $offset)
+					{
+						// we were passed an integer, convert to a fraction of the total
+						$offset = array($offset, $total);
+					}
+
+					if (isset($offset[1]) && $offset[1] > 0)
+					{
+						// do the denominators match?
+						if ($offset[1] !== $fraction[1])
+						{
+							// no, find the least common denominator for those numbers
+							$p = $this->_lcd(array($offset[1], $fraction[1]));
+
+							// multiple the numerators accordingly
+							$offset[0] 	 = $p / $offset[1] * $offset[0];
+							$fraction[0] = $p / $fraction[1] * $fraction[0];
+						}
+
+						// update indexes of start/end partitions
+						$start = $offset[0];
+						$end = $start + $fraction[0];
+					}
+					else
+					{
+						$offset = 0;
+					}
+				}
+
+				// partition a temporary list
+				$partlen = floor($total / $p);
+				$partrem = $total % $p;
+				$partition = array();
+				$mark = 0;
+				$list  = array_fill(0, $total, 0);
+
+				for($px = 0; $px < $p; $px++) 
+				{
+			        $incr = ($px < $partrem) ? $partlen + 1 : $partlen;
+			        $partition[$px] = array_slice($list, $mark, $incr);
+			        $mark += $incr;
+			    }
+
+			    unset($list);
+
+			    $i = $start;
+			    $index = 0;
+
+			    while ($i < $end) {
+			    	if (isset($partition[$i]))
+			    	{
+						$index += count($partition[$i]);
+			    	}
+			    	else break;
+				   	$i++;
+				}
+				return $index;
 			}
 		}
 		else
@@ -2858,6 +2926,38 @@ class Stash {
 		}
 	}
 
+	// ---------------------------------------------------------
+
+	/** 
+	 * get the least common denominator for a given array of numbers
+	 *
+	 * @access private
+	 * @param array numbers to compare
+	 * @param integer the multiplication count
+	 * @return integer
+	 */
+	private function _lcd($array, $x=1) 
+	{            
+        $mod_sum = 0;
+        static $lcd = 0;
+        
+        for($int=1; $int < count($array); $int++) 
+        {                
+            $modulus[$int] = ($array[0]*$x) % ($array[$int]);
+            $mod_sum = $mod_sum + $modulus[$int];            
+        }
+             
+        if (!$mod_sum) 
+        {
+        	$lcd = $array[0]*$x;
+        } 
+        else 
+        {
+            $this->_lcd($array, $x+1);
+        }
+
+        return $lcd;
+    }
 	
 	// ---------------------------------------------------------
 	
