@@ -2976,10 +2976,19 @@ class Stash {
 			$name = str_replace('@', self::$context, $name);
 		}
 
-		// replace '@URI:' with the current URI
-		$uri = $this->EE->uri->uri_string();
+		// fetch the *unadulterated* URI of the current page
+		$ee_uri = new EE_URI;
+
+		// documented as a 'private' method, but not actually. Called in CI_Router so unlikely to ever be made private.
+		$ee_uri->_fetch_uri_string(); 
+		$ee_uri->_remove_url_suffix();
+		$ee_uri->_explode_segments();
+
+		// provide a fallback value for index pages
+		$uri = $ee_uri->uri_string();
 		$uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
 
+		// replace '@URI:' with the current URI
 		if (strncmp($name, '@URI:', 5) == 0)
 		{
 			$name = str_replace('@URI', $uri, $name);
