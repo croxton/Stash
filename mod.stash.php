@@ -1500,6 +1500,20 @@ class Stash {
 					
 		// retrieve the list array
 		$list = $this->rebuild_list();
+		
+		// apply prefix
+		if ( ! is_null($prefix))
+		{
+			foreach ($list as $index => $array)
+			{
+				foreach ($array as $k => $v)
+				{
+	    			$list[$index][$prefix.':'.$k] = $v;
+	    			 // do we want to stop un-prefixed palceholders being parsed?
+	   				#unset($list[$index][$k]);
+				}
+			}
+		}
 
 		// slice the list before we do any transformations of the list array?
 		if ( ! is_null($slice))
@@ -2279,7 +2293,8 @@ class Stash {
 		$this->bundle_id = $this->EE->stash_model->get_bundle_by_name($this->EE->TMPL->tagparams['bundle']);
 
 		// set the entire template data as the tagdata, removing the placeholder for this tag from the output saved to file
-		$this->EE->TMPL->tagdata = $output;	
+		// we need to parse remaining globals since unlike db cached pages, static pages won't pass through PHP/EE again
+		$this->EE->TMPL->tagdata = $this->EE->TMPL->parse_globals($output);	
 
 		// as this is the full rendered output of a template, check that we should really be saving it
 		if ( ! $this->_is_cacheable())
@@ -2580,7 +2595,7 @@ class Stash {
 
 		$match	 = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
 		$against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
-		$unique = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique'));
+		$unique  = $this->EE->TMPL->fetch_param('unique', FALSE);
 		
 		// make sure any parsing is done AFTER the list has been replaced in to the template 
 		// not when it's still a serialized array
@@ -2624,7 +2639,24 @@ class Stash {
 			
 			// ensure we have unique rows?
 			if ($unique)
-			{
+			{	
+				if ( FALSE === (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique')))
+				{
+					// unique across a single column
+					$new_list = array();
+					foreach($list as $key => $value)
+					{	
+						if ( isset($value[$unique]) )
+						{
+							$new_list[] = array(
+								$unique => $value[$unique]
+							);
+						}	
+					}
+					$list = $new_list;
+				}
+
+				// make a unique list
 				$list = array_map('unserialize', array_unique(array_map('serialize', $list)));
 			}
 		}
