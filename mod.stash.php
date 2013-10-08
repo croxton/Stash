@@ -953,8 +953,6 @@ class Stash {
 
     					 // strip out anything we haven't been able to convert
     					$part = preg_replace('/[^-\w]+/', '', $part);
-
-    					echo $part;
     				}
     				else
     				{
