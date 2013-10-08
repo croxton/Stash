@@ -909,9 +909,6 @@ class Stash {
 			if ( ($file && $value === NULL) || ($file && $this->replace) || ($file && $this->file_sync) )
 			{					
 				$this->EE->TMPL->log_item("Stash: reading from file");
-				
-				// construct a filepath. Here contexts become folders...
-				$this->EE->load->helper('url_helper');
 
 				// extract and remove the file extension, if provided
 				$ext = 'html'; // default extension
@@ -941,8 +938,35 @@ class Stash {
 				{
 					// make sure it's a valid url title
 					$part = str_replace('.', '', $part);
-					$part = url_title($part);
+					
+					// make sure our url part is a valid 'slug'
+    				if (function_exists('iconv'))
+    				{
+					 	// swap out Non "Letters" with a hyphen -
+						$part = preg_replace('/[^\\pL\d\_]+/u', '-', $part); 
+
+						// trim out extra -'s
+    					$part = trim($part, '-');
+
+    					// convert letters that we have left to the closest ASCII representation
+    					$part= iconv('utf-8', 'us-ascii//TRANSLIT', $part);
+
+    					 // strip out anything we haven't been able to convert
+    					$part = preg_replace('/[^-\w]+/', '', $part);
+
+    					echo $part;
+    				}
+    				else
+    				{
+    					// else insist upon alphanumeric characters and - or _
+    					$part = trim(preg_replace('/[^a-z0-9\-\_]+/', '-', strtolower($part)), '-');
+    				}
+
 				}
+				unset($part); // remove reference
+
+				// remove any empty url parts
+				$file_path = array_filter($file_path);
 				
 				$file_path = $this->path . implode('/', $file_path) . '.' . $ext;
 
