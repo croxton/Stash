@@ -195,9 +195,9 @@ class Stash_ext {
 						#$param['process'] 	= 'inline';
 						
 						// set default parse parameters
-						$param['parse_tags'] 		 = isset($param['parse_tags']) ? $param['parse_tags'] : 'no';
-						$param['parse_vars'] 		 = isset($param['parse_vars']) ? $param['parse_vars'] : 'no';
-						$param['parse_conditionals'] = isset($param['parse_conditionals']) ? $param['parse_conditionals'] : 'no';
+						$param['parse_tags'] 		 = isset($param['parse_tags']) ? $param['parse_tags'] : 'yes';
+						$param['parse_vars'] 		 = isset($param['parse_vars']) ? $param['parse_vars'] : 'yes';
+						$param['parse_conditionals'] = isset($param['parse_conditionals']) ? $param['parse_conditionals'] : 'yes';
 						$param['parse_depth'] 		 = isset($param['parse_depth']) ? $param['parse_depth'] : 4;
 						$param['parse_stage'] 		 = isset($param['parse_stage']) ? $param['parse_stage'] : 'get';
 						$param['replace'] 		 	 = isset($param['replace']) ? $param['replace'] : 'no';
@@ -312,12 +312,16 @@ class Stash_ext {
 					$context = Stash::$context;
 				}
 
-				$s = new Stash();
-
 				// save TMPL values for later
 				$tagparams 	= isset($this->EE->TMPL->tagparams) ? $this->EE->TMPL->tagparams : array();
 				$tagdata 	= isset($this->EE->TMPL->tagdata)   ? $this->EE->TMPL->tagdata : '';
-		
+
+				// reset tagparams so Stash is instantiated with default values
+				$this->EE->TMPL->tagparams = array();
+
+				// instantiate but don't initialise
+				$s = new Stash(TRUE);
+
 				// sort by priority
 				$cache = $s->sort_by_key($cache, 'priority', 'sort_by_integer');
 
@@ -361,6 +365,7 @@ class Stash_ext {
 						}
 						else
 						{
+							// initialise Stash with our custom tagparams
 							$s->init(TRUE);
 					
 							$out = $s->{$tag['method']}();

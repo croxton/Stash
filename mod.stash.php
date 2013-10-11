@@ -52,7 +52,7 @@ class Stash {
 	/*
 	 * Constructor
 	 */
-	public function __construct()
+	public function __construct($calling_from_hook = FALSE)
 	{
 		$this->EE =& get_instance();
 		
@@ -78,7 +78,10 @@ class Stash {
 									: array('html', 'md', 'css', 'js', 'rss', 'xml');
 		
 		// initialise tag parameters
-		$this->init();
+		if (FALSE === $calling_from_hook)
+		{
+			$this->init();
+		}
 
 		// fetch the stash session id
 		if ( ! isset($this->EE->session->cache['stash']['_session_id']) )
@@ -132,7 +135,7 @@ class Stash {
 	 * @param  bool		 $calling_from_hook Is method being called by an extension hook?
 	 * @return void 
 	 */
-	public function init($calling_from_hook = false)
+	public function init($calling_from_hook = FALSE)
 	{	
 		// make sure we have a Template object to work with, in case Stash is being invoked outside of a template
 		if ( ! class_exists('EE_Template'))
@@ -148,7 +151,7 @@ class Stash {
 		$this->process = 'inline';
 		
 		// postpone the parsing of the called stash tag?
-		if ( ! $calling_from_hook)
+		if (FALSE === $calling_from_hook)
 		{	
 			/* process stage:
 				start = called prior to template parsing in the current template
@@ -3570,7 +3573,7 @@ class Stash {
 		}
 			
 		$this->EE->TMPL->log_item("Stash: this tag will be post-processed on {$this->process}: {$this->EE->TMPL->tagproper}");
-		
+
 		$cache[$placeholder] = array(
 			'method'	=> $method,
 			'tagproper' => $this->EE->TMPL->tagproper,
