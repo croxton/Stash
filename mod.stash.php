@@ -1527,10 +1527,7 @@ class Stash {
 		{
 			if ($out = $this->_post_parse(__FUNCTION__)) return $out;
 		}
-		
-		$sort			= strtolower($this->EE->TMPL->fetch_param('sort', 'asc'));
-		$sort_type		= strtolower($this->EE->TMPL->fetch_param('sort_type', 'string')); // string || integer
-		$orderby		= $this->EE->TMPL->fetch_param('orderby', FALSE);
+
 		$limit			= $this->EE->TMPL->fetch_param('limit',	 FALSE);
 		$offset			= $this->EE->TMPL->fetch_param('offset', 0);
 		$default		= $this->EE->TMPL->fetch_param('default', ''); // default value
@@ -1566,7 +1563,7 @@ class Stash {
 			}
 		}
 
-		// slice the list before we do any transformations of the list array?
+		// slice the list before we do any further transformations on the list?
 		if ( ! is_null($slice))
 		{
 			$slice = array_map('intval', explode(',', $slice));
@@ -1650,36 +1647,6 @@ class Stash {
 		if ($list == '')
 		{	
 			return $this->_no_results();
-		}
-		
-		// order by multidimensional array key
-		if ($orderby)
-		{
-			if ($orderby == 'random')
-			{
-				// shuffle list order
-				shuffle($list);
-			}
-			elseif (strncmp($orderby, 'random:', 7) == 0)
-			{
-				// shuffle one or more keys in the list, but leave the overall list order unchanged
-				$keys_to_shuffle = explode(',', substr($orderby, 7));
-				foreach($keys_to_shuffle as $key_shuffle)
-				{
-					$list = $this->shuffle_list_key($list, $key_shuffle);
-				}
-			}
-			else
-			{
-				// this will return an ordered array with sort ascending 
-				$list = $this->sort_by_key($list, $orderby, 'sort_by_'.$sort_type);
-			}
-		}
-		
-		// apply sort direction
-		if ($sort == 'desc')
-		{
-			$list = array_reverse($list);
 		}
 		
 		// {absolute_count} - absolute count to the ordered/sorted items
@@ -2644,9 +2611,12 @@ class Stash {
 			return self::_static_call(__FUNCTION__, $params, $type, $scope);
 		}
 
-		$match	 = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
-		$against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
-		$unique  = $this->EE->TMPL->fetch_param('unique', NULL);
+		$sort		= strtolower($this->EE->TMPL->fetch_param('sort', 'asc'));
+		$sort_type	= strtolower($this->EE->TMPL->fetch_param('sort_type', 'string')); // string || integer
+		$orderby	= $this->EE->TMPL->fetch_param('orderby', FALSE);
+		$match	 	= $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
+		$against 	= $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
+		$unique  	= $this->EE->TMPL->fetch_param('unique', NULL);
 		
 		// make sure any parsing is done AFTER the list has been replaced in to the template 
 		// not when it's still a serialized array
@@ -2668,6 +2638,36 @@ class Stash {
 				$value = $this->_list_row_explode($value);
 			}
 			unset($value);
+
+			// apply order/sort
+			if ($orderby)
+			{
+				if ($orderby == 'random')
+				{
+					// shuffle list order
+					shuffle($list);
+				}
+				elseif (strncmp($orderby, 'random:', 7) == 0)
+				{
+					// shuffle one or more keys in the list, but leave the overall list order unchanged
+					$keys_to_shuffle = explode(',', substr($orderby, 7));
+					foreach($keys_to_shuffle as $key_shuffle)
+					{
+						$list = $this->shuffle_list_key($list, $key_shuffle);
+					}
+				}
+				else
+				{
+					// this will return an ordered array with sort ascending 
+					$list = $this->sort_by_key($list, $orderby, 'sort_by_'.$sort_type);
+				}
+			}
+			
+			// apply sort direction
+			if ($sort == 'desc')
+			{
+				$list = array_values(array_reverse($list));
+			}
 			
 			// match/against: match the value of one of the list keys (specified by the against param) against a regex
 			if ( ! is_null($match) && preg_match('/^#(.*)#$/', $match) && ! is_null($against))
@@ -2687,6 +2687,9 @@ class Stash {
 				}
 				$list = $new_list;
 			}
+
+			// re-index array
+			$list = array_values($list);
 			
 			// ensure we have unique rows?
 			if ($unique !== NULL)
@@ -2696,21 +2699,35 @@ class Stash {
 					if ( FALSE === (bool) preg_match('/^(1|on|yes|y)$/i', $unique))
 					{
 						// unique across a single column
-						$new_list = array();
+						$unique_list = array();
+						$index = 0;
 						foreach($list as $key => $value)
 						{	
 							if ( isset($value[$unique]) )
 							{
-								$new_list[] = array(
+								$unique_list[$index] = array(
 									$unique => $value[$unique]
 								);
-							}	
+							}
+							++$index;	
 						}
-						$list = $new_list;
-					}
 
-					// make a unique list
-					$list = array_map('unserialize', array_unique(array_map('serialize', $list)));
+						// make a unique list for the column
+						$unique_list = array_map('unserialize', array_unique(array_map('serialize', $unique_list)));
+
+						// restore original list values for the unique rows
+						$restored_list = array();
+						foreach($unique_list as $key => $value)
+						{
+							$restored_list[] = $list[$key];
+						}
+						$list = $restored_list;
+					}
+					else
+					{
+						// make a unique list
+						$list = array_map('unserialize', array_unique(array_map('serialize', $list)));
+					}
 				}
 			}
 		}
@@ -2961,7 +2978,7 @@ class Stash {
 							// no, find the least common denominator for those numbers
 							$p = $this->_lcd(array($offset[1], $fraction[1]));
 
-							// multiple the numerators accordingly
+							// multiply the numerators accordingly
 							$offset[0] 	 = $p / $offset[1] * $offset[0];
 							$fraction[0] = $p / $fraction[1] * $fraction[0];
 						}
