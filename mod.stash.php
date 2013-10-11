@@ -1253,6 +1253,32 @@ class Stash {
 		$value	= str_replace( array("\t", "\n", "\r", "\0", "\x0B"), '', trim($test));
 		return empty( $value ) ? 0 : 1;
 	}	
+
+	// ---------------------------------------------------------
+
+	/**
+	 * Checks if a variable or string has any content, handy for conditionals
+	 *
+	 * @access public
+	 * @param $string a string to test
+	 * @return integer
+	 */
+	public function is_empty($string = NULL)
+	{
+		/* Sample use
+		---------------------------------------------------------
+		Check a native stash variable, global variable or snippet is empty:
+		{if {exp:stash:is_empty type="snippet" name="title"} }
+			Yes! {title} is empty
+		{/if}
+
+		Check any string or variable is not empty even if it's not been Stashed:
+		{if {exp:stash:is_empty:string}{my_string}{/exp:stash:is_empty:string} }
+			Yes! {my_string} is empty
+		{/if}
+		--------------------------------------------------------- */
+		return ! $this->not_empty($string);
+	}
 	
 	// ---------------------------------------------------------
 	
