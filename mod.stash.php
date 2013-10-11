@@ -1277,7 +1277,7 @@ class Stash {
 			Yes! {my_string} is empty
 		{/if}
 		--------------------------------------------------------- */
-		return ! $this->not_empty($string);
+		return $this->not_empty($string) == 0 ? 1 : 0;
 	}
 	
 	// ---------------------------------------------------------
