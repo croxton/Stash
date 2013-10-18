@@ -1563,6 +1563,12 @@ class Stash {
 					
 		// retrieve the list array
 		$list = $this->rebuild_list();
+
+		// return no results if this variable has no value
+		if ( empty($list))
+		{	
+			return $this->_no_results();
+		}
 		
 		// apply prefix
 		if ( ! is_null($prefix))
@@ -1656,12 +1662,6 @@ class Stash {
 			$this->pagination->get_template();
 			$this->pagination->build(); 
 			$offset = $offset + $this->pagination->offset;
-		}
-
-		// return no results if this variable has no value
-		if ($list == '')
-		{	
-			return $this->_no_results();
 		}
 		
 		// {absolute_count} - absolute count to the ordered/sorted items
@@ -2754,7 +2754,7 @@ class Stash {
 		}
 		else
 		{
-			$list = ''; // make sure we return a string
+			$list = array(); // make sure we always return an array
 		}	
 		return $list;
 	}
@@ -2783,15 +2783,15 @@ class Stash {
 				preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
 				if (!empty($matches))
 				{
-					// don't save a string containing just white space, but be careful to preserve zeros 0
-					if ( $this->not_empty($matches[1]) || $matches[1] === '0')
+					// don't save a string containing just white space or zero
+					if ( $this->not_empty($matches[1]))
 					{
 						$stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
 					}
 					else
 					{
-						// default: set key value to an empty string
-						$stash_vars[substr($key, 6)] = '';
+						// default: set key value to '0', so it can be evaulated to true|false by conditionals in EE templates 
+						$stash_vars[substr($key, 6)] = '0';
 					}
 				}
 			}
