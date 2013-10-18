@@ -11,27 +11,27 @@
  */
 
 class Stash_mcp {
-	
-	/**
-	 * Stash_mcp
-	 * 
-	 * @access	public
-	 * @return	void
-	 */
-	public function __construct() 
-	{
-		$this->EE = get_instance();
-	}
-	
-	/**
-	 * index
-	 * 
-	 * @access	public
-	 * @return	void
-	 */
-	public function index()
-	{
-	}
+    
+    /**
+     * Stash_mcp
+     * 
+     * @access  public
+     * @return  void
+     */
+    public function __construct() 
+    {
+        $this->EE = get_instance();
+    }
+    
+    /**
+     * index
+     * 
+     * @access  public
+     * @return  void
+     */
+    public function index()
+    {
+    }
 }
 
 /* End of file mcp.stash.php */
