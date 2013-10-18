@@ -4,7 +4,7 @@
 
 ### Version 2.4.4
 
-This is the development version of Stash. Test thoroughly before using in production.
+This is the latest stable version of Stash.
 
 * Requires: ExpressionEngine 2.4+
 
