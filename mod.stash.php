@@ -1489,7 +1489,20 @@ class Stash {
 			}
 			$name_in_context = $this->_parse_context($name);
 
-			if ( array_key_exists($name, $this->_stash) || array_key_exists($name_in_context, $this->_stash))
+			// get the current value of the list
+			$current_value = '';
+
+			if (array_key_exists($name, $this->_stash))
+			{
+				$current_value = $this->_stash[$name];
+			}
+			elseif(array_key_exists($name_in_context, $this->_stash))
+			{
+				$current_value = $this->_stash[$name_in_context];
+			}
+
+			// check that the list has a value before appending/prepending
+			if ( $this->not_empty($current_value))
 			{
 				if ($append)
 				{
