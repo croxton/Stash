@@ -198,6 +198,26 @@ class Stash_ext {
 						$param['parse_tags'] 		 = isset($param['parse_tags']) ? $param['parse_tags'] : 'yes';
 						$param['parse_vars'] 		 = isset($param['parse_vars']) ? $param['parse_vars'] : 'yes';
 						$param['parse_conditionals'] = isset($param['parse_conditionals']) ? $param['parse_conditionals'] : 'yes';
+
+						// parse="yes"?
+						if (isset($param['parse']))
+						{
+							if ( (bool) preg_match('/1|on|yes|y/i', $param['parse']))
+							{
+								// parse="yes"
+								$param['parse_tags']		  = 'yes';
+								$param['parse_vars']		  = 'yes';
+								$param['parse_conditionals']  = 'yes';
+							}
+							elseif ( (bool) preg_match('/^(0|off|no|n)$/i', $param['parse']))
+							{
+								// parse="no"
+								$param['parse_tags']		  = 'no';
+								$param['parse_vars']		  = 'no';
+								$param['parse_conditionals']  = 'no';
+							}
+						}
+
 						$param['parse_depth'] 		 = isset($param['parse_depth']) ? $param['parse_depth'] : 4;
 						$param['parse_stage'] 		 = isset($param['parse_stage']) ? $param['parse_stage'] : 'get';
 						$param['replace'] 		 	 = isset($param['replace']) ? $param['replace'] : 'no';

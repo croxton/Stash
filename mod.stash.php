@@ -192,6 +192,9 @@ class Stash {
 		
 		// if the variable is already set, do we want to replace it's value? Default = yes
 		$this->replace = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('replace', 'yes'));
+
+		// parse="yes"?
+		$this->set_parse_params();
 		
 		// do we want to parse any tags and variables inside tagdata? Default = no	
 		$this->parse_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('parse_tags'));
@@ -728,7 +731,6 @@ class Stash {
 		OR static call within PHP enabled templates or other add-on: 
 		<?php echo stash::get('title') ?>
 		--------------------------------------------------------- */
-
 
 		// is this method being called statically?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
@@ -1977,8 +1979,6 @@ class Stash {
 			{exp:stash:get dynamic="yes" name="field" output="no" match="#^[a-zA-Z0-9_-]+$#" default="persons_last_name"}
 		{/exp:stash:bundle}
 		--------------------------------------------------------- */
-
-
 		
 		// is this method being called statically from PHP?
 		if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
@@ -2066,11 +2066,16 @@ class Stash {
 		$this->EE->TMPL->tagparams['scope']				  = 'site';
 		$this->EE->TMPL->tagparams['file']				  = 'yes';
 		$this->EE->TMPL->tagparams['save']				  = 'yes';
-		$this->EE->TMPL->tagparams['parse_tags']		  = 'yes';
-		$this->EE->TMPL->tagparams['parse_vars']		  = 'yes';
-		$this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
 		$this->EE->TMPL->tagparams['embed_vars']		  = array();
-		
+
+		// parse="yes"?
+		$this->set_parse_params();
+
+		// default parameter values
+		$this->EE->TMPL->tagparams['parse_tags']		  = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
+		$this->EE->TMPL->tagparams['parse_vars']		  = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
+		$this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
+
 		// name and context passed in tagparts?
 		if (isset($this->EE->TMPL->tagparts[3]))
 		{	
@@ -2389,6 +2394,9 @@ class Stash {
 		{	
 			return self::_static_call(__FUNCTION__, $params, '', '', $value);
 		}
+
+		// parse="yes"?
+		$this->set_parse_params();
 
 		// default parameter values
 		$this->EE->TMPL->tagparams['parse_tags']		  = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
@@ -3723,6 +3731,38 @@ class Stash {
 			$this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
 		}
 		return $this->EE->TMPL->no_results();
+	}
+
+	// ---------------------------------------------------------
+	
+	/**
+	 * set individual parse parameters if parse="yes"
+	 * 
+	 * @access public
+	 * @param string $prefix
+	 * @return String	
+	 */ 
+	function set_parse_params()
+	{
+		$parse = $this->EE->TMPL->fetch_param('parse', NULL);
+
+		if ( NULL !== $parse)
+		{
+			if ( (bool) preg_match('/1|on|yes|y/i', $parse))
+			{
+				// parse="yes"
+				$this->EE->TMPL->tagparams['parse_tags']		  = 'yes';
+				$this->EE->TMPL->tagparams['parse_vars']		  = 'yes';
+				$this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
+			} 
+			elseif ( (bool) preg_match('/^(0|off|no|n)$/i', $parse))	
+			{	
+				// parse="no"
+				$this->EE->TMPL->tagparams['parse_tags']		  = 'no';
+				$this->EE->TMPL->tagparams['parse_vars']		  = 'no';
+				$this->EE->TMPL->tagparams['parse_conditionals']  = 'no';
+			}
+		}
 	}
 	
 	// ---------------------------------------------------------
