@@ -3656,6 +3656,9 @@ class Stash {
     /**
      * Prep {if var IN (array)} conditionals
      *
+     * Used with the permission of Lodewijk Schutte
+     * http://gotolow.com/addons/low-search
+     *
      * @access private
      * @param string $tagdata
      * @return String   
