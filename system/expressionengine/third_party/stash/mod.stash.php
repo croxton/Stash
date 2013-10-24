@@ -46,6 +46,7 @@ class Stash {
     private $_list_delimiter = '|+|';
     private $_list_row_delimiter = '|&|';
     private $_list_row_glue = '|=|';
+    private $_list_null = '__NULL__';
     private $_embed_nested = FALSE;
     private static $_is_human = TRUE;
 
@@ -1415,6 +1416,14 @@ class Stash {
         
                 if ( $this->not_empty($this->EE->TMPL->tagdata))
                 {
+                    // set the list, but do we need to disable match/against?
+                    if  ( FALSE !== $this->EE->TMPL->fetch_param('against', FALSE))
+                    {
+                        // already matched/against a specified column in the list, so disable match/against
+                        unset($this->EE->TMPL->tagparams['match']);
+                        unset($this->EE->TMPL->tagparams['against']);
+                    }
+
                     return $this->set();    
                 }
             }
@@ -1514,6 +1523,14 @@ class Stash {
                 {
                     $this->EE->TMPL->tagdata =  $this->EE->TMPL->tagdata . $this->_list_delimiter;
                 }
+            }
+
+            // update the list, but do we need to disable match/against?
+            if  ( FALSE !== $this->EE->TMPL->fetch_param('against', FALSE))
+            {
+                // already matched/against a specified column in the list, so disable match/against
+                unset($this->EE->TMPL->tagparams['match']);
+                unset($this->EE->TMPL->tagparams['against']);
             }
 
             return $append ? $this->append() : $this->prepend();
@@ -2602,6 +2619,11 @@ class Stash {
         // check every value in the array matches
         foreach($against as $part)
         {
+            // convert placeholder null to an empty string before comparing
+            if ($part === $this->_list_null)
+            {
+                $part = '';
+            }
             $this->EE->TMPL->log_item('Stash: MATCH '. $match . ' AGAINST ' . $part);
             
             if ( ! preg_match($match, $part))
@@ -2773,7 +2795,7 @@ class Stash {
         $against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
         
         //  get the stash var pairs values
-        $stash_vars = array();      
+        $stash_vars = array(); 
      
         foreach($this->EE->TMPL->var_pair as $key => $val)
         {
@@ -2783,15 +2805,15 @@ class Stash {
                 preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
                 if (!empty($matches))
                 {
-                    // don't save a string containing just white space or zero
-                    if ( $this->not_empty($matches[1]))
+                    // don't save a string containing just white space, but be careful to preserve zeros
+                    if ( $this->not_empty($matches[1]) || $matches[1] === '0')
                     {
                         $stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
                     }
                     else
                     {
-                        // default: set key value to '0', so it can be evaulated to true|false by conditionals in EE templates 
-                        $stash_vars[substr($key, 6)] = '0';
+                        // default key value: use a placeholder to represent a null value
+                        $stash_vars[substr($key, 6)] = $this->_list_null;
                     }
                 }
             }
@@ -2811,8 +2833,8 @@ class Stash {
                 return;
             }
             // disable match/against when setting the variable
-            unset($this->EE->TMPL->tagparams['match']);
-            unset($this->EE->TMPL->tagparams['against']);
+            #unset($this->EE->TMPL->tagparams['match']);
+            #unset($this->EE->TMPL->tagparams['against']);
         }
     
         // flatten the array into a string
@@ -2858,6 +2880,11 @@ class Stash {
             
             if (isset($val[1]))
             {
+                // replace our null placeholder with an empty string
+                if ($val[1] === $this->_list_null)
+                {
+                    $val[1] = '';
+                }
                 $new_array[$val[0]] = $val[1];
             }
         }   
