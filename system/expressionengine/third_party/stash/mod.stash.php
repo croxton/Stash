@@ -2654,8 +2654,8 @@ class Stash {
             return self::_static_call(__FUNCTION__, $params, $type, $scope);
         }
 
-        $sort       = strtolower($this->EE->TMPL->fetch_param('sort', 'asc'));
-        $sort_type  = strtolower($this->EE->TMPL->fetch_param('sort_type', 'string')); // string || integer
+        $sort       = strtolower($this->EE->TMPL->fetch_param('sort', FALSE));
+        $sort_type  = strtolower($this->EE->TMPL->fetch_param('sort_type', FALSE)); // string || integer || lowercase
         $orderby    = $this->EE->TMPL->fetch_param('orderby', FALSE);
         $match      = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
         $against    = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
@@ -2668,7 +2668,7 @@ class Stash {
         // run get() with a safe list of parameters
         $list = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
         
-        // renable parsing
+        // reenable parsing
         $this->parse_complete = FALSE;
 
         if ($list !== '' && $list !== NULL)
@@ -2701,13 +2701,70 @@ class Stash {
                 }
                 else
                 {
-                    // this will return an ordered array with sort ascending 
-                    $list = $this->sort_by_key($list, $orderby, 'sort_by_'.$sort_type);
+
+                    // here be dragons (array_multisort)
+                    $orderby   = explode('|', preg_replace('#\s+#', '', $orderby));
+                    $sort      = explode('|', preg_replace('#\s+#', '', $sort));
+                    $sort_type = explode('|', preg_replace('#\s+#', '', $sort_type));
+
+                    // make collumns out of rows needed for orderby
+                    $columns = array();
+                    foreach ($list as $key => $row)
+                    {
+                        foreach ($orderby as $name)
+                        {
+                            // if the reference doesn't exist, it will point to NULL
+                            // handy for when a variable was not set
+                            $columns[$name][$key] =& $list[$key][$name];
+                        }
+                    }
+
+                    // create function arguments for multisort
+                    $args = array();
+                    foreach ($orderby as $i => $name)
+                    {
+                        $args[] =& $columns[$name]; // column reference 
+
+                        // SORT_ASC is default, only change if desc
+                        if (isset($sort[$i]) && $sort[$i]=="desc")
+                        {
+                            $args[] = SORT_DESC;
+                        }
+
+                        // types string, integer, lowercase
+                        if (isset($sort_type[$i]))
+                        {
+                            switch ($sort_type[$i])
+                            {
+                                case 'string':
+                                    $args[] = SORT_STRING;
+                                    break;
+                                case 'integer':
+                                    $args[] = SORT_NUMERIC;
+                                    break;
+                                case 'lowercase':
+                                    $columns[$name] = array_map('strtolower', $columns[$name]);
+                                    $args[] = SORT_STRING;  
+                                    break;
+                                default:
+                                    // $args[] = SORT_REGULAR;
+                                    break;
+                            }
+                        }
+                    }
+                    // last argument, array to sort
+                    $args[] =& $list;
+
+                    // sorted
+                    call_user_func_array('array_multisort', $args);
+
+                    unset($columns);
+
                 }
             }
             
             // apply sort direction
-            if ($sort == 'desc')
+            if ( ! is_array($sort) && $sort == 'desc')
             {
                 $list = array_values(array_reverse($list));
             }
