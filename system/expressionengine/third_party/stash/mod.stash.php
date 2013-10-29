@@ -2713,9 +2713,14 @@ class Stash {
                     {
                         foreach ($orderby as $name)
                         {
-                            // if the reference doesn't exist, it will point to NULL
-                            // handy for when a variable was not set
-                            $columns[$name][$key] =& $list[$key][$name];
+                            if ( isset($list[$key][$name]) )
+                            {
+                                $columns[$name][$key] =& $list[$key][$name];
+                            }
+                            else
+                            {
+                                $columns[$name][$key] = null;
+                            }
                         }
                     }
 
