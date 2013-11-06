@@ -2743,7 +2743,7 @@ class Stash {
                                 case 'string':
                                     $args[] = SORT_STRING;
                                     break;
-                                case 'integer':
+                                case 'integer': case 'numeric':
                                     $args[] = SORT_NUMERIC;
                                     break;
                                 case 'lowercase':
