@@ -2991,6 +2991,57 @@ class Stash {
 
         return $arr;
     }
+
+    // ---------------------------------------------------------
+
+    /** 
+     * Sort a multi-dimensional array by key
+     *
+     * @access public
+     * @param array Multidimensional array to sort
+     * @param string Array key to sort on
+     * @param string Callback function
+     * @return void
+     */
+    public function sort_by_key($arr, $key, $cmp='sort_by_integer') 
+    {
+        $this->_key2sort = $key;
+        
+        uasort($arr, array(__CLASS__, $cmp));
+        return ($arr);
+    }
+    
+    // ---------------------------------------------------------
+    
+    /** 
+     * Sort callback function: sort by string
+     *
+     * @access protected
+     * @param array
+     * @param array
+     */
+    protected function sort_by_string($a, $b) 
+    {
+        return (@strcasecmp($a[$this->_key2sort], $b[$this->_key2sort]));
+    }
+    
+    // --------------------------------------------------------- 
+    
+    /** 
+     * Sort callback function: sort by integer
+     *
+     * @access protected
+     * @param array
+     * @param array
+     */
+    protected function sort_by_integer($a, $b)
+    {
+        if ($a[$this->_key2sort] == $b[$this->_key2sort]) 
+        {
+            return 0;
+        }
+        return ($a[$this->_key2sort] < $b[$this->_key2sort]) ? -1 : 1;
+    }
     
     // --------------------------------------------------------- 
     
