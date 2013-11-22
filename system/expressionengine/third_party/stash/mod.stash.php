@@ -1089,7 +1089,7 @@ class Stash {
         
         Or as a tag pair with an arbitrary 4th tagpart:
 
-        {exp:stash:extend:block name="content"}
+        {exp:stash:extend:block name="content" with="views:my_embed"}
             {stash:my_var}value{/stash:my_var}
         {/exp:stash:extend:block}
     
