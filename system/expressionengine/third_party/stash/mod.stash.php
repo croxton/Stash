@@ -938,7 +938,8 @@ class Stash {
                 
                 // strip file ext (if any) and make sure we have a safe url encoded file path
                 $file_path = preg_replace('/\.[^.]*$/', '', $file_name);
-                $file_path = explode(':', $file_path);
+                #$file_path = explode(':', $file_path);
+                $file_path = preg_split("/[:\/]+/", $file_path);
 
                 foreach($file_path as &$part)
                 {
@@ -1072,6 +1073,69 @@ class Stash {
         return $this->get();
     }
 
+    // ---------------------------------------------------------
+    
+    /**
+     * Inject a stash embed into a variable or block
+     *
+     * @access public
+     * @return string|void
+     */
+    public function extend()
+    {
+        /* Sample use
+        ---------------------------------------------------------
+        {exp:stash:extend name="content" with="views:my_embed" stash:my_var="value"}
+        
+        Or as a tag pair with an arbitrary 4th tagpart:
+
+        {exp:stash:extend:block name="content"}
+            {stash:my_var}value{/stash:my_var}
+        {/exp:stash:extend:block}
+    
+        --------------------------------------------------------- */
+
+        if ( FALSE !== $with = $this->EE->TMPL->fetch_param('with', FALSE))
+        {   
+            $embed_vars = array();
+            unset($this->EE->TMPL->tagparams['with']);
+
+            // embed vars passed as params
+            foreach ($this->EE->TMPL->tagparams as $key => $val)
+            {
+                if (strncmp($key, 'stash:', 6) == 0)
+                {
+                    $embed_vars[substr($key, 6)] = $val;
+                    unset($this->EE->TMPL->tagparams[$key]);
+                }
+            }
+
+            // if this is a tag pair, capture data enclosed by {stash:...} pairs  
+            if ($this->EE->TMPL->tagdata)
+            {
+                foreach($this->EE->TMPL->var_pair as $key => $val)
+                {
+                    if (strncmp($key, 'stash:', 6) ==  0)
+                    {
+                        $pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
+                        preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
+
+                        if ( ! empty($matches))
+                        {
+                            $embed_vars[substr($key, 6)] = $matches[1];
+                        }   
+                    }
+                }
+            }
+            
+            // add embed vars directly to the stash session cache
+            $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+
+            // now inject the embed into the named block/variable
+            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed:' . $with . RD;
+            return $this->set();
+        }   
+    }
 
     // ---------------------------------------------------------
     
@@ -2080,15 +2144,15 @@ class Stash {
         --------------------------------------------------------- */
             
         // mandatory parameter values for template files
-        $this->EE->TMPL->tagparams['scope']               = 'site';
         $this->EE->TMPL->tagparams['file']                = 'yes';
-        $this->EE->TMPL->tagparams['save']                = 'yes';
         $this->EE->TMPL->tagparams['embed_vars']          = array();
 
         // parse="yes"?
         $this->set_parse_params();
 
         // default parameter values
+        $this->EE->TMPL->tagparams['save']                = $this->EE->TMPL->fetch_param('save', 'yes');
+        $this->EE->TMPL->tagparams['scope']               = $this->EE->TMPL->fetch_param('scope', 'site');
         $this->EE->TMPL->tagparams['parse_tags']          = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
         $this->EE->TMPL->tagparams['parse_vars']          = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
         $this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
