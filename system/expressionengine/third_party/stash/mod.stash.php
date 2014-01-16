@@ -75,7 +75,7 @@ class Stash {
 
         // permitted file extensions for Stash embeds
         $this->file_extensions  =   $this->EE->config->item('stash_file_extensions')     
-                                    ? $this->EE->config->item('stash_file_extensions') 
+                                    ? (array) $this->EE->config->item('stash_file_extensions') 
                                     : array('html', 'md', 'css', 'js', 'rss', 'xml');
         
         // initialise tag parameters
@@ -945,28 +945,9 @@ class Stash {
                 {
                     // make sure it's a valid url title
                     $part = str_replace('.', '', $part);
-                    
-                    // make sure our url part is a valid 'slug'
-                    if (function_exists('iconv'))
-                    {
-                        // swap out Non "Letters" with a hyphen -
-                        $part = preg_replace('/[^\\pL\d\_]+/u', '-', $part); 
 
-                        // trim out extra -'s
-                        $part = trim($part, '-');
-
-                        // convert letters that we have left to the closest ASCII representation
-                        $part= iconv('utf-8', 'us-ascii//TRANSLIT', $part);
-
-                         // strip out anything we haven't been able to convert
-                        $part = preg_replace('/[^-\w]+/', '', $part);
-                    }
-                    else
-                    {
-                        // else insist upon alphanumeric characters and - or _
-                        $part = trim(preg_replace('/[^a-z0-9\-\_]+/', '-', strtolower($part)), '-');
-                    }
-
+                    // insist upon alphanumeric characters and - or _
+                    $part = trim(preg_replace('/[^a-z0-9\-\_]+/', '-', strtolower($part)), '-');
                 }
                 unset($part); // remove reference
 
@@ -1624,14 +1605,14 @@ class Stash {
             if ($out = $this->_post_parse(__FUNCTION__)) return $out;
         }
 
-        $limit          = $this->EE->TMPL->fetch_param('limit',  FALSE);
-        $offset         = $this->EE->TMPL->fetch_param('offset', 0);
-        $default        = $this->EE->TMPL->fetch_param('default', ''); // default value
-        $filter         = $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
-        $prefix         = $this->EE->TMPL->fetch_param('prefix', NULL); // optional namespace for common vars like {count}
-        $paginate       = $this->EE->TMPL->fetch_param('paginate', FALSE);
-        $paginate_param = $this->EE->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination
-        $slice          = $this->EE->TMPL->fetch_param('slice', NULL); // e.g. "0, 2" - slice the list array before order/sort/limit
+        $limit              = $this->EE->TMPL->fetch_param('limit',  FALSE);
+        $offset             = $this->EE->TMPL->fetch_param('offset', 0);
+        $default            = $this->EE->TMPL->fetch_param('default', ''); // default value
+        $filter             = $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search final output for
+        $prefix             = $this->EE->TMPL->fetch_param('prefix', NULL); // optional namespace for common vars like {count}
+        $require_prefix     = $this->EE->TMPL->fetch_param('require_prefix', TRUE); // if prefix="" is set, only placeholders using the prefix will be parsed
+        $paginate           = $this->EE->TMPL->fetch_param('paginate', FALSE);
+        $paginate_param     = $this->EE->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination
         
         $list_html      = '';
         $list_markers   = array();  
@@ -1659,26 +1640,16 @@ class Stash {
                 foreach ($array as $k => $v)
                 {
                     $list[$index][$prefix.':'.$k] = $v;
-                     // do we want to stop un-prefixed palceholders being parsed?
-                    #unset($list[$index][$k]);
+
+                     // do we want to stop un-prefixed variables being parsed?
+                    if ($require_prefix)
+                    {
+                        unset($list[$index][$k]);
+                    }
                 }
             }
         }
 
-        // slice the list before we do any further transformations on the list?
-        if ( ! is_null($slice))
-        {
-            $slice = array_map('intval', explode(',', $slice));
-            if (isset($slice[1]))
-            {
-                $list = array_slice($list, $slice[0], $slice[1]);
-            }
-            else
-            {
-                $list = array_slice($list, $slice[0]);
-            }
-        }
-        
         // absolute results total
         $absolute_results = count($list);
 
@@ -1810,7 +1781,18 @@ class Stash {
             $backspace = $this->EE->TMPL->fetch_param('backspace', FALSE);
             $this->EE->TMPL->tagparams['backspace'] = FALSE;
             
-            // replace into template        
+            // Replace into template.
+            //
+            // KNOWN BUG:
+            // TMPL::parse_variables() runs functions::preps conditionals() which is buggy with advanced conditionals
+            // that reference *external* variables (such as global variables, segment variables).
+            // E.g. say you have a list var '{tel}' with value '123' and global var '{pg_tel}' with value '456'
+            // {if pg_tel OR pg_fax} is changed to {if pg_"123" OR pg_fax} and will throw an error :( 
+            //
+            // WORKAROUND: 
+            // use the prefix="" param for local list vars when you need to reference external
+            // variables inside the get_list tag pair which have names that could collide.
+
             $list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
         
             // restore original backspace parameter
@@ -1843,10 +1825,7 @@ class Stash {
      * @return string 
      */
     public function list_count()
-    {
-        $match          = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
-        $against        = $this->EE->TMPL->fetch_param('against', NULL); // key to test $match against  
-                
+    {           
         // retrieve the list array
         $list = $this->rebuild_list();
 
@@ -2724,6 +2703,7 @@ class Stash {
         $match      = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
         $against    = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
         $unique     = $this->EE->TMPL->fetch_param('unique', NULL);
+        $slice      = $this->EE->TMPL->fetch_param('slice', NULL); // e.g. "0, 2" - slice the list array before order/sort/limit
         
         // make sure any parsing is done AFTER the list has been replaced in to the template 
         // not when it's still a serialized array
@@ -2835,6 +2815,21 @@ class Stash {
             if ( ! is_array($sort) && $sort == 'desc')
             {
                 $list = array_values(array_reverse($list));
+            }
+
+            // slice before any filtering is applied
+            // note: offset/limit can be used to 'slice' after filters are applied
+            if ( ! is_null($slice))
+            {
+                $slice = array_map('intval', explode(',', $slice));
+                if (isset($slice[1]))
+                {
+                    $list = array_slice($list, $slice[0], $slice[1]);
+                }
+                else
+                {
+                    $list = array_slice($list, $slice[0]);
+                }
             }
             
             // match/against: match the value of one of the list keys (specified by the against param) against a regex
@@ -3358,6 +3353,9 @@ class Stash {
         {   
             // note: each pass can expose more variables to be parsed after tag processing
             $TMPL2->tagdata = $this->_parse_template_vars($TMPL2->tagdata);
+
+            // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
+            $TMPL2->tagdata = preg_replace_callback($pattern, array(get_class($this), '_placeholders'), $TMPL2->tagdata);
         }
 
         // parse simple conditionals
@@ -3437,10 +3435,10 @@ class Stash {
             // call the 'template_post_parse' hook
             if ($this->EE->extensions->active_hook('template_post_parse') === TRUE && $this->_embed_nested === TRUE)
             {   
-                // make a copy of the extensions for this hook
-                $ext = $this->EE->extensions->extensions['template_post_parse'];
+                // make a copy of the extensions for the 'template_fetch_template' hook
+                $ext = $this->EE->extensions->extensions['template_fetch_template'];
             
-                // temporarily make Stash the only extension
+                // temporarily make Stash the only extension on the 'template_fetch_template' hook
                 $this->EE->extensions->extensions['template_fetch_template'] = array(
                 array('Stash_ext' => array(
                     'template_fetch_template',
@@ -3448,7 +3446,7 @@ class Stash {
                     $this->version
                 )));
                 
-                // call the hook
+                // call the 'template_post_parse' hook
                 $this->EE->TMPL->tagdata = $this->EE->extensions->call(
                     'template_post_parse',
                     $this->EE->TMPL->tagdata,
@@ -3456,8 +3454,8 @@ class Stash {
                     $this->site_id
                 );
                 
-                // restore original extensions
-                $this->EE->extensions->extensions['template_post_parse'] = $ext;
+                // restore original extensions on the 'template_fetch_template' hook
+                $this->EE->extensions->extensions['template_fetch_template'] = $ext;
                 unset($ext);
             }
         }
