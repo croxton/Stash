@@ -2260,6 +2260,12 @@ class Stash {
         // default to processing at end
         $this->EE->TMPL->tagparams['process'] = $this->EE->TMPL->fetch_param('process', 'end');
 
+        // Unprefix common variables in wrapped tags
+        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        {
+            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+        }
+
         // process as a static cache?
         if ( $this->EE->TMPL->tagparams['process'] == 'static')
         {   
