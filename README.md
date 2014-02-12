@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-### Version 2.4.8
+### Version 2.4.9
 
 This is the development version of Stash. Test thoroughly before using in production.
 

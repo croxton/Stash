@@ -467,11 +467,13 @@ class Stash {
         
         if ($set)
         {
-            // Check for a no_results prefix to avoid no_results parse conflicts
-            if($no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix'))
+            // support for deprecated no_results_prefix parameter
+            $no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix');
+
+            // check for an unprefix parameter to avoid variable name conflicts in nested tags
+            if($unprefix = $this->EE->TMPL->fetch_param('unprefix', $no_results_prefix))
             {
-                $this->EE->TMPL->tagdata = str_replace($no_results_prefix.'no_results', 'no_results', $this->EE->TMPL->tagdata);
-                $this->EE->TMPL->tagdata = str_replace($no_results_prefix.':no_results', 'no_results', $this->EE->TMPL->tagdata);
+                $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
             }
             
             if ( ($this->parse_tags || $this->parse_vars || $this->parse_conditionals) && ! $this->parse_complete)
@@ -2472,6 +2474,12 @@ class Stash {
 
         // re-initialise Stash with the new default params
         $this->init();
+
+        // Unprefix common variables in wrapped tags
+        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        {
+            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+        }
         
         // do the business
         $this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
@@ -3297,6 +3305,9 @@ class Stash {
     private function _parse_sub_template($tags = TRUE, $vars = TRUE, $conditionals = FALSE, $depth = 1)
     {   
         $this->EE->TMPL->log_item("Stash: processing inner tags");
+
+        // optional prefix to use for nocache pairs
+        $nocache_prefix = $this->EE->TMPL->fetch_param('prefix', 'stash');
             
         // save TMPL values for later
         $tagparams = $this->EE->TMPL->tagparams;
@@ -3344,8 +3355,10 @@ class Stash {
         $TMPL2 = $this->EE->TMPL;
         unset($this->EE->TMPL);
 
-        // protect content inside {stash:nocache} tags
-        $pattern = '/'.LD.'stash:nocache'.RD.'(.*)'.LD.'\/stash:nocache'.RD.'/Usi';
+        // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
+        $nocache = $nocache_prefix . ':nocache';
+
+        $pattern = '/'.LD.$nocache.RD.'(.*)'.LD.'\/'.$nocache.RD.'/Usi';
         $TMPL2->tagdata = preg_replace_callback($pattern, array(get_class($this), '_placeholders'), $TMPL2->tagdata);
     
         // parse variables  
@@ -3422,16 +3435,7 @@ class Stash {
                 // restore original parse_php flag for this template
                 $this->EE->TMPL->parse_php = $parse_php;
             }   
-            
-            // restore content inside {stash:nocache} tags
-            foreach ($this->_ph as $index => $val)
-            {
-                $this->EE->TMPL->tagdata = str_replace('[_'.__CLASS__.'_'.($index+1).']', $val, $this->EE->TMPL->tagdata);
-            }   
-
-            // parse EE nocache placeholders {NOCACHE}
-            $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_nocache($this->EE->TMPL->tagdata);        
-            
+                        
             // call the 'template_post_parse' hook
             if ($this->EE->extensions->active_hook('template_post_parse') === TRUE && $this->_embed_nested === TRUE)
             {   
@@ -3458,6 +3462,15 @@ class Stash {
                 $this->EE->extensions->extensions['template_fetch_template'] = $ext;
                 unset($ext);
             }
+
+            // restore content inside {stash:nocache} tags
+            foreach ($this->_ph as $index => $val)
+            {
+                $this->EE->TMPL->tagdata = str_replace('[_'.__CLASS__.'_'.($index+1).']', $val, $this->EE->TMPL->tagdata);
+            }  
+
+            // parse EE nocache placeholders {NOCACHE}
+            $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_nocache($this->EE->TMPL->tagdata);   
         }
     }
     
@@ -3885,6 +3898,29 @@ class Stash {
             $this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
         }
         return $this->EE->TMPL->no_results();
+    }
+
+    // ---------------------------------------------------------
+    
+    /**
+     * remove a given prefix from common variables in the template tagdata
+     * 
+     * @access private
+     * @param string $prefix
+     * @param string $template
+     * @return String   
+     */ 
+    private function _un_prefix($prefix, $template)
+    {
+        // remove prefix
+        $common = array('count', 'absolute_count', 'total_results', 'absolute_results', 'switch', 'no_results');
+
+        foreach($common as $muck)
+        {
+             $template = str_replace($prefix.':'.$muck, $muck,  $template);
+        }
+
+        return $template;
     }
 
     // ---------------------------------------------------------
