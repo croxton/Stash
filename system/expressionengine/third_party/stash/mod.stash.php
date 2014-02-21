@@ -1583,6 +1583,51 @@ class Stash {
             return $append ? $this->append() : $this->prepend();
         }
     }
+
+    // ---------------------------------------------------------
+    
+    /**
+     * Create a union of two or more existing lists 
+     * Lists *must* share the same keys and be *already in memory*
+     *
+     * @access public
+     * @return string 
+     */
+    public function join_lists()
+    {   
+        /* Sample use
+        ---------------------------------------------------------
+        {exp:stash:join_lists 
+            name="my_combined_list"
+            lists="list_1,list_2,list3"
+        }
+        --------------------------------------------------------- */    
+
+        // list names
+        $lists = $this->EE->TMPL->fetch_param('lists');
+
+        $lists = explode(',', $lists);
+
+        // create an array of values
+        $values = array();
+        foreach($lists as $name)
+        {
+            if (array_key_exists($name, $this->_stash))
+            {
+                // ignore empty lists
+                if ( ! empty($this->_stash[$name]))
+                {
+                    $values[] = $this->_stash[$name];
+                }
+            }
+        }
+
+        // implode values into the format of a delimited list, and set as the tagdata
+        $this->EE->TMPL->tagdata = implode($this->_list_delimiter, $values);
+
+        // set as a new variable
+        return $this->set();  
+    }
     
     // ---------------------------------------------------------
     
@@ -2221,7 +2266,8 @@ class Stash {
             'priority',
             'output',
             'embed_vars',
-            'bundle'
+            'bundle',
+            'prefix'
         );
         
         // save stash embed vars passed as parameters in the form stash:my_var which we'll
@@ -2329,7 +2375,8 @@ class Stash {
             'process',
             'priority',
             'output',
-            'bundle'
+            'bundle',
+            'prefix'
         );
         
         return $this->_run_tag('set', $reserved_vars);
@@ -3649,8 +3696,9 @@ class Stash {
         $trim = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('trim'));
         $strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));   
         $strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));   
-        $backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);    
         $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_unparsed'));
+        $compress = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('compress'));
+        $backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);
         
         // support legacy parameter name
         if ( ! $strip_unparsed)
@@ -3662,6 +3710,12 @@ class Stash {
         if ($trim)
         {
             $value  = str_replace( array("\t", "\n", "\r", "\0", "\x0B"), '', trim($value));
+        }
+
+        // remove whitespace between tags which are separated by line returns?
+        if ($compress)
+        {
+            $value  = preg_replace('~>\s*\n\s*<~', '><', $value);
         }
 
         // strip tags?
