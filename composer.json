@@ -1,6 +1,6 @@
 {
     "name": "croxton/stash",
-    "description": "Config bootstrap for ExpressionEngine 2.x",
+    "description": "Extended templating for ExpressionEngine",
     "homepage": "https://github.com/croxton/Stash",
     "authors": [
         {
@@ -9,7 +9,7 @@
         }
     ],
     "require": {
-        "php": ">=5.3.3"
+        "php": ">=5.3.11"
     },
     "extra": {
         "branch-alias": {
