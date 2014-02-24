@@ -1,0 +1,19 @@
+{
+    "name": "croxton/stash",
+    "description": "Config bootstrap for ExpressionEngine 2.x",
+    "homepage": "https://github.com/croxton/Stash",
+    "authors": [
+        {
+            "name": "Mark Croxton",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.3"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-dev": "1.5.*-dev"
+        }
+    }
+}
