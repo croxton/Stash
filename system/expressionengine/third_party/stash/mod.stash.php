@@ -4134,7 +4134,9 @@ class Stash {
         else
         {
             // make a copy of the current tagparams and tagdata for later
-            $original_tagparams = $this->EE->TMPL->tagparams;
+            // checking for property, as it seemingly isn't always there, throwing a notice:
+            // https://github.com/croxton/Stash/commit/7f2e7ab02eeac06a77394814ae31b67d5dbbc032?_pjax=%23js-repo-pjax-container#commitcomment-5576365
+            $original_tagparams = property_exists($this->EE->TMPL, 'tagparams') ? $this->EE->TMPL->tagparams : array();
             $original_tagdata   = $this->EE->TMPL->tagdata;
 
             // make sure we have a slate to work with
@@ -4163,9 +4165,7 @@ class Stash {
         $result = $self->{$method}();
 
         // restore original template params and tagdata
-        // checking for property, as it seemingly isn't always there, throwing a notice:
-        // https://github.com/croxton/Stash/commit/7f2e7ab02eeac06a77394814ae31b67d5dbbc032?_pjax=%23js-repo-pjax-container#commitcomment-5576365
-        $original_tagparams = property_exists($this->EE->TMPL, 'tagparams') ? $this->EE->TMPL->tagparams : array();
+        $this->EE->TMPL->tagparams = $original_tagparams;
         $this->EE->TMPL->tagdata = $original_tagdata;
 
         return $result;
