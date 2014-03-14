@@ -378,7 +378,7 @@ class Stash_ext {
                         }
 
                         // has the save_output tag been called?
-                        if ( $tag['method'] === 'save_output')
+                        if ( $tag['method'] === 'save_output' || $tag['method'] === 'final_output')
                         {
                             $save_output = $tag;
                             $save_output['placeholder'] = $placeholder;
@@ -408,8 +408,12 @@ class Stash_ext {
             {
                 $this->EE->TMPL->tagparams = $save_output['tagparams'];
                 $s->init(TRUE);
+
+                // remove placeholder from the template
                 $template = str_replace(LD.$save_output['placeholder'].RD, '', $template);  
-                $s->{$save_output['method']}($template);
+
+                // allow the called method to alter the template
+                $template = $s->{$save_output['method']}($template);
 
                 // restore original TMPL values
                 $this->EE->TMPL->tagparams = $tagparams;

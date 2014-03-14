@@ -1638,7 +1638,7 @@ class Stash {
      * @access public
      * @return string 
      */
-    public function get_list()
+    public function get_list($params=array(), $value='', $type='variable', $scope='user')
     {                           
         /* Sample use
         ---------------------------------------------------------
@@ -1648,6 +1648,13 @@ class Stash {
             {item_copy}
         {/exp:stash:get_list}
         --------------------------------------------------------- */    
+
+        // is this method being called statically?
+        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        {   
+            return self::_static_call(__FUNCTION__, $params, $type, $scope, $value);
+        }
+
         if ( $this->process !== 'inline') 
         {
             if ($out = $this->_post_parse(__FUNCTION__)) return $out;
@@ -1872,6 +1879,9 @@ class Stash {
             // variables inside the get_list tag pair which have names that could collide.
 
             $list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
+
+            // prep {if IN ()}...{/if} conditionals
+            #$list_html = $this->_prep_in_conditionals($list_html);
         
             // restore original backspace parameter
             $this->EE->TMPL->tagparams['backspace'] = $backspace;
@@ -2478,6 +2488,9 @@ class Stash {
         // we need to parse remaining globals since unlike db cached pages, static pages won't pass through PHP/EE again
         $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_globals($output); 
 
+        // parse ACTion id placeholders
+        $this->EE->TMPL->tagdata = $this->EE->functions->insert_action_ids($this->EE->TMPL->tagdata);
+
         // as this is the full rendered output of a template, check that we should really be saving it
         if ( ! $this->_is_cacheable())
         {
@@ -2495,9 +2508,9 @@ class Stash {
             'bundle'
         );
     
-        return $this->_run_tag('set', $reserved_vars);
+        $this->_run_tag('set', $reserved_vars);
 
-        return ''; // remove the placeholder from the output
+        return $this->EE->TMPL->tagdata;
     }
 
     // ---------------------------------------------------------    
@@ -2522,6 +2535,59 @@ class Stash {
         
         return TRUE;
     }
+
+
+    // ----------------------------------------------------------
+
+    /**
+     * Tagb for cleaning up specific placeholders before final output
+     *
+     * @access public
+     * @return string 
+     */
+    public function cleanup()
+    {
+        /* Sample use
+        ---------------------------------------------------------
+        {exp:stash:cleanup strip="stash:nocache|something_else"}
+        */
+        $this->process = 'end';
+        $this->priority = '999998'; //  should be the *second to last* thing post-processed (by Stash)
+
+        if ($out = $this->_post_parse('final_output')) return $out;
+    }
+
+    // ----------------------------------------------------------
+
+    /**
+     * Final parsing/cleanup of template tagdata before output
+     *
+     * @access public
+     * @return string 
+     */
+    public function final_output($output='')
+    {   
+        // cleanup single and pair variable placeholders
+        if ($vars = $this->EE->TMPL->fetch_param('strip', FALSE))
+        {
+            $vars = explode("|", $vars);
+
+            foreach($vars as $var)
+            {
+                $output = str_replace(array(LD.$var.RD, LD.'/'.$var.RD), '', $output);
+            }
+        }
+
+        // Do any other clean string transformations
+        $output = $this->_clean_string($output);
+
+        // set as template tagdata
+        $this->EE->TMPL->tagdata = $output;
+
+        // remove the placeholder from the output
+        return $this->EE->TMPL->tagdata;
+    }
+
     
     // ---------------------------------------------------------    
     
@@ -3138,7 +3204,7 @@ class Stash {
     
     /**
      * @param string $string The string to explode
-     * @return array The imploded array
+     * @return array The exploded array
      */ 
     private function _list_row_explode($string) 
     {
@@ -3161,6 +3227,28 @@ class Stash {
             }
         }   
         return $new_array;
+    }
+
+
+    // ---------------------------------------------------------
+    
+    /**
+     * Flattens an array into a quasi-serialized format suitable for saving as a stash variable
+     *
+     * @param array $list The list array to flatten
+     * @return string The imploded string
+     */ 
+    static public function flatten_list($array) 
+    {
+        $self = new self(); 
+        $new_list = array();
+
+        foreach($array as $value)
+        {
+            $new_list[] = $self->_list_row_implode($value);
+        }
+
+        return implode($self->_list_delimiter, $new_list);
     }
     
     // ---------------------------------------------------------
@@ -4131,16 +4219,23 @@ class Stash {
         {
             self::_load_EE_TMPL();
         }
-        else
-        {
-            // make a copy of the current tagparams and tagdata for later
-            $original_tagparams = $this->EE->TMPL->tagparams;
-            $original_tagdata   = $this->EE->TMPL->tagdata;
+      
+        // make a copy of the current tagparams and tagdata for later
+        $original_tagparams = array();
+        $original_tagdata = FALSE;
 
-            // make sure we have a slate to work with
-            $this->EE->TMPL->tagparams = array();
-            $this->EE->TMPL->tagdata = FALSE;
+        if ( isset($this->EE->TMPL->tagparams))
+        {
+            $original_tagparams = $this->EE->TMPL->tagparams;
         }
+        if ( isset($this->EE->TMPL->tagdata))
+        {
+            $original_tagdata   = $this->EE->TMPL->tagdata;
+        }
+
+        // make sure we have a slate to work with
+        $this->EE->TMPL->tagparams = array();
+        $this->EE->TMPL->tagdata = FALSE;
         
         if ( is_array($params))
         {
