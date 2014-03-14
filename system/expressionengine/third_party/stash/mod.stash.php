@@ -2417,7 +2417,14 @@ class Stash {
             'priority',
             'output',
             'bundle',
-            'prefix'
+            'prefix',
+            'trim',
+            'strip_tags',
+            'strip_curly_braces',
+            'strip_unparsed',
+            'compress',
+            'backspace',
+            'strip',
         );
         
         return $this->_run_tag('set', $reserved_vars);
@@ -2567,18 +2574,7 @@ class Stash {
      */
     public function final_output($output='')
     {   
-        // cleanup single and pair variable placeholders
-        if ($vars = $this->EE->TMPL->fetch_param('strip', FALSE))
-        {
-            $vars = explode("|", $vars);
-
-            foreach($vars as $var)
-            {
-                $output = str_replace(array(LD.$var.RD, LD.'/'.$var.RD), '', $output);
-            }
-        }
-
-        // Do any other clean string transformations
+        // Do string transformations
         $output = $this->_clean_string($output);
 
         // set as template tagdata
@@ -3883,6 +3879,7 @@ class Stash {
         $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_unparsed'));
         $compress = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('compress'));
         $backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);
+        $strip_vars = $this->EE->TMPL->fetch_param('strip', FALSE);
         
         // support legacy parameter name
         if ( ! $strip_unparsed)
@@ -3939,6 +3936,17 @@ class Stash {
         if ($strip_unparsed)
         {
             $value = preg_replace('/\{\/?(?!\/?stash)[a-zA-Z0-9_\-:]+\}/', '', $value);
+        }
+
+        // cleanup specified single and pair variable placeholders
+        if ($strip_vars)
+        {
+            $strip_vars = explode("|", $strip_vars);
+
+            foreach($strip_vars as $var)
+            {
+                $value = str_replace(array(LD.$var.RD, LD.'/'.$var.RD), '', $value);
+            }
         }
 
         return $value;
