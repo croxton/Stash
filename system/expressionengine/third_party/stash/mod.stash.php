@@ -48,6 +48,10 @@ class Stash {
     private $_list_row_glue = '|=|';
     private $_list_null = '__NULL__';
     private $_embed_nested = FALSE;
+    private $_nocache_suffix = ':nocache';
+
+    private static $_nocache = TRUE;
+    private static $_nocache_prefixes = array('stash');
     private static $_is_human = TRUE;
     private static $_cache;
 
@@ -2577,12 +2581,16 @@ class Stash {
      * @access public
      * @return string 
      */
-    public function cleanup()
+    public function finish()
     {
         /* Sample use
         ---------------------------------------------------------
-        {exp:stash:cleanup strip="stash:nocache|something_else"}
+        {exp:stash:finish nocache="no" compress="yes"}
         */
+
+        // disable nocache for all template data parsed after this point?
+        self::$_nocache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('nocache', 'y'));
+
         $this->process = 'end';
         $this->priority = '999998'; //  should be the *second to last* thing post-processed (by Stash)
 
@@ -2599,6 +2607,29 @@ class Stash {
      */
     public function final_output($output='')
     {   
+        // is nocache disabled?
+        if ( ! self::$_nocache)
+        {
+            // yes - let's remove any {[prefix]:nocache} tags from the final output
+            $strip = $this->EE->TMPL->fetch_param('strip', FALSE);
+
+            if ($strip)
+            {
+                $strip = explode('|', $strip);
+            }
+            else
+            {
+                $strip = array();
+            }
+
+            foreach(self::$_nocache_prefixes as $prefix)
+            {
+                $strip[] = $prefix . $this->_nocache_suffix;
+            }
+
+            $this->EE->TMPL->tagparams['strip'] = implode('|', $strip);
+        }
+
         // Do string transformations
         $output = $this->_clean_string($output);
 
@@ -3560,12 +3591,27 @@ class Stash {
         $this->EE->TMPL->log_item("Stash: processing inner tags");
 
         // optional prefix to use for nocache pairs
-        $nocache_prefix = $this->EE->TMPL->fetch_param('prefix', 'stash');
+        if ($nocache_prefix = $this->EE->TMPL->fetch_param('prefix', FALSE))
+        {
+            // add to the array for optional removal at the end of template parsing
+            if ( ! in_array($nocache_prefix, self::$_nocache_prefixes))
+            {
+                self::$_nocache_prefixes[] = $nocache_prefix;
+            }
+        }
+        else
+        {
+            $nocache_prefix = 'stash';
+        }
 
+        // nocache tags
         if (FALSE === $nocache_id)
         {
             $this->nocache_id = $this->EE->functions->random();
         }
+
+        $nocache = $nocache_prefix . $this->_nocache_suffix;
+        $nocache_pattern = '/'.LD.$nocache.RD.'(.*)'.LD.'\/'.$nocache.RD.'/Usi';
             
         // save TMPL values for later
         $tagparams = $this->EE->TMPL->tagparams;
@@ -3613,11 +3659,11 @@ class Stash {
         $TMPL2 = $this->EE->TMPL;
         unset($this->EE->TMPL);
 
-        // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
-        $nocache = $nocache_prefix . ':nocache';
-
-        $pattern = '/'.LD.$nocache.RD.'(.*)'.LD.'\/'.$nocache.RD.'/Usi';
-        $TMPL2->tagdata = preg_replace_callback($pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+        if (self::$_nocache)
+        {
+            // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
+            $TMPL2->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+        }
     
         // parse variables  
         if ($vars)
@@ -3625,8 +3671,11 @@ class Stash {
             // note: each pass can expose more variables to be parsed after tag processing
             $TMPL2->tagdata = $this->_parse_template_vars($TMPL2->tagdata);
 
-            // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
-            $TMPL2->tagdata = preg_replace_callback($pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+            if (self::$_nocache)
+            {
+                // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
+                $TMPL2->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+            }
         }
 
         // parse simple conditionals
@@ -3722,6 +3771,7 @@ class Stash {
             }
 
             // restore content inside {stash:nocache} tags
+            // we must do this even if nocache has been disabled, since it may have been disabled after tags were escaped
             foreach ($this->_ph as $index => $val)
             {
                 $this->EE->TMPL->tagdata = str_replace('[_'.__CLASS__.'_'.($index+1).'_'.$this->nocache_id.']', $val, $this->EE->TMPL->tagdata);
