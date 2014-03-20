@@ -1745,7 +1745,15 @@ class Stash {
                 $this->EE->pagination->page_query_string = TRUE;
             }
             
-            $this->pagination = new Pagination_object(__CLASS__);
+            // create a pagination object instance
+            if (version_compare(APP_VER, '2.8', '>=')) 
+            { 
+                $this->pagination = $this->EE->pagination->create();
+            } 
+            else
+            {
+                $this->pagination = new Pagination_object(__CLASS__);
+            }
 
             // pass the offset to the pagination object
             if ( ! is_null($paginate_param))
@@ -1756,19 +1764,36 @@ class Stash {
                 if ( ! is_null($this->EE->TMPL->fetch_param('paginate_base', NULL)))
                 {
                     // make sure paginate_base ends with a '?', if specified
-                    $this->EE->TMPL->tagparams['paginate_base'] = rtrim($this->EE->TMPL->tagparams['paginate_base'], '?') . '?';
+                    $base=$this->EE->TMPL->tagparams['paginate_base'];
+                    $this->EE->TMPL->tagparams['paginate_base'] = $base.((!strpos($base, '?'))? '?': '');
                 }
             }
             else
             {
                 $this->pagination->offset = 0;
             }
+
+            // determine pagination limit & total rows
+            $page_limit = $limit ? $limit : 100; // same default limit as channel entries module
+            $page_total_rows = $absolute_results - $offset;
             
-            // build that mother
-            $this->pagination->per_page   = $limit ? $limit : 100; // same default limit as channel entries module
-            $this->pagination->total_rows = $absolute_results - $offset;
-            $this->pagination->get_template();
-            $this->pagination->build(); 
+            if (version_compare(APP_VER, '2.8', '>=')) 
+            { 
+                 // find and remove the pagination template from tagdata wrapped by get_list
+                $this->EE->TMPL->tagdata = $this->pagination->prepare(ee()->TMPL->tagdata);
+
+                // build
+                $this->pagination->build($page_total_rows, $page_limit);
+            }
+            else
+            {
+                $this->pagination->per_page = $page_limit;
+                $this->pagination->total_rows = $page_total_rows;
+                $this->pagination->get_template();
+                $this->pagination->build();
+            }
+            
+            // update offset
             $offset = $offset + $this->pagination->offset;
         }
         
@@ -2479,14 +2504,14 @@ class Stash {
      * @return string 
      */
     public function save_output($output='')
-    {
+    { 
         // mandatory parameter values for cached output
         $this->EE->TMPL->tagparams['context']   = "@URI";
         $this->EE->TMPL->tagparams['scope']     = 'site';
         $this->EE->TMPL->tagparams['save']      = 'yes';
         $this->EE->TMPL->tagparams['refresh']   = "0";   // static cached items can't expire
         $this->EE->TMPL->tagparams['replace']   = "no";  // static cached items cannot be replaced
-        $this->EE->TMPL->tagparams['bundle'] = 'static'; // cached pages in the static bundle are saved to file automatically by the model
+        $this->EE->TMPL->tagparams['bundle']    = 'static'; // cached pages in the static bundle are saved to file automatically by the model
 
         // bundle determines the cache driver
         $this->bundle_id = $this->EE->stash_model->get_bundle_by_name($this->EE->TMPL->tagparams['bundle']);
@@ -4324,8 +4349,15 @@ class Stash {
            'id' => $unique_id,
            'dt' => $this->EE->localize->now
         ));
-      
-        $this->EE->functions->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
+
+        if (version_compare(APP_VER, '2.8', '>=')) 
+        { 
+            $this->EE->input->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
+        }
+        else
+        {
+            $this->EE->functions->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
+        }  
     }
     
     /**

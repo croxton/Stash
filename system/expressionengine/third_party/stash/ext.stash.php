@@ -377,46 +377,35 @@ class Stash_ext {
                             $this->EE->TMPL->tagparams['file_name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['file_name']);
                         }
 
-                        // has the save_output tag been called?
+                        // initialise Stash with our custom tagparams
+                        $s->init(TRUE);
+
+                        // has the save_output or final_output tags been called?
                         if ( $tag['method'] === 'save_output' || $tag['method'] === 'final_output')
-                        {
-                            $save_output = $tag;
-                            $save_output['placeholder'] = $placeholder;
+                        {   
+                            // remove placeholder from the template
+                            $template = str_replace(LD.$placeholder.RD, '', $template);  
+
+                            // allow the called method to alter/cache the entire template
+                            $template = $s->{$tag['method']}($template);
                         }
                         else
                         {
-                            // initialise Stash with our custom tagparams
-                            $s->init(TRUE);
-                    
+                            // call the tag
                             $out = $s->{$tag['method']}();
-                    
-                            $template = str_replace(LD.$placeholder.RD, $out, $template);   
-                    
-                            // remove the placeholder from the cache so we don't iterate over it in future calls of this hook
-                            unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
+                            
+                            // replace the output of our tag into the template placeholder
+                            $template = str_replace(LD.$placeholder.RD, $out, $template);    
                         }
+
+                        // remove the placeholder from the cache so we don't iterate over it in future calls of this hook
+                        unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
                     }
                 }
                 
                 // restore original TMPL values
                 $this->EE->TMPL->tagparams = $tagparams;
                 $this->EE->TMPL->tagdata = $tagdata;
-            }
-
-            // cache output to a static file
-            if($save_output)
-            {
-                $this->EE->TMPL->tagparams = $save_output['tagparams'];
-                $s->init(TRUE);
-
-                // remove placeholder from the template
-                $template = str_replace(LD.$save_output['placeholder'].RD, '', $template);  
-
-                // allow the called method to alter the template
-                $template = $s->{$save_output['method']}($template);
-
-                // restore original TMPL values
-                $this->EE->TMPL->tagparams = $tagparams;
             }
 
             // cleanup
