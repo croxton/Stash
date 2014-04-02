@@ -1669,7 +1669,7 @@ class Stash {
         $default            = $this->EE->TMPL->fetch_param('default', '');          // default value
         $filter             = $this->EE->TMPL->fetch_param('filter', NULL);         // regex pattern to search final output for
         $prefix             = $this->EE->TMPL->fetch_param('prefix', NULL);         // optional namespace for common vars like {count}
-        $require_prefix     = $this->EE->TMPL->fetch_param('require_prefix', TRUE); // if prefix="" is set, only placeholders using the prefix will be parsed
+        $require_prefix     = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('require_prefix', 'yes')); // if prefix="" is set, only placeholders using the prefix will be parsed
         $paginate           = $this->EE->TMPL->fetch_param('paginate', FALSE);
         $paginate_param     = $this->EE->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination
         $track              = $this->EE->TMPL->fetch_param('track',  FALSE);        // one or more column values to track as a static variable, e.g. entry_id|color
