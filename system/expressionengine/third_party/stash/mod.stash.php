@@ -3694,7 +3694,7 @@ class Stash {
         // parse tags, but check that there really are unparsed tags in the current shell   
         if ($tags && (strpos($TMPL2->tagdata, LD.'exp:') !== FALSE))
         {
-            // parse tags
+            // copy object properties from original
             $this->EE->TMPL = new EE_Template();
             $this->EE->TMPL->start_microtime = $TMPL2->start_microtime;
             $this->EE->TMPL->template = $TMPL2->tagdata;
@@ -3705,10 +3705,29 @@ class Stash {
             $this->EE->TMPL->plugins = $TMPL2->plugins;
             $this->EE->TMPL->modules = $TMPL2->modules;
             $this->EE->TMPL->module_data = $TMPL2->module_data;
+
+            // copy globals
+            $this->EE->TMPL->segment_vars = $TMPL2->segment_vars;
+            $this->EE->TMPL->embed_vars = $TMPL2->embed_vars;
+
+            $this->EE->TMPL->template_route_vars = array();
+            if ( isset($TMPL2->template_route_vars))
+            {
+                $this->EE->TMPL->template_route_vars = $TMPL2->template_route_vars;
+            }
+
+            $this->EE->TMPL->layout_conditionals = array();
+            if ( isset($TMPL2->layout_conditionals))
+            {
+                $this->EE->TMPL->layout_conditionals = $TMPL2->layout_conditionals;
+            }
+
+            // parse tags
             $this->EE->TMPL->parse_tags();
             $this->EE->TMPL->process_tags();
+
             $this->EE->TMPL->loop_count = 0;
-    
+
             $TMPL2->tagdata = $this->EE->TMPL->template;
             $TMPL2->log = array_merge($TMPL2->log, $this->EE->TMPL->log);
         }
