@@ -3737,6 +3737,10 @@ class Stash {
                 $parse_php = $this->EE->TMPL->parse_php;
                 
                 // parse conditionals
+                if ( ! isset($this->EE->TMPL->layout_conditionals))
+                {
+                    $this->EE->TMPL->layout_conditionals = array();
+                }
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->advanced_conditionals($this->EE->TMPL->tagdata);
                 
                 // restore original parse_php flag for this template
