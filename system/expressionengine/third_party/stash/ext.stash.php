@@ -7,7 +7,7 @@ require_once PATH_THIRD . 'stash/config.php';
  *
  * @package             Stash
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
- * @copyright           Copyright (c) 2012 Hallmark Design
+ * @copyright           Copyright (c) 2014 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
  * @link                http://hallmark-design.co.uk
  */
@@ -121,7 +121,7 @@ class Stash_ext {
      * @return     array
      */
     public function template_fetch_template($row)
-    {       
+    {    
         // get the latest version of $row
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
         {
@@ -292,9 +292,10 @@ class Stash_ext {
      * @param   string  Parsed template string
      * @param   bool    Whether an embed or not
      * @param   integer Site ID
+     * @param   bool    Has the extension been called by Stash rather than EE?
      * @return  string  Template string
      */
-    public function template_post_parse($template, $sub, $site_id)
+    public function template_post_parse($template, $sub, $site_id, $from_stash = FALSE)
     {   
         // play nice with other extensions on this hook
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
@@ -348,10 +349,10 @@ class Stash_ext {
                 // loop through, prep the Stash instance, call the postponed tag and replace output into the placeholder
                 foreach($cache as $placeholder => $tag)
                 {   
-                    // make sure there is a placeholder in the template
-                    // it may have been removed by advanced conditional processing
                     if ( strpos( $template, $placeholder ) !== FALSE)
                     {
+                        // make sure there is a placeholder in the template
+                        // it may have been removed by advanced conditional processing
                         $this->EE->TMPL->log_item("Stash: post-processing tag: " . $tag['tagproper'] . " will be replaced into " . LD . $placeholder . RD);
                         
                         $this->EE->TMPL->tagparams = $tag['tagparams'];
@@ -410,6 +411,31 @@ class Stash_ext {
 
             // cleanup
             unset($cache);
+
+            // just before the template is sent to output
+            if (FALSE == $from_stash)
+            {  
+                /*
+                // remove Stash from the extensions array to avoid infinite recursion
+                $other_ext = array();
+
+                foreach($this->EE->extensions->extensions['template_post_parse'] as $priority => $ext)
+                {
+                    foreach($ext as $class => $config)
+                    {
+                        if ($class != 'Stash_ext')
+                        {
+                            $other_ext[$priority][$class] = $config;
+                        }
+                    }
+                }
+                */ 
+
+                // batch processing of cached variables
+                $this->EE->TMPL->log_item("Stash: batch processing queued queries");
+                $this->EE->load->model('stash_model');
+                $this->EE->stash_model->process_queue();
+            }
         }
         
         return $template;

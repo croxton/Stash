@@ -7,7 +7,7 @@ require_once PATH_THIRD . 'stash/config.php';
  *
  * @package             Stash
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
- * @copyright           Copyright (c) 2012 Hallmark Design
+ * @copyright           Copyright (c) 2014 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
  * @link                http://hallmark-design.co.uk
  */
@@ -37,6 +37,7 @@ class Stash {
     protected $process = 'inline';
     protected $priority = 1;
     protected static $bundles = array();
+    protected $check_expired = FALSE;
     
     private $_update = FALSE;
     private $_append = TRUE;
@@ -78,10 +79,20 @@ class Stash {
         $this->default_scope        = $this->EE->config->item('stash_default_scope') ? $this->EE->config->item('stash_default_scope') : 'user';
         $this->limit_bots           = $this->EE->config->item('stash_limit_bots')    ? $this->EE->config->item('stash_limit_bots') : FALSE;
 
+        // cache pruning can cache stampede mitigation defaults
+        $this->prune                = $this->EE->config->item('stash_prune_enabled') === FALSE  ? FALSE : TRUE;
+        $this->prune_probability    = $this->EE->config->item('stash_prune_probability')        ? $this->EE->config->item('stash_prune_probability') : .4; // percent
+        $this->regen                = $this->EE->config->item('stash_regen_enabled') === FALSE  ? FALSE : TRUE;
+        $this->regen_probability    = $this->EE->config->item('stash_regen_probability')        ? $this->EE->config->item('stash_regen_probability') : .8; // percent
+        $this->invalidation_period  = $this->EE->config->item('stash_invalidation_period')      ? $this->EE->config->item('stash_invalidation_period') : 0; // seconds
+
         // permitted file extensions for Stash embeds
         $this->file_extensions  =   $this->EE->config->item('stash_file_extensions')     
                                     ? (array) $this->EE->config->item('stash_file_extensions') 
                                     : array('html', 'md', 'css', 'js', 'rss', 'xml');
+
+        // Support {if var1 IN (var2) }...{/if} style conditionals in Stash templates / tagdata?  
+        $this->parse_if_in  = $this->EE->config->item('stash_parse_if_in') ? $this->EE->config->item('stash_parse_if_in') : FALSE;
         
         // initialise tag parameters
         if (FALSE === $calling_from_hook)
@@ -97,15 +108,23 @@ class Stash {
             {
                 // YES - restore session
                 $this->EE->session->cache['stash']['_session_id'] = $cookie_data['id'];
-                $last_activity = $cookie_data['dt'];
-                
-                if ( $last_activity + 300 < $this->EE->localize->now)
-                {           
-                    // refresh cookie
-                    $this->_set_stash_cookie($cookie_data['id']);
-                
-                    // prune variables with expiry date older than right now 
-                    $this->EE->stash_model->prune_keys();   
+
+                // shall we prune expired variables?
+                if ($this->prune)
+                {   
+                    // probability that pruning occurs
+                    $prune_chance = 100/$this->prune_probability;
+
+                    // trigger pruning every 1 chance out of $prune_chance
+                    if (mt_rand(0, ($prune_chance-1)) === 0) 
+                    {   
+                        // prune variables with expiry date older than right now 
+                        $this->EE->stash_model->prune_keys();   
+
+                        // uncomment for http load testing (e.g. with Siege)
+                        #header('HTTP/1.0 404 Not Found');
+                        #die();
+                    }
                 }
             }
             else
@@ -129,7 +148,7 @@ class Stash {
         }
         
         // create a reference to the session id
-        $this->_session_id =& $this->EE->session->cache['stash']['_session_id'];
+        $this->_session_id =& $this->EE->session->cache['stash']['_session_id'];      
     }
     
     // ---------------------------------------------------------
@@ -609,18 +628,35 @@ class Stash {
                         $session_filter =& $this->_session_id;
                     }
                     
-                    // let's check if there is an existing record, and that that it matches the new one exactly
+                    // let's check if there is an existing record
                     $result = $this->EE->stash_model->get_key($stash_key, $this->bundle_id, $session_filter, $this->site_id);
 
                     if ( $result !== FALSE)
                     {
-                        // record exists, but is it identical?
+                        // yes record exists, but do we want to update it?
+                        $update_key = FALSE;
+
+                        // has it expired?
+                        if ($this->check_expired)
+                        {
+                            // Yes, let's regenerate it now rather than letting it get pruned and recreated.
+                            // Since this is triggered at random, it makes it more likely that only one request 
+                            // at a time will trigger a regen (i.e. reduces chance of a cache stampede on the cached variable)
+                            $update_key = TRUE;
+                        }
+
+                        // is the new variable value identical to the value in the cache?
                         // allow append/prepend if the stash key has been created *in this page load*
                         $cache_key = $stash_key. '_'. $this->bundle_id .'_' .$this->site_id . '_' . $session_filter;
                         
-                        if ( $result !== $parameters && ($this->replace || ($this->_update && $this->EE->stash_model->is_inserted_key($cache_key)) ) )
+                        if ( $result !== $parameters && ($this->replace || ($this->_update && $this->EE->stash_model->is_inserted_key($cache_key)) ))
                         {   
-                            // nope - update
+                            $update_key = TRUE;    
+                        }
+
+                        if ($update_key)
+                        {
+                            // update
                             $this->EE->stash_model->update_key(
                                 $stash_key,
                                 $this->bundle_id,
@@ -629,6 +665,10 @@ class Stash {
                                 $refresh,
                                 $parameters
                             );
+
+                            // uncomment for http load testing (e.g. with Siege)
+                            #header('HTTP/1.0 500 Not Found');
+                            #die();
                         }
                     }
                     else
@@ -836,7 +876,7 @@ class Stash {
             {
                 $value = $this->_stash[$name] = self::$bundles[$bundle][$name];
             }
-            elseif ( ! $this->_update && ! ($dynamic && ! $save)  && $scope !== 'local')
+            elseif ( ! $this->_update && ! ($dynamic && ! $save) && $scope !== 'local')
             {
                 // let's look in the database table cache, but only if if we're not
                 // appending/prepending or trying to register a global without saving it
@@ -846,13 +886,29 @@ class Stash {
             
                 // replace '@' placeholders with the current context
                 $stash_key = $this->_parse_context($name);
+
+                // for random requests (frequency determined by prune_probability) we should check if 
+                // the variable has passed expiry date, and *update* it with latest value if it has
+                if ($this->regen)
+                {
+                    // chance that we should regenerate - should be double the chance of pruning
+                    $regen_chance = 100/$this->regen_probability;
+
+                    // trigger regeneration of the variable every 1 chance out of $regen_chance
+                    if (mt_rand(0, ($regen_chance-1)) === 0) 
+                    { 
+                        $this->check_expired = TRUE;
+                    }
+                }
                     
                 // look for our key
                 if ( $parameters = $this->EE->stash_model->get_key(
                     $stash_key, 
                     $this->bundle_id,
                     $session_id, 
-                    $this->site_id
+                    $this->site_id,
+                    'parameters',
+                    $this->check_expired
                 ))
                 {   
                     // save to session 
@@ -994,7 +1050,6 @@ class Stash {
         // note: don't save if we're updating a variable (to avoid recursion)
         if ( $set && ! $this->_update)
         {   
-
             $this->EE->TMPL->tagparams['name'] = $name;
             $this->EE->TMPL->tagparams['output'] = 'yes';
             $this->EE->TMPL->tagdata = $value;
@@ -1378,6 +1433,12 @@ class Stash {
         {
             $this->_prep_no_results($prefix);
         }
+
+        // Unprefix common variables in wrapped tags
+        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        {
+            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+        }
         
         // do we want to replace an existing list variable?
         $set = TRUE;
@@ -1419,6 +1480,7 @@ class Stash {
         {   
             // do any parsing and string transforms before making the list
             $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+            $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
         
             // regenerate tag variable pairs array using the parsed tagdata
             $tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
@@ -1894,6 +1956,19 @@ class Stash {
             // because it can potentially break unparsed conditionals / tags etc in the list
             $backspace = $this->EE->TMPL->fetch_param('backspace', FALSE);
             $this->EE->TMPL->tagparams['backspace'] = FALSE;
+
+            // prep {if IN ()}...{/if} conditionals
+            if ($this->parse_if_in)
+            {
+                // prefixed ifs? We have to hide them in EE 2.9+ if this tagdata is in the root template
+                if ( ! is_null($prefix))
+                {
+                    $this->EE->TMPL->tagdata = str_replace(LD.$prefix.':if', LD.'if', $this->EE->TMPL->tagdata);
+                    $this->EE->TMPL->tagdata = str_replace(LD.'/'.$prefix.':if'.RD, LD.'/if'.RD, $this->EE->TMPL->tagdata);
+                }
+
+                $this->EE->TMPL->tagdata = $this->_prep_in_conditionals($this->EE->TMPL->tagdata);
+            }
             
             // Replace into template.
             //
@@ -1908,9 +1983,6 @@ class Stash {
             // variables inside the get_list tag pair which have names that could collide.
 
             $list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
-
-            // prep {if IN ()}...{/if} conditionals
-            #$list_html = $this->_prep_in_conditionals($list_html);
         
             // restore original backspace parameter
             $this->EE->TMPL->tagparams['backspace'] = $backspace;
@@ -2063,7 +2135,10 @@ class Stash {
                     }
                     
                     // prep 'IN' conditionals if the retreived var is a delimited string
-                    $out = $this->_prep_in_conditionals($out);
+                    if ($this->parse_if_in)
+                    {
+                        $out = $this->_prep_in_conditionals($out);
+                    }
                 }
                 
                 $this->EE->TMPL->log_item("Stash: RETRIEVED bundle ".$bundle);
@@ -2763,7 +2838,8 @@ class Stash {
                         $bundle_id,
                         $session_id, 
                         $this->site_id,
-                        trim($name, '#')
+                        trim($name, '#'),
+                        $this->invalidation_period
                     );
                 }
             }
@@ -2794,7 +2870,8 @@ class Stash {
                         $stash_key, 
                         $bundle_id,
                         $session_id, 
-                        $this->site_id
+                        $this->site_id,
+                        $this->invalidation_period
                     );
                 }
             }
@@ -2810,7 +2887,9 @@ class Stash {
                 $this->EE->stash_model->delete_matching_keys(
                     $bundle_id,
                     $session_id, 
-                    $this->site_id
+                    $this->site_id,
+                    NULL,
+                    $this->invalidation_period
                 );
             }
         }
@@ -3552,6 +3631,12 @@ class Stash {
         $uri = $ee_uri->uri_string();
         $uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
 
+        // append query string?
+        if ($query_str = ee()->input->server('QUERY_STRING'))
+        {
+            $uri = $uri . '?' . $query_str;
+        }
+
         // replace '@URI:' with the current URI
         if (strncmp($name, '@URI:', 5) == 0)
         {
@@ -3678,11 +3763,27 @@ class Stash {
             }
         }
 
-        // parse simple conditionals
+        // parse conditionals
         if ($conditionals)
-        {
-            $TMPL2->tagdata = $TMPL2->parse_simple_segment_conditionals($TMPL2->tagdata);
-            $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
+        {   
+            // *prep* {If var1 IN (var2)}../if] style conditionals
+            if ($this->parse_if_in)
+            {
+                $TMPL2->tagdata = $this->_prep_in_conditionals($TMPL2->tagdata);
+            }
+
+            // *parse* simple conditionals
+            if (version_compare(APP_VER, '2.9', '>=')) 
+            {
+                $this->EE->TMPL = $TMPL2;
+                $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
+                unset($this->EE->TMPL);
+            }
+            else
+            {
+                $TMPL2->tagdata = $TMPL2->parse_simple_segment_conditionals($TMPL2->tagdata);
+                $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
+            }
         }
         
         // Remove any EE comments that might have been exposed before parsing tags
@@ -3725,7 +3826,6 @@ class Stash {
             // parse tags
             $this->EE->TMPL->parse_tags();
             $this->EE->TMPL->process_tags();
-
             $this->EE->TMPL->loop_count = 0;
 
             $TMPL2->tagdata = $this->EE->TMPL->template;
@@ -3785,7 +3885,8 @@ class Stash {
                     'template_post_parse',
                     $this->EE->TMPL->tagdata,
                     FALSE, 
-                    $this->site_id
+                    $this->site_id, 
+                    TRUE
                 );
                 
                 // restore original extensions on the 'template_fetch_template' hook
@@ -4121,7 +4222,7 @@ class Stash {
     // ---------------------------------------------------------
     
     /**
-     * process processing our method until template_post_parse hook
+     * Delay processing a tag until template_post_parse hook
      * 
      * @access private
      * @param String    Method name (e.g. display, link or embed)
@@ -4132,7 +4233,7 @@ class Stash {
         // base our needle off the calling tag
         // add a random number to prevent EE caching the tag, if it is used more than once
         $placeholder = md5($this->EE->TMPL->tagproper) . rand();    
-                
+              
         if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
         {
             $this->EE->session->cache['stash']['__template_post_parse__'] = array();

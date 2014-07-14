@@ -7,7 +7,7 @@ require_once PATH_THIRD . 'stash/config.php';
  *
  * @package             Stash
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
- * @copyright           Copyright (c) 2012 Hallmark Design
+ * @copyright           Copyright (c) 2014 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
  * @link                http://hallmark-design.co.uk
  */
@@ -61,11 +61,11 @@ class Stash_upd {
           `created` int(10) unsigned NOT NULL,
           `expire` int(10) unsigned NOT NULL default '0',   
           `parameters` MEDIUMTEXT,
-          PRIMARY KEY  (`id`),
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `cache_key` (`key_name`,`bundle_id`,`site_id`,`session_id`),
           KEY `bundle_id` (`bundle_id`),
-          KEY `key_session` (`key_name`,`session_id`),
-          KEY `key_name` (`key_name`),
-          KEY `site_id` (`site_id`)
+          KEY `site_id` (`site_id`),
+          KEY `expire` (`expire`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
         ";
 
@@ -140,11 +140,11 @@ class Stash_upd {
             return FALSE;
         }
 
+        $sql = array();
+
         // Update to 2.3.7
         if (version_compare($current, '2.3.7', '<'))
         {
-            $sql = array();
-
             // increase variable max key and parameter sizes
             $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` CHANGE `key_name` `key_name` VARCHAR(255) NOT NULL";
             $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` CHANGE `key_label` `key_label` VARCHAR(255) NOT NULL";
@@ -169,6 +169,22 @@ class Stash_upd {
                 $this->EE->db->query($query);
             }
         }
+
+        // Update to 2.5.4
+        if (version_compare($current, '2.5.4', '<'))
+        {  
+            // change indexes
+            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` 
+                      DROP INDEX `key_session`, 
+                      DROP INDEX `key_name`, 
+                      ADD UNIQUE `cache_key` (`key_name`, `bundle_id`, `site_id`, `session_id`),
+                      ADD INDEX `expire` (`expire`)";
+        }
+
+        foreach ($sql as $query)
+        {
+            $this->EE->db->query($query);
+        }   
 
         // update version number
         return TRUE;
