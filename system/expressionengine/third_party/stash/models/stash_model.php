@@ -475,19 +475,29 @@ class Stash_model extends CI_Model {
     {
         $now = $this->EE->localize->now;
 
-        // sort low to high
-        sort($ids);
+        if (count($ids) > 1)
+        {
+            // sort low to high
+            sort($ids);
 
-        // get the last id value and the count
-        $id_end = end($ids);
-        $id_count = count($ids) - 1;
+            // get the last id value and the count
+            $id_end = end($ids);
+            $id_count = count($ids)-1;
 
-        // what we're doing here is approximately dividing the expiry delay across the target ids,
-        // increasing the delay according the original id value, so that variables   
-        // generated later in the original template, get regenereated later too
-        $this->EE->db->where_in('id', $ids);
-        $this->db->set('expire', 'FLOOR (' . $this->EE->localize->now . ' + '.$period.' - ( ('.$id_end.' - id) / '.$id_count.' * ' . $period . ' ))', false);
-        return $this->db->update('stash');
+            // what we're doing here is approximately dividing the expiry delay across the target ids,
+            // increasing the delay according the original id value, so that variables   
+            // generated later in the original template, get regenereated later too
+            $this->EE->db->where_in('id', $ids);
+            $this->db->set('expire', 'FLOOR (' . $this->EE->localize->now . ' + '.$period.' - ( ('.$id_end.' - id) / '.$id_count.' * ' . $period . ' ))', false);
+            return $this->db->update('stash');
+        } 
+        else
+        {   
+            // invalidating a single item
+            $this->EE->db->where('id', $ids[0]);
+            $this->db->set('expire', $this->EE->localize->now);
+            return $this->db->update('stash'); 
+        }
     }
     
     /**
