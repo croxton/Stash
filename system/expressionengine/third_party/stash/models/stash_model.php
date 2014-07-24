@@ -174,10 +174,9 @@ class Stash_model extends CI_Model {
      * @param string $col
      * @return string
      */
-    function get_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $col = 'parameters', $check_expired = FALSE)
+    function get_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $col = 'parameters')
     {
-        $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
-        $now = $this->EE->localize->now;
+        $cache_key = $key . '_' . $bundle_id .'_' . $session_id . $site_id . '_' . $col;
         
         if ( ! isset(self::$keys[$cache_key]))
         {
@@ -210,18 +209,11 @@ class Stash_model extends CI_Model {
                         // more than half the refresh time has passed since the last time key was accessed
                         // so let's refresh the key expiry
                         $this->refresh_key($key, $bundle_id, $session_id, $site_id, $refresh);  
-
-                        // update key dates
-                        $key_expire = $this->EE->localize->now + $refresh;
                     }
                 }
                             
                 // cache result
-                self::$keys[$cache_key] = array(
-                                            $col      => $result->row($col),
-                                            'expire'  => $key_expire,
-                                            'created' => $key_created
-                                        );
+                self::$keys[$cache_key] = $result->row($col);
             }
             else
             {
@@ -236,16 +228,7 @@ class Stash_model extends CI_Model {
         }
         else
         {
-            if ($check_expired && self::$keys[$cache_key]['expire'] != 0)
-            {
-                if (self::$keys[$cache_key]['expire'] < $this->EE->localize->now)
-                {
-                    // variable has expired
-                    return FALSE;
-                }
-            }
-
-            return self::$keys[$cache_key][$col];
+            return self::$keys[$cache_key];
         }
     }
 

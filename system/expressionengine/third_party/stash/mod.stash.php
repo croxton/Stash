@@ -37,7 +37,6 @@ class Stash {
     protected $process = 'inline';
     protected $priority = 1;
     protected static $bundles = array();
-    protected $check_expired = FALSE;
     
     private $_update = FALSE;
     private $_append = TRUE;
@@ -82,8 +81,6 @@ class Stash {
         // cache pruning can cache stampede mitigation defaults
         $this->prune                = $this->EE->config->item('stash_prune_enabled') === FALSE  ? FALSE : TRUE;
         $this->prune_probability    = $this->EE->config->item('stash_prune_probability')        ? $this->EE->config->item('stash_prune_probability') : .4; // percent
-        $this->regen                = $this->EE->config->item('stash_regen_enabled') === FALSE  ? FALSE : TRUE;
-        $this->regen_probability    = $this->EE->config->item('stash_regen_probability')        ? $this->EE->config->item('stash_regen_probability') : .8; // percent
         $this->invalidation_period  = $this->EE->config->item('stash_invalidation_period')      ? $this->EE->config->item('stash_invalidation_period') : 0; // seconds
 
         // permitted file extensions for Stash embeds
@@ -636,15 +633,6 @@ class Stash {
                         // yes record exists, but do we want to update it?
                         $update_key = FALSE;
 
-                        // has it expired?
-                        if ($this->check_expired)
-                        {
-                            // Yes, let's regenerate it now rather than letting it get pruned and recreated.
-                            // Since this is triggered at random, it makes it more likely that only one request 
-                            // at a time will trigger a regen (i.e. reduces chance of a cache stampede on the cached variable)
-                            $update_key = TRUE;
-                        }
-
                         // is the new variable value identical to the value in the cache?
                         // allow append/prepend if the stash key has been created *in this page load*
                         $cache_key = $stash_key. '_'. $this->bundle_id .'_' .$this->site_id . '_' . $session_filter;
@@ -886,29 +874,13 @@ class Stash {
             
                 // replace '@' placeholders with the current context
                 $stash_key = $this->_parse_context($name);
-
-                // for random requests (frequency determined by prune_probability) we should check if 
-                // the variable has passed expiry date, and *update* it with latest value if it has
-                if ($this->regen)
-                {
-                    // chance that we should regenerate - should be double the chance of pruning
-                    $regen_chance = 100/$this->regen_probability;
-
-                    // trigger regeneration of the variable every 1 chance out of $regen_chance
-                    if (mt_rand(0, ($regen_chance-1)) === 0) 
-                    { 
-                        $this->check_expired = TRUE;
-                    }
-                }
                     
                 // look for our key
                 if ( $parameters = $this->EE->stash_model->get_key(
                     $stash_key, 
                     $this->bundle_id,
                     $session_id, 
-                    $this->site_id,
-                    'parameters',
-                    $this->check_expired
+                    $this->site_id
                 ))
                 {   
                     // save to session 
@@ -1413,6 +1385,13 @@ class Stash {
         $name = $this->EE->TMPL->fetch_param('name', FALSE);        
         $context = $this->EE->TMPL->fetch_param('context', NULL);
         $scope  = strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
+
+        // are we trying to *overwrite* an existing list (replace it but not change the existing list if the new list is empty)?
+        $overwrite = $this->EE->TMPL->fetch_param('overwrite', FALSE); 
+        if ($overwrite)
+        {
+            $this->replace = TRUE;
+        }
         
         if ( !! $name)
         {
@@ -1477,7 +1456,7 @@ class Stash {
         }
         
         if ($set)
-        {   
+        {  
             // do any parsing and string transforms before making the list
             $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
             $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
@@ -1544,8 +1523,11 @@ class Stash {
             else
             {
                 // make sure this variable is marked as empty, so subsquent get_list() calls return no_results
-                $this->_stash[$name] = '';
-                
+                if (FALSE === $overwrite)
+                {
+                    $this->_stash[$name] = '';
+                }
+
                 if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'))) // default="no"
                 { 
                     // optionally parse and return no_results tagdata
@@ -1672,7 +1654,6 @@ class Stash {
 
         // list names
         $lists = $this->EE->TMPL->fetch_param('lists');
-
         $lists = explode(',', $lists);
 
         // create an array of values
@@ -1694,6 +1675,46 @@ class Stash {
 
         // set as a new variable
         return $this->set();  
+    }
+
+    public function split_list()
+    {
+        /* Sample use
+        ---------------------------------------------------------
+        {exp:stash:split_list 
+            name="my_list_fragment"
+            list="list_1"
+            match="#^blue$#"
+            against="colour"
+        }
+        --------------------------------------------------------- */  
+
+        // the original list
+        $old_list = $this->EE->TMPL->fetch_param('list', FALSE);
+
+        // the new list
+        $new_list = $this->EE->TMPL->fetch_param('name', FALSE);
+
+        if ($old_list && $new_list)
+        {
+            $this->EE->TMPL->tagparams['name'] = $old_list;
+
+            // apply filters to the original list and generate an array
+            $list = $this->rebuild_list();
+
+            // flatten the list array into a string, ready for setting as a variable
+            $this->EE->TMPL->tagdata = $this->flatten_list($list);
+
+            // reset the name parameter
+            $this->EE->TMPL->tagparams['name'] = $new_list;
+
+            // unset params used for filtering
+            unset($this->EE->TMPL->tagparams['match']);
+            unset($this->EE->TMPL->tagparams['against']);
+
+            // set as a new variable
+            return $this->set(); 
+        }
     }
     
     // ---------------------------------------------------------
