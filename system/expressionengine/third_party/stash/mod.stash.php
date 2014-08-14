@@ -2929,9 +2929,10 @@ class Stash {
     {
         if ($this->EE->session->userdata['group_title'] == "Super Admins")
         {
-            $this->EE->TMPL->tagparams['scope'] = 'all';
-            $this->destroy();
-            return $this->EE->lang->line('cache_flush_success');
+            if ( $this->EE->stash_model->flush_cache($this->site_id))
+            {
+                return $this->EE->lang->line('cache_flush_success');
+            }
         }
         else
         {

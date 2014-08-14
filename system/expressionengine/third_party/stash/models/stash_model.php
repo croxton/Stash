@@ -40,6 +40,14 @@ class Stash_model extends CI_Model {
         self::$queue = new stdClass();
         self::$queue->inserts = array();
         self::$queue->updates = array();
+
+        // Process the queue on shutdown.
+        // Note that as PHP-FPM does not support this function,
+        // we call process_queue() in Stash_ext::template_post_parse() as well.
+        // But, you ask, so why do this at all? 
+        // Because if you SET/UPDATE a Stash variable outside of an EE
+        // template, you can't rely on extension hooks being triggered 
+        register_shutdown_function(array($this, "process_queue"));
     }
     
     /**
@@ -286,11 +294,11 @@ class Stash_model extends CI_Model {
         }
         
         // get matching key(s)
-        $query = $this->db->select('id, key_name, key_label, bundle_id, session_id')->get('stash');
+        $query = $this->db->select('id, site_id, key_name, key_label, session_id, bundle_id')->get('stash');
 
         if ($query->num_rows() > 0)
         {   
-            if ( $this->delete_cache($query->result(), $site_id, FALSE, $invalidate))
+            if ( $this->delete_cache($query->result(), TRUE, $invalidate))
             {
                 // deleted, now remove the key from the internal key cache
                 $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
@@ -319,8 +327,25 @@ class Stash_model extends CI_Model {
      */
     function delete_matching_keys($bundle_id = FALSE, $session_id=NULL, $site_id = 1, $regex=NULL, $invalidate=0)
     {
-        $deleted = FALSE;
+        $deleted = FALSE; // have keys been deleted from the database?
+        $clear_static = TRUE; // attempt to delete corresponding *individual* static cache files?
 
+        // Clear the static cache?
+        // Delete entire static cache for this site if bundle is 'static' or not specified
+        // and scope is 'site', 'all' or not specified, and we're not invalidating
+        if ($this->EE->config->item('stash_static_cache_enabled') && $invalidate == 0)
+        {
+            if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
+            {
+                if ( is_null($session_id) || $session_id === 'site' || $session_id === 'all')
+                {
+                    $this->_delete_dir('/', $site_id);
+                    $clear_static = FALSE; 
+                }
+            }
+        }
+
+        // clear the db
         $this->db->where('site_id', $site_id);
 
         // match a specific bundle
@@ -357,23 +382,11 @@ class Stash_model extends CI_Model {
         }
 
         // get matching keys
-        $query = $this->db->select('id, key_name, key_label, bundle_id, session_id')->get('stash');
+        $query = $this->db->select('id, site_id, key_name, key_label, session_id, bundle_id')->get('stash');
 
         if ($query->num_rows() > 0)
         {
-            // clear the entire static cache dir for the selected site?
-            $clear_static_dir = FALSE; 
-
-            // delete entire static cache for this site if bundle is 'static' or not specified
-            // and scope is 'site', 'all' or not specified
-            if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
-            {
-                if ( is_null($session_id) || $session_id === 'site' || $session_id === 'all')
-                {
-                    $clear_static_dir = TRUE;
-                }
-            }
-            $deleted = $this->delete_cache($query->result(), $site_id, $clear_static_dir, $invalidate);
+            $deleted = $this->delete_cache($query->result(), $clear_static, $invalidate);
         }
 
         if ($deleted)
@@ -390,42 +403,17 @@ class Stash_model extends CI_Model {
      *
      * @param array $vars An array of objects
      * @param integer $site_id
-     * @param boolean $clear_static_dir
+     * @param boolean $clear_static Clear the static cache too, for variables in the static bundle?
      * @param integer $invalidate Delay until cached item expires (seconds)
      * @return boolean
      */
-    protected function delete_cache($vars, $site_id = 1, $clear_static_dir = FALSE, $invalidate=0)
+    protected function delete_cache($vars, $clear_static = TRUE, $invalidate = 0)
     {
+        // get a list of variable ids
         $ids = array();
-
         foreach ($vars as $row)
         {
             $ids[] = $row->id;
-
-            // -------------------------------------
-            // 'stash_delete' hook
-            // -------------------------------------
-            if ($this->EE->extensions->active_hook('stash_delete') === TRUE)
-            {
-                $this->EE->extensions->call('stash_delete', array(
-                    'key_name'      => $row->key_name,
-                    'key_label'     => $row->key_label, 
-                    'bundle_id'     => $row->bundle_id, 
-                    'session_id'    => $row->session_id, 
-                    'site_id'       => $site_id
-                ));
-            }
-
-            if ($clear_static_dir)
-            {
-                // delete the entire static cache directory for the given site (fast)
-                $this->_delete_dir('/', $site_id);
-            }
-            else
-            {
-                // delete any corresponding static cache files, individually
-                $this->delete_static_cache($row->key_name, $row->bundle_id, $site_id);
-            }
         }
 
         // delete any db records
@@ -433,17 +421,74 @@ class Stash_model extends CI_Model {
 
         if ($invalidate > 0)
         {
-            // soft delete - update variables to expire at random intervals within 
-            // the invalidation period and so help prevent cache stampedes
+            // "Soft delete" - update variables to expire at random intervals within 
+            // the invalidation period and so help prevent cache stampedes.
+            // When the variables are subsequently pruned, this function is triggered 
+            // again and any corresponding caches will be deleted
             $result = $this->_invalidate($ids, $invalidate);
         }
         else
         {
             // delete immediately
             $result = $this->EE->db->where_in('id', $ids)->delete('stash');
+
+            // delete corresponding caches
+            foreach ($vars as $row)
+            {
+                if ($clear_static)
+                {
+                    // delete any corresponding static cache files, individually
+                    $this->delete_static_cache($row->key_name, $row->bundle_id, $row->site_id);
+                }
+
+                // -------------------------------------
+                // 'stash_delete' hook
+                // -------------------------------------
+                if ($this->EE->extensions->active_hook('stash_delete') === TRUE)
+                {
+                    $this->EE->extensions->call('stash_delete', array(
+                        'key_name'      => $row->key_name,
+                        'key_label'     => $row->key_label, 
+                        'bundle_id'     => $row->bundle_id, 
+                        'session_id'    => $row->session_id, 
+                        'site_id'       => $row->site_id
+                    ));
+                }
+            }
         }
        
         return $result;
+    }
+
+    /**
+     * Flush the entire cache for a given site, immediately
+     *
+     * @param integer $site_id
+     * @return boolean
+     */
+    function flush_cache($site_id = 1)
+    {
+        // delete all variables saved in the db
+        if ($result = $this->EE->db->where('site_id', $site_id)->delete('stash'))
+        {
+            // remove all files in the static dir, if static caching is enabled
+            if ( $this->EE->config->item('stash_static_cache_enabled'))
+            {
+                $this->_delete_dir('/', $site_id);
+            }
+
+            // -------------------------------------
+            // 'stash_flush_cache' hook
+            // -------------------------------------
+            if ($this->EE->extensions->active_hook('stash_flush_cache') === TRUE)
+            {
+                $this->EE->extensions->call('stash_flush_cache', $site_id);
+            }
+
+            return $result;
+        }
+
+        return FALSE;
     }
 
     /**
@@ -489,19 +534,20 @@ class Stash_model extends CI_Model {
      * @param integer $buffer time to wait past expiry before pruning
      * @return boolean
      */
-    function prune_keys($buffer=15)
+    function prune_keys()
     {
-        if ($result = $this->db->delete('stash', array(
-                'expire <'  => $this->EE->localize->now - $buffer, 
+        if ($query = $this->db->get_where('stash', array(
+                'expire <'  => $this->EE->localize->now, 
                 'expire !=' => '0'
         )))
         {
-            return TRUE;
+            if ($deleted = $this->delete_cache($query->result()))
+            {
+                return TRUE;
+            }
         }
-        else
-        {
-            return FALSE;
-        }
+
+        return FALSE;
     }
     
     /**
@@ -926,6 +972,9 @@ class Stash_model extends CI_Model {
             }
             $this->db->trans_complete();
         }
+
+        // reset the queue
+        self::$queue->inserts = self::$queue->updates = array();
     }
  
 }

@@ -414,23 +414,7 @@ class Stash_ext {
 
             // just before the template is sent to output
             if (FALSE == $from_stash)
-            {  
-                /*
-                // remove Stash from the extensions array to avoid infinite recursion
-                $other_ext = array();
-
-                foreach($this->EE->extensions->extensions['template_post_parse'] as $priority => $ext)
-                {
-                    foreach($ext as $class => $config)
-                    {
-                        if ($class != 'Stash_ext')
-                        {
-                            $other_ext[$priority][$class] = $config;
-                        }
-                    }
-                }
-                */ 
-
+            {
                 // batch processing of cached variables
                 $this->EE->TMPL->log_item("Stash: batch processing queued queries");
                 $this->EE->load->model('stash_model');
