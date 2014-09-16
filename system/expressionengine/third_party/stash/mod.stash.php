@@ -427,6 +427,8 @@ class Stash {
         
         // do we want this tag to return it's tagdata? (default: no)
         $output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
+
+        // do we want to parse early global variables in variables retrieved from the cache
         
         // append or prepend passed as parameters?
         if (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('prepend')))
@@ -470,7 +472,7 @@ class Stash {
             {
                 // yes, it's already been stashed
                 $this->EE->TMPL->tagdata = $this->_stash[$name] = $existing_value;
-                
+
                 // don't overwrite existing value
                 $set = FALSE;
             }
@@ -759,7 +761,7 @@ class Stash {
      * @return string 
      */
     public function get($params='', $type='variable', $scope='user')
-    {               
+    {       
         /* Sample use
         ---------------------------------------------------------
         {exp:stash:get name="title"}
@@ -949,8 +951,6 @@ class Stash {
             // Are we reading a file?
             if ( ($file && $value === NULL) || ($file && $this->replace) || ($file && $this->file_sync) )
             {                   
-                $this->EE->TMPL->log_item("Stash: reading from file");
-
                 // extract and remove the file extension, if provided
                 $ext = 'html'; // default extension
 
@@ -992,7 +992,9 @@ class Stash {
                 $file_path = $this->path . implode('/', $file_path) . '.' . $ext;
 
                 if ( file_exists($file_path))
-                {               
+                {   
+                    $this->EE->TMPL->log_item("Stash: reading file " . $file_path);
+
                     $value = str_replace("\r\n", "\n", file_get_contents($file_path));
 
                     $set = TRUE;
@@ -2469,9 +2471,6 @@ class Stash {
         {/exp:stash:cache}
         */
 
-        // default to processing at end
-        $this->EE->TMPL->tagparams['process'] = $this->EE->TMPL->fetch_param('process', 'end');
-
         // Unprefix common variables in wrapped tags
         if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
         {
@@ -2479,7 +2478,7 @@ class Stash {
         }
 
         // process as a static cache?
-        if ( $this->EE->TMPL->tagparams['process'] == 'static')
+        if ( $this->EE->TMPL->fetch_param('process') == 'static')
         {   
             return $this->static_cache($this->EE->TMPL->tagdata);
         }
@@ -2505,15 +2504,14 @@ class Stash {
         
         // don't replace the variable by default
         $this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
-        
-        // set a high priority by default so the tag is processed later than other post-processed vars (except static cached items)
-        $this->EE->TMPL->tagparams['priority'] = $this->EE->TMPL->fetch_param('priority', '999998');
 
         // set a default refresh of 0 (never)
         $this->EE->TMPL->tagparams['refresh'] = $this->EE->TMPL->fetch_param('refresh', 0);
+
+        // set the context to the page URI pointer by default
+        $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->fetch_param('context', '@URI');
         
         // mandatory parameter values for cached items
-        $this->EE->TMPL->tagparams['context']             = "@URI";
         $this->EE->TMPL->tagparams['scope']               = 'site';
         $this->EE->TMPL->tagparams['save']                = 'yes';
         $this->EE->TMPL->tagparams['parse_tags']          = 'yes';
@@ -2538,8 +2536,6 @@ class Stash {
             'parse_depth',
             'parse_vars',
             'parse_conditionals',
-            'process',
-            'priority',
             'output',
             'bundle',
             'prefix',
@@ -2552,7 +2548,16 @@ class Stash {
             'strip',
         );
         
-        return $this->_run_tag('set', $reserved_vars);
+        // cache / retreive the variables
+        $this->_run_tag('set', $reserved_vars);
+
+        // Is partially cached content possible? We'll need to make sure it's parsed before returning to the template
+        if ($this->EE->TMPL->tagparams['parse_stage'] == 'both' || $this->EE->TMPL->tagparams['parse_stage'] == 'get')
+        {
+            $this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
+        }
+
+        return $this->EE->TMPL->tagdata;
     }
 
     // ----------------------------------------------------------
@@ -3654,7 +3659,7 @@ class Stash {
         $uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
 
         // append query string?
-        if ($query_str = ee()->input->server('QUERY_STRING'))
+        if ($query_str = $this->EE->input->server('QUERY_STRING'))
         {
             $uri = $uri . '?' . $query_str;
         }
@@ -3785,26 +3790,47 @@ class Stash {
             }
         }
 
-        // parse conditionals
-        if ($conditionals)
+        // parse conditionals?
+        if ($conditionals && strpos($TMPL2->tagdata, LD.'if') !== FALSE)
         {   
-            // *prep* {If var1 IN (var2)}../if] style conditionals
+            // prep {If var1 IN (var2)}../if] style conditionals
             if ($this->parse_if_in)
             {
                 $TMPL2->tagdata = $this->_prep_in_conditionals($TMPL2->tagdata);
             }
 
-            // *parse* simple conditionals
-            if (version_compare(APP_VER, '2.9', '>=')) 
+            // parse conditionals
+            if (version_compare(APP_VER, '2.9', '<')) 
             {
-                $this->EE->TMPL = $TMPL2;
-                $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
-                unset($this->EE->TMPL);
-            }
-            else
-            {
+                // pre EE 2.9, we can only parse "simple" conditionals on each pass, 
+                // leaving "advanced" ones until after tag parsing has completed
                 $TMPL2->tagdata = $TMPL2->parse_simple_segment_conditionals($TMPL2->tagdata);
                 $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
+            }
+            else
+            {   
+                // with EE 2.9 and later we can parse conditionals "when ready"
+
+                // first, *prep* EE conditionals
+                $logged_in_user_cond = array();
+                foreach ($user_vars as $user_var)
+                {
+                    $logged_in_user_cond['logged_in_'.$user_var] = ee()->session->userdata[$user_var];
+                }
+
+                $TMPL2->tagdata = ee()->functions->prep_conditionals(
+                    $TMPL2->tagdata,
+                    array_merge(
+                        $TMPL2->segment_vars,
+                        $TMPL2->template_route_vars,
+                        $$TMPL2->embed_vars,
+                        $logged_in_user_cond,
+                        ee()->config->_global_vars
+                    )
+                );
+
+                // now we can parse them
+                $TMPL2->tagdata = $TMPL2->advanced_conditionals($TMPL2->tagdata);
             }
         }
         
@@ -3871,8 +3897,10 @@ class Stash {
         }
         else
         {
-            // parse advanced conditionals?
-            if ($conditionals)
+            // recursive parsing complete
+
+            // parse advanced conditionals? This applies to all version of EE
+            if ($conditionals && strpos($this->EE->TMPL->tagdata, LD.'if') !== FALSE)
             {
                 // record if PHP is enabled for this template
                 $parse_php = $this->EE->TMPL->parse_php;

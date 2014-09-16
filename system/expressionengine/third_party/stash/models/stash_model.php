@@ -402,7 +402,6 @@ class Stash_model extends CI_Model {
      * Delete an array of variables in a given site
      *
      * @param array $vars An array of objects
-     * @param integer $site_id
      * @param boolean $clear_static Clear the static cache too, for variables in the static bundle?
      * @param integer $invalidate Delay until cached item expires (seconds)
      * @return boolean
@@ -531,15 +530,16 @@ class Stash_model extends CI_Model {
     /**
      * Prune expired keys
      *
-     * @param integer $buffer time to wait past expiry before pruning
      * @return boolean
      */
     function prune_keys()
     {
-        if ($query = $this->db->get_where('stash', array(
-                'expire <'  => $this->EE->localize->now, 
-                'expire !=' => '0'
-        )))
+        $query = $this->db->get_where('stash', array(
+            'expire <'  => $this->EE->localize->now, 
+            'expire !=' => '0'
+        ));
+
+        if ($query->num_rows() > 0) 
         {
             if ($deleted = $this->delete_cache($query->result()))
             {
