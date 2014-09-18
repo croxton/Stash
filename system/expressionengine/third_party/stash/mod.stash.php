@@ -3812,6 +3812,7 @@ class Stash {
                 // with EE 2.9 and later we can parse conditionals "when ready"
 
                 // first, *prep* EE conditionals
+                $user_vars  = $this->_get_users_vars();
                 $logged_in_user_cond = array();
                 foreach ($user_vars as $user_var)
                 {
@@ -3996,13 +3997,7 @@ class Stash {
         }
         
         // user variables, in the form {logged_in_[variable]}
-        $user_vars  = array(
-                    'member_id', 'group_id', 'group_description', 
-                    'group_title', 'member_group', 'username', 'screen_name', 
-                    'email', 'ip_address', 'location', 'total_entries', 
-                    'total_comments', 'private_messages', 'total_forum_posts', 
-                    'total_forum_topics', 'total_forum_replies'
-                );
+        $user_vars  = $this->_get_users_vars();
                 
         foreach ($user_vars as $val)
         {
@@ -4613,6 +4608,23 @@ class Stash {
             }
         }
         return FALSE;
+    }
+
+    /**
+     * return the standard set of user variables
+     * 
+     * @access private
+     * @return boolean/array    
+     */ 
+    private function _get_users_vars()
+    {
+        return array(
+            'member_id', 'group_id', 'group_description', 
+            'group_title', 'member_group', 'username', 'screen_name', 
+            'email', 'ip_address', 'location', 'total_entries', 
+            'total_comments', 'private_messages', 'total_forum_posts', 
+            'total_forum_topics', 'total_forum_replies'
+        );
     }
 
 }
