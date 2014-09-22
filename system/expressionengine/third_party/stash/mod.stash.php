@@ -3766,37 +3766,33 @@ class Stash {
         // restore original TMPL values
         $this->EE->TMPL->tagparams = $tagparams;
         $this->EE->TMPL->tagdata = $tagdata;
-        
-        // clone the template object
-        $TMPL2 = $this->EE->TMPL;
-        unset($this->EE->TMPL);
 
         if (self::$_nocache)
         {
             // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
-            $TMPL2->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+            $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
         }
     
         // parse variables  
         if ($vars)
         {   
             // note: each pass can expose more variables to be parsed after tag processing
-            $TMPL2->tagdata = $this->_parse_template_vars($TMPL2->tagdata);
+            $this->EE->TMPL->tagdata = $this->_parse_template_vars($this->EE->TMPL->tagdata);
 
             if (self::$_nocache)
             {
                 // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
-                $TMPL2->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $TMPL2->tagdata);
+                $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
             }
         }
 
         // parse conditionals?
-        if ($conditionals && strpos($TMPL2->tagdata, LD.'if') !== FALSE)
+        if ($conditionals && strpos($this->EE->TMPL->tagdata, LD.'if') !== FALSE)
         {   
             // prep {If var1 IN (var2)}../if] style conditionals
             if ($this->parse_if_in)
             {
-                $TMPL2->tagdata = $this->_prep_in_conditionals($TMPL2->tagdata);
+                $this->EE->TMPL->tagdata = $this->_prep_in_conditionals($this->EE->TMPL->tagdata);
             }
 
             // parse conditionals
@@ -3804,8 +3800,8 @@ class Stash {
             {
                 // pre EE 2.9, we can only parse "simple" conditionals on each pass, 
                 // leaving "advanced" ones until after tag parsing has completed
-                $TMPL2->tagdata = $TMPL2->parse_simple_segment_conditionals($TMPL2->tagdata);
-                $TMPL2->tagdata = $TMPL2->simple_conditionals($TMPL2->tagdata, $this->EE->config->_global_vars);
+                $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_simple_segment_conditionals($this->EE->TMPL->tagdata);
+                $this->EE->TMPL->tagdata = $this->EE->TMPL->simple_conditionals($this->EE->TMPL->tagdata, $this->EE->config->_global_vars);
             }
             else
             {   
@@ -3814,32 +3810,39 @@ class Stash {
                 // first, *prep* EE conditionals
                 $user_vars  = $this->_get_users_vars();
                 $logged_in_user_cond = array();
-                foreach ($user_vars as $user_var)
+                foreach ($user_vars as $val)
                 {
-                    $logged_in_user_cond['logged_in_'.$user_var] = ee()->session->userdata[$user_var];
+                    if (isset($this->EE->session->userdata[$val]) AND ($val == 'group_description' OR strval($this->EE->session->userdata[$val]) != ''))
+                    {
+                        $logged_in_user_cond['logged_in_'.$val] = $this->EE->session->userdata[$val];
+                    }
                 }
 
-                $TMPL2->tagdata = ee()->functions->prep_conditionals(
-                    $TMPL2->tagdata,
+                $this->EE->TMPL->tagdata = $this->EE->functions->prep_conditionals(
+                    $this->EE->TMPL->tagdata,
                     array_merge(
-                        $TMPL2->segment_vars,
-                        $TMPL2->template_route_vars,
-                        $$TMPL2->embed_vars,
+                        $this->EE->TMPL->segment_vars,
+                        $this->EE->TMPL->template_route_vars,
+                        $this->EE->TMPL->embed_vars,
                         $logged_in_user_cond,
-                        ee()->config->_global_vars
+                        $this->EE->config->_global_vars
                     )
                 );
 
                 // now we can parse them
-                $TMPL2->tagdata = $TMPL2->advanced_conditionals($TMPL2->tagdata);
+                $this->EE->TMPL->tagdata = $this->EE->TMPL->advanced_conditionals($this->EE->TMPL->tagdata);
             }
         }
         
         // Remove any EE comments that might have been exposed before parsing tags
-        if (strpos($TMPL2->tagdata, '{!--') !== FALSE) 
+        if (strpos($this->EE->TMPL->tagdata, '{!--') !== FALSE) 
         {
-            $TMPL2->tagdata = preg_replace("/\{!--.*?--\}/s", '', $TMPL2->tagdata);
+            $this->EE->TMPL->tagdata = preg_replace("/\{!--.*?--\}/s", '', $this->EE->TMPL->tagdata);
         }
+
+        // clone the template object
+        $TMPL2 = $this->EE->TMPL;
+        unset($this->EE->TMPL);
         
         // parse tags, but check that there really are unparsed tags in the current shell   
         if ($tags && (strpos($TMPL2->tagdata, LD.'exp:') !== FALSE))
@@ -4614,13 +4617,13 @@ class Stash {
      * return the standard set of user variables
      * 
      * @access private
-     * @return boolean/array    
+     * @return array    
      */ 
     private function _get_users_vars()
     {
         return array(
             'member_id', 'group_id', 'group_description', 
-            'group_title', 'member_group', 'username', 'screen_name', 
+            'group_title', 'username', 'screen_name', 
             'email', 'ip_address', 'location', 'total_entries', 
             'total_comments', 'private_messages', 'total_forum_posts', 
             'total_forum_topics', 'total_forum_replies'
