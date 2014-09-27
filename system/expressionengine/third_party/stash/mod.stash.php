@@ -3798,16 +3798,16 @@ class Stash {
             // parse conditionals
             if (version_compare(APP_VER, '2.9', '<')) 
             {
-                // pre EE 2.9, we can only parse "simple" conditionals on each pass, 
+                // pre EE 2.9, we can only parse "simple" segemnt and global conditionals on each pass, 
                 // leaving "advanced" ones until after tag parsing has completed
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_simple_segment_conditionals($this->EE->TMPL->tagdata);
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->simple_conditionals($this->EE->TMPL->tagdata, $this->EE->config->_global_vars);
             }
             else
             {   
-                // with EE 2.9 and later we can parse conditionals "when ready"
+                // with EE 2.9 and later we can parse conditionals when the variables referenced have a value ("when ready")
 
-                // first, *prep* EE conditionals
+                // populate user variables
                 $user_vars  = $this->_get_users_vars();
                 $logged_in_user_cond = array();
                 foreach ($user_vars as $val)
@@ -3818,6 +3818,8 @@ class Stash {
                     }
                 }
 
+                // Parse conditionals for known variables *without* converting unknown variables
+                // used in if/else statements to false or 'n'
                 $this->EE->TMPL->tagdata = $this->EE->functions->prep_conditionals(
                     $this->EE->TMPL->tagdata,
                     array_merge(
@@ -3828,9 +3830,6 @@ class Stash {
                         $this->EE->config->_global_vars
                     )
                 );
-
-                // now we can parse them
-                $this->EE->TMPL->tagdata = $this->EE->TMPL->advanced_conditionals($this->EE->TMPL->tagdata);
             }
         }
         
@@ -3903,17 +3902,19 @@ class Stash {
         {
             // recursive parsing complete
 
-            // parse advanced conditionals? This applies to all version of EE
+            // parse advanced conditionals?
             if ($conditionals && strpos($this->EE->TMPL->tagdata, LD.'if') !== FALSE)
             {
                 // record if PHP is enabled for this template
                 $parse_php = $this->EE->TMPL->parse_php;
                 
-                // parse conditionals
                 if ( ! isset($this->EE->TMPL->layout_conditionals))
                 {
                     $this->EE->TMPL->layout_conditionals = array();
                 }
+
+                // this will parse all remaining conditionals, with unknown variables used in if/else
+                // statements being converted to false or 'n' so they are parsed safely
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->advanced_conditionals($this->EE->TMPL->tagdata);
                 
                 // restore original parse_php flag for this template
