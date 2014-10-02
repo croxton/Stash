@@ -3297,21 +3297,21 @@ class Stash {
         {
             if (strncmp($key, 'stash:', 6) ==  0)
             {   
-                $pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
-                preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
-                if (!empty($matches))
+                $starts_at = strpos($this->EE->TMPL->tagdata, LD.$key.RD) + strlen(LD.$key.RD);
+                $ends_at = strpos($this->EE->TMPL->tagdata, LD."/".$key.RD, $starts_at);
+                $tag_value = substr($this->EE->TMPL->tagdata, $starts_at, $ends_at - $starts_at);
+     
+                // don't save a string containing just white space, but be careful to preserve zeros
+                if ( $this->not_empty($tag_value) || $tag_value === '0')
                 {
-                    // don't save a string containing just white space, but be careful to preserve zeros
-                    if ( $this->not_empty($matches[1]) || $matches[1] === '0')
-                    {
-                        $stash_vars[substr($key, 6)] = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
-                    }
-                    else
-                    {
-                        // default key value: use a placeholder to represent a null value
-                        $stash_vars[substr($key, 6)] = $this->_list_null;
-                    }
+                    $stash_vars[substr($key, 6)] = $tag_value;
                 }
+                else
+                {
+                    // default key value: use a placeholder to represent a null value
+                    $stash_vars[substr($key, 6)] = $this->_list_null;
+                }
+         
             }
         }
         
