@@ -1462,10 +1462,14 @@ class Stash {
             // do any parsing and string transforms before making the list
             $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
             $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
-        
-            // regenerate tag variable pairs array using the parsed tagdata
-            $tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
-            $this->EE->TMPL->var_pair = $tag_vars['var_pair'];
+
+            // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
+            preg_match_all('#'.LD.'(stash:[a-z0-9-_]+)'.RD.'.+?'.LD.'\/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+
+            if (isset($matches[1]))
+            {
+                $this->EE->TMPL->var_pair = array_flip(array_unique($matches[1]));
+            }
         
             // get the first key and see if it repeats
             $keys = array_keys($this->EE->TMPL->var_pair);
