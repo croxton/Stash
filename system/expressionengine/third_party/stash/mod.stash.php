@@ -1464,7 +1464,7 @@ class Stash {
             $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
 
             // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
-            preg_match_all('#'.LD.'(stash:[a-z0-9-_]+)'.RD.'.+?'.LD.'\/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+            preg_match_all('#'.LD.'(stash:[a-z0-9-_]+)'.RD.'.+?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
 
             if (isset($matches[1]))
             {
@@ -3298,24 +3298,35 @@ class Stash {
         $stash_vars = array(); 
      
         foreach($this->EE->TMPL->var_pair as $key => $val)
-        {
+        {   
+            // valid variable pair?
             if (strncmp($key, 'stash:', 6) ==  0)
             {   
+                // but does the pair exist for this row of the list?
                 $starts_at = strpos($this->EE->TMPL->tagdata, LD.$key.RD) + strlen(LD.$key.RD);
                 $ends_at = strpos($this->EE->TMPL->tagdata, LD."/".$key.RD, $starts_at);
-                $tag_value = substr($this->EE->TMPL->tagdata, $starts_at, $ends_at - $starts_at);
-     
-                // don't save a string containing just white space, but be careful to preserve zeros
-                if ( $this->not_empty($tag_value) || $tag_value === '0')
-                {
-                    $stash_vars[substr($key, 6)] = $tag_value;
+
+                if (FALSE !== $starts_at && FALSE !== $ends_at)
+                {   
+                    // extract value between the pair
+                    $tag_value = substr($this->EE->TMPL->tagdata, $starts_at, $ends_at - $starts_at);
+
+                    // don't save a string containing just white space, but be careful to preserve zeros
+                    if ( $this->not_empty($tag_value) || $tag_value === '0')
+                    {
+                        $stash_vars[substr($key, 6)] = $tag_value;
+                    }
+                    else
+                    {
+                        // default key value: use a placeholder to represent a null/empty value
+                        $stash_vars[substr($key, 6)] = $this->_list_null;
+                    }
                 }
                 else
                 {
-                    // default key value: use a placeholder to represent a null value
+                    // no tag pair found in this row - use a placeholder to represent a null/empty value
                     $stash_vars[substr($key, 6)] = $this->_list_null;
                 }
-         
             }
         }
         
