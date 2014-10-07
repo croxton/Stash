@@ -1464,13 +1464,13 @@ class Stash {
             $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
 
             // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
-            preg_match_all('#'.LD.'(stash:[a-z0-9-_]+)'.RD.'.+?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
 
             if (isset($matches[1]))
             {
                 $this->EE->TMPL->var_pair = array_flip(array_unique($matches[1]));
             }
-        
+
             // get the first key and see if it repeats
             $keys = array_keys($this->EE->TMPL->var_pair);
         
@@ -3813,7 +3813,7 @@ class Stash {
             // parse conditionals
             if (version_compare(APP_VER, '2.9', '<')) 
             {
-                // pre EE 2.9, we can only parse "simple" segemnt and global conditionals on each pass, 
+                // pre EE 2.9, we can only parse "simple" segment and global conditionals on each pass, 
                 // leaving "advanced" ones until after tag parsing has completed
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_simple_segment_conditionals($this->EE->TMPL->tagdata);
                 $this->EE->TMPL->tagdata = $this->EE->TMPL->simple_conditionals($this->EE->TMPL->tagdata, $this->EE->config->_global_vars);
@@ -4000,11 +4000,15 @@ class Stash {
         // note: due to the order we're doing this, global vars can themselves contain stash vars...
         if (count($this->EE->session->cache['stash']) > 0 && strpos($template, LD.'stash:') !== FALSE)
         {   
-            // We want to replace single stash tag not tag pairs such as {stash:var}whatever{/stash:var}
-            // because these are used by stash::set() method when capturing multiple variables.
-            // So we'll calculate the intersecting keys of existing stash vars and single tags in the template 
-            $tag_vars = $this->EE->functions->assign_variables($template);
-            $tag_vars = $tag_vars['var_single'];
+            // We only want to replace single stash placeholder tags, 
+            // NOT tag pairs such as {stash:var}whatever{/stash:var}
+            $tag_vars = array();
+            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'(?!.+\1)#ims', $template, $matches);
+
+            if (isset($matches[1]))
+            {
+                 $tag_vars = array_flip($matches[1]);
+            }
             
             foreach($this->EE->session->cache['stash'] as $key => $val)
             {
@@ -4016,15 +4020,18 @@ class Stash {
         }
         
         // user variables, in the form {logged_in_[variable]}
-        $user_vars  = $this->_get_users_vars();
-                
-        foreach ($user_vars as $val)
-        {
-            if (isset($this->EE->session->userdata[$val]) AND ($val == 'group_description' OR strval($this->EE->session->userdata[$val]) != ''))
+        if (strpos($template, LD.'logged_in_') !== FALSE)
+        {  
+            $user_vars  = $this->_get_users_vars();
+
+            foreach ($user_vars as $val)
             {
-                $template = str_replace(LD.'logged_in_'.$val.RD, $this->EE->session->userdata[$val], $template);
-            }
-        }       
+                if (isset($this->EE->session->userdata[$val]) AND ($val == 'group_description' OR strval($this->EE->session->userdata[$val]) != ''))
+                {
+                    $template = str_replace(LD.'logged_in_'.$val.RD, $this->EE->session->userdata[$val], $template);
+                }
+            }  
+        }    
         
         // Parse date format string "constants" 
         if (strpos($template, LD.'DATE_') !== FALSE)
@@ -4047,23 +4054,26 @@ class Stash {
         }
         
         // Current time {current_time format="%Y %m %d %H:%i:%s"} - thanks @objectivehtml
-        if (strpos($template, LD.'current_time') !== FALSE && preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/", $template, $matches))
-        {               
-            for ($j = 0; $j < count($matches[0]); $j++)
-            {   
-                if (version_compare(APP_VER, '2.6', '>=')) 
-                {           
-                    $template = str_replace($matches[0][$j], $this->EE->localize->format_date($matches[2][$j]), $template); 
+        if (strpos($template, LD.'current_time') !== FALSE)
+        {  
+            if (preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/", $template, $matches))
+            {             
+                for ($j = 0; $j < count($matches[0]); $j++)
+                {   
+                    if (version_compare(APP_VER, '2.6', '>=')) 
+                    {           
+                        $template = str_replace($matches[0][$j], $this->EE->localize->format_date($matches[2][$j]), $template); 
+                    }
+                    else
+                    {
+                        $template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);
+                    }   
                 }
-                else
-                {
-                    $template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);
-                }   
             }
         }
         
         // segment vars {segment_1} etc
-        if (strpos( $template, LD.'segment_' ) !== FALSE )
+        if (strpos($template, LD.'segment_' ) !== FALSE )
         {
             for ($i = 1; $i < 10; $i++)
             {
