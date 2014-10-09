@@ -4003,7 +4003,7 @@ class Stash {
             // We only want to replace single stash placeholder tags, 
             // NOT tag pairs such as {stash:var}whatever{/stash:var}
             $tag_vars = array();
-            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'(?!.+\1)#ims', $template, $matches);
+            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'(?!.+\1'.RD.')#ims', $template, $matches);
 
             if (isset($matches[1]))
             {
