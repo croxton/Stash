@@ -2481,7 +2481,14 @@ class Stash {
             'output',
             'embed_vars',
             'bundle',
-            'prefix'
+            'prefix',
+            'trim',
+            'strip_tags',
+            'strip_curly_braces',
+            'strip_unparsed',
+            'compress',
+            'backspace',
+            'strip',
         );
     
         return $this->_run_tag('get', $reserved_vars);
