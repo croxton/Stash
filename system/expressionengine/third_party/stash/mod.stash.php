@@ -1146,7 +1146,25 @@ class Stash {
             }
             
             // add embed vars directly to the stash session cache
-            $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+            #$this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+
+            // add embed vars to the static cache for parsing at the point the extended embed is included into the page
+            if (count($embed_vars) > 0)
+            {
+                if ( ! isset(self::$_cache['embed_vars']))
+                {
+                    self::$_cache['embed_vars'] = array();
+                }
+
+                // generate a unique id to identify this embed instance
+                $id = $this->EE->functions->random();
+
+                // cache the variables for later
+                self::$_cache['embed_vars'][$id] = $embed_vars;
+
+                // add id as a parameter
+                $with .= ' id="' . $id .'"';
+            }
 
             // now inject the embed into the named block/variable
             $this->EE->TMPL->tagdata = LD . 'exp:stash:embed:' . $with . RD;
@@ -2419,6 +2437,30 @@ class Stash {
             $this->process = 'inline';
         }
         
+        // save stash embed vars passed as parameters in the form stash:my_var which we'll
+        // inject later into the stash array for replacement, so remove the stash: prefix
+        $params = $this->EE->TMPL->tagparams;
+
+        foreach ($params as $key => $val)
+        {
+            if (strncmp($key, 'stash:', 6) == 0)
+            {
+                $this->EE->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
+            }
+        }
+
+        // merge any cached embed vars if this embed was injected via an extend
+        $id = $this->EE->TMPL->fetch_param('id');
+
+        if ( $id && isset(self::$_cache['embed_vars']))
+        {
+            if (isset(self::$_cache['embed_vars'][$id]))
+            {
+                $this->EE->TMPL->tagparams['embed_vars'] = array_merge(self::$_cache['embed_vars'][$id], $this->EE->TMPL->tagparams['embed_vars']);
+                unset(self::$_cache['embed_vars'][$id]);
+            }
+        }
+
         // permitted parameters for embeds
         $reserved_vars = array(
             'name', 
@@ -2441,18 +2483,6 @@ class Stash {
             'bundle',
             'prefix'
         );
-        
-        // save stash embed vars passed as parameters in the form stash:my_var which we'll
-        // inject later into the stash array for replacement, so remove the stash: prefix
-        $params = $this->EE->TMPL->tagparams;
-
-        foreach ($params as $key => $val)
-        {
-            if (strncmp($key, 'stash:', 6) == 0)
-            {
-                $this->EE->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
-            }
-        }
     
         return $this->_run_tag('get', $reserved_vars);
     }
@@ -2646,7 +2676,14 @@ class Stash {
             'save', 
             'refresh',
             'replace',
-            'bundle'
+            'bundle',
+            'trim',
+            'strip_tags',
+            'strip_curly_braces',
+            'strip_unparsed',
+            'compress',
+            'backspace',
+            'strip',
         );
     
         $this->_run_tag('set', $reserved_vars);
@@ -4168,8 +4205,12 @@ class Stash {
 
         // remove whitespace between tags which are separated by line returns?
         if ($compress)
-        {
+        {   
+            // remove spaces between tags
             $value  = preg_replace('~>\s*\n\s*<~', '><', $value);
+
+            // double spaces, leading and trailing spaces
+            $value  = trim(preg_replace('/\s\s+/', ' ', $value));
         }
 
         // strip tags?
@@ -4188,7 +4229,9 @@ class Stash {
         if ($backspace)
         {
             // backspace can break unparsed conditionals and tags, so lets check for them
-            if (strrpos($value, RD, -$backspace) !== false)
+            $remove_from_end = substr($value, -$backspace);
+
+            if (strrpos($remove_from_end, RD) !== false)
             {
                 // unparsed var or tag within the backspace range, trim end as far as we safely can
                 $value = substr($value, 0, strrpos($value, RD)+1);
