@@ -837,22 +837,22 @@ class Stash {
         
         // do we want to set the variable?
         $set = FALSE;
-        
+
         // is it a segment? We need to support these in stash template files
-        if (strncmp($name, 'segment_', 8) == 0)
+        if (strncmp($name, 'segment_', 8) === 0)
         {
             $seg_index = substr($name, 8);
             $value = $this->EE->uri->segment($seg_index);
         }
 
         // let's see if it's been stashed before in this page load
-        elseif ( array_key_exists($name, $this->_stash))
+        elseif ( is_string($name) && array_key_exists($name, $this->_stash))
         {
             $value = $this->_stash[$name];          
         }
         
         // let's see if it exists in the current context
-        elseif ( array_key_exists($name_in_context, $this->_stash))
+        elseif ( is_string($name_in_context) && array_key_exists($name_in_context, $this->_stash))
         {
             $value = $this->_stash[$name_in_context];
             $name = $name_in_context;       
