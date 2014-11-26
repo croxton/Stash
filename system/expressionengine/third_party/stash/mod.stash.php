@@ -664,15 +664,20 @@ class Stash {
                     else
                     {   
                         // no record - insert one
-                        $this->EE->stash_model->insert_key(
-                            $stash_key,
-                            $this->bundle_id,
-                            $session_filter,
-                            $this->site_id,
-                            $refresh,
-                            $parameters,
-                            $label
-                        );
+                        
+                        // Don't save if this template has a 404 header set from a redirect
+                        if ( $this->EE->output->out_type !== "404")
+                        {
+                            $this->EE->stash_model->insert_key(
+                                $stash_key,
+                                $this->bundle_id,
+                                $session_filter,
+                                $this->site_id,
+                                $refresh,
+                                $parameters,
+                                $label
+                            );
+                        }
                     }
                 }
             }
@@ -1719,12 +1724,21 @@ class Stash {
         // the new list
         $new_list = $this->EE->TMPL->fetch_param('name', FALSE);
 
+        // limit the number of rows to copy?
+        $limit = $this->EE->TMPL->fetch_param('limit',  FALSE);
+
         if ($old_list && $new_list)
         {
             $this->EE->TMPL->tagparams['name'] = $old_list;
 
             // apply filters to the original list and generate an array
             $list = $this->rebuild_list();
+
+            // apply limit
+            if ($limit !== FALSE)
+            {
+                $list = array_slice($list, 0, $limit);
+            }
 
             // flatten the list array into a string, ready for setting as a variable
             $this->EE->TMPL->tagdata = $this->flatten_list($list);
@@ -2696,6 +2710,77 @@ class Stash {
         $this->_run_tag('set', $reserved_vars);
 
         return $this->EE->TMPL->tagdata;
+    }
+
+    // ---------------------------------------------------------
+    
+    /**
+     * Output the 404 template with the correct header and exit
+     *
+     * @access public
+     * @return string 
+     */
+    public function not_found()
+    {   
+        // try to prevent recursion
+        if ( $this->EE->output->out_type == "404") 
+        {
+            return;
+        }
+
+        $url = FALSE;
+        $template = explode('/', $this->EE->config->item('site_404'));
+
+        if (isset($template[1]))
+        {
+            // build an absolute URL to the 404 template
+            $url = $this->EE->functions->create_url($template[0].'/'.$template[1]);
+        }
+
+        // We'll use cURL to grab the rendered 404 template
+        // The template MUST be publicly accessible without being logged in
+        if ($url 
+            && $this->EE->config->item('is_system_on') !== 'n'
+            && is_callable('curl_init'))
+        {     
+            // set header
+            $this->EE->config->set_item('send_headers', FALSE); // trick EE into not sending a 200
+            $this->EE->output->set_status_header('404');
+
+            // grab the rendered 404 page
+            $ch = curl_init();
+            
+            // set the url
+            curl_setopt($ch, CURLOPT_URL, $url);
+
+            // return it direct, don't print it out
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            
+            // this connection will timeout in 10 seconds
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                
+            $result = @curl_exec($ch); 
+                
+            if (curl_errno($ch)) 
+            {   
+                log($ch);
+                curl_close($ch);
+            } 
+            else 
+            {
+                die($result);
+            }
+        }
+
+        // if cURL fails or system is off, fallback to a redirect
+        if ($url)
+        {
+            $this->EE->functions->redirect($url, FALSE, '404');
+        }
+        else 
+        {
+            $this->EE->TMPL->log_item('Stash: 404 template is not configured. Please select a 404 template in Design > Templates > Global Preferences.');
+        }
     }
 
     // ---------------------------------------------------------    
