@@ -21,7 +21,7 @@ class Stash_ext {
     public $docs_url        = STASH_DOCS;
     public $settings        = array();
     public $settings_exist  = 'n';
-    private $hooks          = array('template_fetch_template', 'template_post_parse');
+    private $hooks          = array('template_fetch_template', 'template_post_parse', 'ce_cache_pre_parse', 'ce_cache_post_parse');
 
     // ------------------------------------------------------
 
@@ -80,6 +80,12 @@ class Stash_ext {
             return FALSE; // up to date
         }
 
+        // install new hooks
+        foreach ($this->hooks AS $hook)
+        {
+            $this->_add_hook($hook);
+        }
+
         // update table row with current version
         $this->EE->db->where('class', __CLASS__);
         $this->EE->db->update('extensions', array('version' => $this->version));
@@ -96,6 +102,16 @@ class Stash_ext {
      */
     private function _add_hook($name)
     {
+        // check to see if this hook is already installed
+        $this->EE->db->where('class', __CLASS__);
+        $this->EE->db->where('method', $name);
+        $this->EE->db->where('hook', $name);
+
+        if ($this->EE->db->count_all_results('extensions') > 0)
+        {
+            return;
+        }
+
         $this->EE->db->insert('extensions',
             array(
                 'class'    => __CLASS__,
@@ -423,6 +439,70 @@ class Stash_ext {
         }
         
         return $template;
+    }
+
+    /**
+     * Method for ce_cache_pre_parse Hook
+     *
+     * @param  string $tagdata
+     * @return string
+     */
+    public function ce_cache_pre_parse($tagdata)
+    {
+        if ($this->EE->extensions->last_call !== FALSE)
+        {
+            $tagdata = $this->EE->extensions->last_call;
+        }
+
+        if (isset($this->EE->TMPL) && $this->EE->TMPL->fetch_param('escape_stash') === 'yes')
+        {
+            // escape any stash tags so they don't get parsed during this stage
+            $tagdata = str_replace(
+                array(
+                    '{exp:stash:',
+                    '{/exp:stash:',
+                ),
+                array(
+                    '{escaped:stash:',
+                    '{/escaped:stash:',
+                ),
+                $tagdata
+            );
+        }
+
+        return $tagdata;
+    }
+
+    /**
+     * Method for ce_cache_post_parse Hook
+     *
+     * @param  string $tagdata
+     * @return string
+     */
+    public function ce_cache_post_parse($tagdata)
+    {
+        if ($this->EE->extensions->last_call !== FALSE)
+        {
+            $tagdata = $this->EE->extensions->last_call;
+        }
+
+        if (isset($this->EE->TMPL) && $this->EE->TMPL->fetch_param('escape_stash') === 'yes')
+        {
+            // restore any escaped stash tags
+            $tagdata = str_replace(
+                array(
+                    '{escaped:stash:',
+                    '{/escaped:stash:',
+                ),
+                array(
+                    '{exp:stash:',
+                    '{/exp:stash:',
+                ),
+                $tagdata
+            );
+        }
+
+        return $tagdata;
     }
 }
 
