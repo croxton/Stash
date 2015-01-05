@@ -330,10 +330,10 @@ class Stash_model extends CI_Model {
         $deleted = FALSE; // have keys been deleted from the database?
         $clear_static = TRUE; // attempt to delete corresponding *individual* static cache files?
 
-        // Clear the static cache?
-        // Delete entire static cache for this site if bundle is 'static' or not specified
-        // and scope is 'site', 'all' or not specified, and we're not invalidating
-        if ($this->EE->config->item('stash_static_cache_enabled') && $invalidate == 0)
+        // Can we clear the entire static cache in one go (to minimize disk access)?
+        if ($this->EE->config->item('stash_static_cache_enabled') 
+            && $regex == NULL
+            && $invalidate == 0)
         {
             if ( ! $bundle_id || $this->_can_static_cache($bundle_id) )
             {

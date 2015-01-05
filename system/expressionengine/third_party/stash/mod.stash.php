@@ -2554,6 +2554,9 @@ class Stash {
             $this->EE->TMPL->tagparams['name'] = $this->_parse_context($context) . ':' . $this->EE->TMPL->tagparams['name'];
         }
 
+        // context parameter MUST be set to the page URI pointer
+        $this->EE->TMPL->tagparams['context'] = '@URI';
+
         // set a default parse depth of 4
         $this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 4);
         
@@ -2562,9 +2565,6 @@ class Stash {
 
         // set a default refresh of 0 (never)
         $this->EE->TMPL->tagparams['refresh'] = $this->EE->TMPL->fetch_param('refresh', 0);
-
-        // set the context to the page URI pointer by default
-        $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->fetch_param('context', '@URI');
         
         // mandatory parameter values for cached items
         $this->EE->TMPL->tagparams['scope']               = 'site';
