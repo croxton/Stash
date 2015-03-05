@@ -76,6 +76,7 @@ class Stash {
         $this->stash_cookie         = $this->EE->config->item('stash_cookie')        ? $this->EE->config->item('stash_cookie') : 'stashid';
         $this->stash_cookie_expire  = $this->EE->config->item('stash_cookie_expire') ? $this->EE->config->item('stash_cookie_expire') : 0;
         $this->default_scope        = $this->EE->config->item('stash_default_scope') ? $this->EE->config->item('stash_default_scope') : 'user';
+        $this->default_refresh      = $this->EE->config->item('stash_default_refresh') ? $this->EE->config->item('stash_default_refresh') : 0; // minutes
         $this->limit_bots           = $this->EE->config->item('stash_limit_bots')    ? $this->EE->config->item('stash_limit_bots') : FALSE;
 
         // cache pruning can cache stampede mitigation defaults
@@ -90,6 +91,9 @@ class Stash {
 
         // Support {if var1 IN (var2) }...{/if} style conditionals in Stash templates / tagdata?  
         $this->parse_if_in  = $this->EE->config->item('stash_parse_if_in') ? $this->EE->config->item('stash_parse_if_in') : FALSE;
+
+        // include query string when using the @URI context (full page caching)?
+        $this->include_query_str = $this->EE->config->item('stash_query_strings') ? $this->EE->config->item('stash_query_strings') : FALSE;
         
         // initialise tag parameters
         if (FALSE === $calling_from_hook)
@@ -513,12 +517,14 @@ class Stash {
                 // get params
                 $label           = $this->EE->TMPL->fetch_param('label', $name);
                 $save            = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));                        
-                $refresh         = (int) $this->EE->TMPL->fetch_param('refresh', 1440); // minutes (1440 = 1 day) 
                 $match           = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to test value against
                 $against         = $this->EE->TMPL->fetch_param('against', $this->EE->TMPL->tagdata); // text to apply test against
                 $filter          = $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search for
                 $default         = $this->EE->TMPL->fetch_param('default', NULL); // default value
                 $delimiter       = $this->EE->TMPL->fetch_param('delimiter', '|'); // implode arrays using this delimiter
+
+                // cache refresh time
+                $refresh         = (int) $this->EE->TMPL->fetch_param('refresh', $this->default_refresh);
                 
                 // do we want to set a placeholder somewhere in this template ?
                 $set_placeholder = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('set_placeholder'));
@@ -1614,6 +1620,17 @@ class Stash {
         $name = $this->EE->TMPL->fetch_param('name');
         $context = $this->EE->TMPL->fetch_param('context', NULL);
         $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+        $this->parse_complete = TRUE; // make sure we don't run parsing again
+
+        // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
+        preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+
+        if (isset($matches[1]))
+        {
+            $this->EE->TMPL->var_pair = array_flip(array_unique($matches[1]));
+        }
+
+        // format our list
         $this->_serialize_stash_tag_pairs();
         
         if ( $this->not_empty($this->EE->TMPL->tagdata))
@@ -2551,7 +2568,7 @@ class Stash {
         // thus context is always @URI, and name must be set to context:name
         if ( $context = $this->EE->TMPL->fetch_param('context', FALSE))
         {
-            $this->EE->TMPL->tagparams['name'] = $this->_parse_context($context) . ':' . $this->EE->TMPL->tagparams['name'];
+            $this->EE->TMPL->tagparams['name'] = $this->_parse_context($context . ':') . $this->EE->TMPL->tagparams['name'];
         }
 
         // context parameter MUST be set to the page URI pointer
@@ -2638,8 +2655,14 @@ class Stash {
         // thus context is always @URI, and name must be set to context:name
         if ( $context = $this->EE->TMPL->fetch_param('context', FALSE))
         {
-            $this->EE->TMPL->tagparams['name'] = $this->_parse_context($context) . ':' . $this->EE->TMPL->tagparams['name'];
+            if ($context !== '@URI')
+            {
+                $this->EE->TMPL->tagparams['name'] = $context . ':' . $this->EE->TMPL->tagparams['name'];
+            }
         }
+
+        // parse cache key, making sure query strings are excluded from the @URI
+        $this->EE->TMPL->tagparams['name'] = $this->_parse_context('@URI:' . $this->EE->TMPL->tagparams['name'], TRUE);
 
         $this->process = 'end';
         $this->priority = '999999'; //  should be the last thing post-processed (by Stash)
@@ -2666,7 +2689,7 @@ class Stash {
     public function save_output($output='')
     { 
         // mandatory parameter values for cached output
-        $this->EE->TMPL->tagparams['context']   = "@URI";
+        $this->EE->TMPL->tagparams['context']   = NULL;
         $this->EE->TMPL->tagparams['scope']     = 'site';
         $this->EE->TMPL->tagparams['save']      = 'yes';
         $this->EE->TMPL->tagparams['refresh']   = "0";   // static cached items can't expire
@@ -3782,7 +3805,7 @@ class Stash {
      * @param string    $name The variable name
      * @return string
      */
-    private function _parse_context($name)
+    private function _parse_context($name, $disable_query_str = FALSE)
     {   
         // replace '@:' with current context name
         if (strncmp($name, '@:', 2) == 0)
@@ -3803,8 +3826,10 @@ class Stash {
         $uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
 
         // append query string?
-        if ($query_str = $this->EE->input->server('QUERY_STRING'))
-        {
+        if ($this->include_query_str 
+            && ! $disable_query_str
+            && $query_str = $this->EE->input->server('QUERY_STRING')
+        ){
             $uri = $uri . '?' . $query_str;
         }
 
