@@ -406,7 +406,7 @@ class Stash_model extends CI_Model {
      * @param integer $invalidate Delay until cached item expires (seconds)
      * @return boolean
      */
-    protected function delete_cache($vars, $clear_static = TRUE, $invalidate = 0)
+    protected function delete_cache($vars, $clear_static = TRUE, $invalidate = 0, $call_hook = TRUE)
     {
         // get a list of variable ids
         $ids = array();
@@ -443,7 +443,8 @@ class Stash_model extends CI_Model {
                 // -------------------------------------
                 // 'stash_delete' hook
                 // -------------------------------------
-                if ($this->EE->extensions->active_hook('stash_delete') === TRUE)
+                if ($this->EE->extensions->active_hook('stash_delete') === TRUE 
+                    && $call_hook === TRUE)
                 {
                     $this->EE->extensions->call('stash_delete', array(
                         'key_name'      => $row->key_name,
@@ -541,7 +542,7 @@ class Stash_model extends CI_Model {
 
         if ($query->num_rows() > 0) 
         {
-            if ($deleted = $this->delete_cache($query->result()))
+            if ($deleted = $this->delete_cache($query->result(), TRUE, 0, FALSE))
             {
                 return TRUE;
             }
