@@ -251,8 +251,12 @@ class Stash_ext {
                             $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
                         }
 
+                        // instantiate and initialize Stash
+                        $s = new Stash();
+
                         // get the file
-                        $out = Stash::get($param);
+                        $out = $s->get($param);
+                        unset($s);
 
                         // minimal replace of embed vars if we're not using Stash to parse the template variables
                         if ($param['parse_vars'] == 'no')

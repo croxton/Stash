@@ -399,10 +399,17 @@ class Stash {
         <?php stash::set('title', 'My title') ?>
         --------------------------------------------------------- */
         
-        // is this method being called statically?
-        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, $type, $scope, $value);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, $type, $scope, $value);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, $type, $scope, $value);
+            }
         }
         
         // do we want to set the variable?
@@ -781,10 +788,17 @@ class Stash {
         <?php echo stash::get('title') ?>
         --------------------------------------------------------- */
 
-        // is this method being called statically?
-        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, $type, $scope);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, $type, $scope);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, $type, $scope);
+            }
         }
         
         if ( $this->process !== 'inline') 
@@ -1791,10 +1805,17 @@ class Stash {
         {/exp:stash:get_list}
         --------------------------------------------------------- */    
 
-        // is this method being called statically?
-        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, $type, $scope, $value);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, $type, $scope, $value);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, $type, $scope, $value);
+            }
         }
 
         if ( $this->process !== 'inline') 
@@ -2910,10 +2931,17 @@ class Stash {
      */
     public function parse($params = array(), $value=NULL)
     {       
-        // is this method being called statically?
-        if ( !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, '', '', $value);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, '', '', $value);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, '', '', $value);
+            }
         }
 
         // parse="yes"?
@@ -2966,10 +2994,17 @@ class Stash {
      */
     public function destroy($params=array(), $type='variable', $scope='user')
     {
-        // is this method being called statically?
-        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, $type, $scope);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, $type, $scope);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, $type, $scope);
+            }
         }
         
         // register params
@@ -3163,10 +3198,17 @@ class Stash {
      */
     public function rebuild_list($params='', $type='variable', $scope='user')
     {
-        // is this method being called statically?
-        if ( func_num_args() > 0 && !(isset($this) && get_class($this) == __CLASS__))
+        // is this method being called directly?
+        if ( func_num_args() > 0)
         {   
-            return self::_static_call(__FUNCTION__, $params, $type, $scope);
+            if ( !(isset($this) && get_class($this) == __CLASS__))
+            {
+                return self::_api_static_call(__FUNCTION__, $params, $type, $scope);
+            }
+            else
+            {
+                return $this->_api_call(__FUNCTION__, $params, $type, $scope);
+            }
         }
 
         $sort       = strtolower($this->EE->TMPL->fetch_param('sort', FALSE));
@@ -4643,7 +4685,7 @@ class Stash {
     // ---------------------------------------------------------
     
     /**
-     * call a Stash method statically
+     * API: call a Stash method directly
      * 
      * @access public
      * @param string $method
@@ -4653,12 +4695,12 @@ class Stash {
      * @param string $value
      * @return void 
      */ 
-    private function _static_call($method, $params, $type='variable', $scope='user', $value=NULL)
+    private function _api_call($method, $params, $type='variable', $scope='user', $value=NULL)
     {
         // make sure we have a Template object to work with, in case Stash is being invoked outside of a template
         if ( ! class_exists('EE_Template'))
         {
-            self::_load_EE_TMPL();
+            $this->_load_EE_TMPL();
         }
       
         // make a copy of the current tagparams and tagdata for later
@@ -4671,7 +4713,7 @@ class Stash {
         }
         if ( isset($this->EE->TMPL->tagdata))
         {
-            $original_tagdata   = $this->EE->TMPL->tagdata;
+            $original_tagdata = $this->EE->TMPL->tagdata;
         }
 
         // make sure we have a slate to work with
@@ -4694,6 +4736,69 @@ class Stash {
             $this->EE->TMPL->tagdata = $value;
         }
     
+        $result = $this->{$method}();
+
+        // restore original template params and tagdata
+        $this->EE->TMPL->tagparams = $original_tagparams;
+        $this->EE->TMPL->tagdata = $original_tagdata;
+
+        return $result;
+    }
+
+    // ---------------------------------------------------------
+    
+    /**
+     * API: call a Stash method statically (DEPRECATED, PHP <5.6 only)
+     * 
+     * @access public
+     * @param string $method
+     * @param mixed $params variable name or an array of parameters
+     * @param string $type
+     * @param string $scope
+     * @param string $value
+     * @return void 
+     */ 
+    private function _api_static_call($method, $params, $type='variable', $scope='user', $value=NULL)
+    {
+        // make sure we have a Template object to work with, in case Stash is being invoked outside of a template
+        if ( ! class_exists('EE_Template'))
+        {
+            self::_load_EE_TMPL();
+        }
+      
+        // make a copy of the current tagparams and tagdata for later
+        $original_tagparams = array();
+        $original_tagdata = FALSE;
+
+        if ( isset($this->EE->TMPL->tagparams))
+        {
+            $original_tagparams = $this->EE->TMPL->tagparams;
+        }
+        if ( isset($this->EE->TMPL->tagdata))
+        {
+            $original_tagdata = $this->EE->TMPL->tagdata;
+        }
+
+        // make sure we have a slate to work with
+        $this->EE->TMPL->tagparams = array();
+        $this->EE->TMPL->tagdata = FALSE;
+        
+        if ( is_array($params))
+        {
+            $this->EE->TMPL->tagparams = $params;
+        }
+        else
+        {
+            $this->EE->TMPL->tagparams['name']    = $params;
+            $this->EE->TMPL->tagparams['type']    = $type;
+            $this->EE->TMPL->tagparams['scope']   = $scope;
+        }
+        
+        if ( ! is_null($value))
+        {
+            $this->EE->TMPL->tagdata = $value;
+        }
+        
         // as this function is called statically, we need to get a Stash object instance and run the requested method
         $self = new self(); 
         $result = $self->{$method}();
