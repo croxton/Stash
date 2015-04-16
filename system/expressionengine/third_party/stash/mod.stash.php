@@ -3669,7 +3669,7 @@ class Stash {
      *
      * @access public
      * @param string 
-     * @return void
+     * @return string
      */
     private function _normalize($str) 
     {
