@@ -72,17 +72,18 @@ class Stash {
         
         // config defaults
         $this->path                 = $this->EE->config->item('stash_file_basepath') ? $this->EE->config->item('stash_file_basepath') : APPPATH . 'stash/';
-        $this->file_sync            = $this->EE->config->item('stash_file_sync')     ? $this->EE->config->item('stash_file_sync') : FALSE;
-        $this->stash_cookie         = $this->EE->config->item('stash_cookie')        ? $this->EE->config->item('stash_cookie') : 'stashid';
+        $this->file_sync            = $this->_get_boolean_config_item('stash_file_sync', FALSE); // default = FALSE
+        $this->stash_cookie         = $this->EE->config->item('stash_cookie') ? $this->EE->config->item('stash_cookie') : 'stashid';
         $this->stash_cookie_expire  = $this->EE->config->item('stash_cookie_expire') ? $this->EE->config->item('stash_cookie_expire') : 0;
+        $this->stash_cookie_enabled = $this->_get_boolean_config_item('stash_cookie_enabled'); // default = TRUE
         $this->default_scope        = $this->EE->config->item('stash_default_scope') ? $this->EE->config->item('stash_default_scope') : 'user';
         $this->default_refresh      = $this->EE->config->item('stash_default_refresh') ? $this->EE->config->item('stash_default_refresh') : 0; // minutes
-        $this->limit_bots           = $this->EE->config->item('stash_limit_bots')    ? $this->EE->config->item('stash_limit_bots') : FALSE;
+        $this->limit_bots           = $this->_get_boolean_config_item('stash_limit_bots', FALSE); // default = FALSE
 
         // cache pruning can cache stampede mitigation defaults
-        $this->prune                = $this->EE->config->item('stash_prune_enabled') === FALSE  ? FALSE : TRUE;
-        $this->prune_probability    = $this->EE->config->item('stash_prune_probability')        ? $this->EE->config->item('stash_prune_probability') : .4; // percent
-        $this->invalidation_period  = $this->EE->config->item('stash_invalidation_period')      ? $this->EE->config->item('stash_invalidation_period') : 0; // seconds
+        $this->prune                = $this->_get_boolean_config_item('stash_prune_enabled'); // default = TRUE
+        $this->prune_probability    = $this->EE->config->item('stash_prune_probability')   ? $this->EE->config->item('stash_prune_probability') : .4; // percent
+        $this->invalidation_period  = $this->EE->config->item('stash_invalidation_period') ? $this->EE->config->item('stash_invalidation_period') : 0; // seconds
 
         // permitted file extensions for Stash embeds
         $this->file_extensions  =   $this->EE->config->item('stash_file_extensions')     
@@ -102,54 +103,57 @@ class Stash {
         }
 
         // fetch the stash session id
-        if ( ! isset($this->EE->session->cache['stash']['_session_id']) )
-        {   
-            // do we have a stash cookie? 
-            if ($cookie_data = $this->_get_stash_cookie())
-            {
-                // YES - restore session
-                $this->EE->session->cache['stash']['_session_id'] = $cookie_data['id'];
+        if ($this->stash_cookie_enabled)
+        {
+            if ( ! isset($this->EE->session->cache['stash']['_session_id']) )
+            {   
+                // do we have a stash cookie? 
+                if ($cookie_data = $this->_get_stash_cookie())
+                {
+                    // YES - restore session
+                    $this->EE->session->cache['stash']['_session_id'] = $cookie_data['id'];
 
-                // shall we prune expired variables?
-                if ($this->prune)
-                {   
-                    // probability that pruning occurs
-                    $prune_chance = 100/$this->prune_probability;
-
-                    // trigger pruning every 1 chance out of $prune_chance
-                    if (mt_rand(0, ($prune_chance-1)) === 0) 
+                    // shall we prune expired variables?
+                    if ($this->prune)
                     {   
-                        // prune variables with expiry date older than right now 
-                        $this->EE->stash_model->prune_keys();   
+                        // probability that pruning occurs
+                        $prune_chance = 100/$this->prune_probability;
 
-                        // uncomment for http load testing (e.g. with Siege)
-                        #header('HTTP/1.0 404 Not Found');
-                        #die();
+                        // trigger pruning every 1 chance out of $prune_chance
+                        if (mt_rand(0, ($prune_chance-1)) === 0) 
+                        {   
+                            // prune variables with expiry date older than right now 
+                            $this->EE->stash_model->prune_keys();
+                        }
                     }
                 }
-            }
-            else
-            {
-                if ($this->limit_bots)
+                else
                 {
-                    // Is the user a human? Legitimate bots don't set cookies so will end up here every page load
-                    // Humans who accept cookies only get checked when the cookie is first set
-                    self::$_is_human = ($this->_is_bot() ? FALSE : TRUE);
+                    if ($this->limit_bots)
+                    {
+                        // Is the user a human? Legitimate bots don't set cookies so will end up here every page load
+                        // Humans who accept cookies only get checked when the cookie is first set
+                        self::$_is_human = ($this->_is_bot() ? FALSE : TRUE);
+                    }
+                    
+                    // NO - let's generate a unique id
+                    $unique_id = $this->EE->functions->random();
+                    
+                    // add to stash array
+                    $this->EE->session->cache['stash']['_session_id'] = $unique_id;
+                    
+                    // create a cookie; store the creation date in the cookie itself
+                    $this->_set_stash_cookie($unique_id);
                 }
-                
-                // NO - let's generate a unique id
-                $unique_id = $this->EE->functions->random();
-                
-                // add to stash array
-                $this->EE->session->cache['stash']['_session_id'] = $unique_id;
-                
-                // create a cookie; store the creation date in the cookie itself
-                $this->_set_stash_cookie($unique_id);
             }
-        }
         
-        // create a reference to the session id
-        $this->_session_id =& $this->EE->session->cache['stash']['_session_id'];      
+            // create a reference to the session id
+            $this->_session_id =& $this->EE->session->cache['stash']['_session_id'];  
+        }
+        else
+        {
+            $this->_session_id = '_global';
+        }    
     }
     
     // ---------------------------------------------------------
@@ -668,10 +672,6 @@ class Stash {
                                 $refresh,
                                 $parameters
                             );
-
-                            // uncomment for http load testing (e.g. with Siege)
-                            #header('HTTP/1.0 500 Not Found');
-                            #die();
                         }
                     }
                     else
@@ -1109,7 +1109,45 @@ class Stash {
         {exp:stash:block name="page_content"}
             default content
         {/exp:stash:block}
+
+        {exp:stash:block:page_content}
+            default content
+        {/exp:stash:block:page_content}
         --------------------------------------------------------- */
+
+        $tag_parts = $this->EE->TMPL->tagparts;
+
+        if ( is_array( $tag_parts ) && isset( $tag_parts[2] ) )
+        {
+            if (isset($tag_parts[3]))
+            {
+                $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->fetch_param('context', $tag_parts[2]);
+                $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', $tag_parts[3]);
+            }
+            else
+            {
+                // no context or name provided?
+                if ( ! isset($this->EE->TMPL->tagparams['name']) AND ! isset($this->EE->TMPL->tagparams['context']))
+                {
+                     $this->EE->TMPL->tagparams['context'] = 'block';
+                }
+                $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', $tag_parts[2]);
+            }
+        }
+
+        // is this block dependent on one or more other stash variables *being set*?
+        if ($requires = $this->EE->TMPL->fetch_param('requires', FALSE))
+        {
+            $requires = explode('|', $requires);
+            foreach ($requires as $var) 
+            {
+                if ( ! isset($this->_stash[$var]))
+                {
+                    return '';
+                }
+            }
+        }
+
         $this->EE->TMPL->tagparams['default'] = $this->EE->TMPL->tagdata;
         $this->EE->TMPL->tagdata = FALSE;
         return $this->get();
@@ -3310,7 +3348,7 @@ class Stash {
                                     $columns[$name] = array_map('strtolower', $columns[$name]);
                                     $args[] = SORT_STRING;  
                                     break;
-                                 case 'normalize':
+                                case 'normalize':
                                     $columns[$name] = array_map(array($this, '_normalize'), $columns[$name]);
                                     $args[] = SORT_STRING;
                                     break;
@@ -3667,7 +3705,7 @@ class Stash {
     /** 
      * Normalize characters in a string (the dirty way)
      *
-     * @access public
+     * @access private
      * @param string 
      * @return string
      */
@@ -4965,6 +5003,33 @@ class Stash {
             }
         }
         return $is_bot;
+    }
+
+    /**
+     * get the boolean value of a config item, with the desired fallback value
+     * 
+     * @access private
+     * @param string $item config key
+     * @param boolean $default default value returned if config item doesn't exist
+     * @return boolean 
+     */ 
+    private function _get_boolean_config_item($item, $default = TRUE)
+    { 
+        if ( isset($this->EE->config->config[$item])) 
+        {
+            if ($this->EE->config->config[$item] === FALSE)
+            {
+                return FALSE;
+            }
+            else
+            {
+                return TRUE;
+            }
+        }
+        else
+        {
+            return $default;
+        }
     }
     
     // ---------------------------------------------------------
