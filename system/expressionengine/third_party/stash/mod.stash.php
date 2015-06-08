@@ -1175,64 +1175,87 @@ class Stash {
     
         --------------------------------------------------------- */
 
-        if ( FALSE !== $with = $this->EE->TMPL->fetch_param('with', FALSE))
-        {   
+        if ( FALSE === $with = $this->EE->TMPL->fetch_param('with', FALSE)) return;
+         
+        $embed_params = array();
+        unset($this->EE->TMPL->tagparams['with']);
+
+        // have values other than embed name been passed in the "with" param? These should be passed as parameters to the embed:
+        $with = explode(' ', $with, 2);
+
+        // extract embed vars passed as params
+        foreach ($this->EE->TMPL->tagparams as $key => $val)
+        {
+            if (strncmp($key, 'stash:', 6) == 0)
+            {
+                $embed_params[] = $key . '="'. $val .'"';
+            }
+        }
+
+        // if this is a tag pair, construct an embed_extend tag and pass data enclosed by {stash:...} pairs to it
+        if ($this->EE->TMPL->tagdata)
+        {
+            // construct the embed_extend tag
+            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed_extend name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD . $this->EE->TMPL->tagdata . LD . '/exp:stash:embed_extend' . RD;
+        }
+        else
+        {
+            // construct the embed tag
+            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD;
+        }
+    
+        // escape it?
+        if ( (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('escape')) )
+        {
+            $this->EE->TMPL->tagdata = LD .'stash:nocache'. RD . $this->EE->TMPL->tagdata . LD .'/stash:nocache'. RD;
+        }
+        
+        // inject the embed into a variable / block
+        return $this->set();
+     
+    }
+
+    // ---------------------------------------------------------
+    
+    /**
+     * Pass variables to an embed via variable pairs in tagdata
+     *
+     * @access public
+     * @return string
+     */
+    public function embed_extend()
+    {
+        if ($this->EE->TMPL->tagdata)
+        {
             $embed_vars = array();
-            unset($this->EE->TMPL->tagparams['with']);
 
-            // embed vars passed as params
-            foreach ($this->EE->TMPL->tagparams as $key => $val)
+            foreach($this->EE->TMPL->var_pair as $key => $val)
             {
-                if (strncmp($key, 'stash:', 6) == 0)
+                if (strncmp($key, 'stash:', 6) ==  0)
                 {
-                    $embed_vars[substr($key, 6)] = $val;
-                    unset($this->EE->TMPL->tagparams[$key]);
-                }
-            }
+                    $pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
+                    preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
 
-            // if this is a tag pair, capture data enclosed by {stash:...} pairs  
-            if ($this->EE->TMPL->tagdata)
-            {
-                foreach($this->EE->TMPL->var_pair as $key => $val)
-                {
-                    if (strncmp($key, 'stash:', 6) ==  0)
+                    if ( ! empty($matches))
                     {
-                        $pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
-                        preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
-
-                        if ( ! empty($matches))
-                        {
-                            $embed_vars[substr($key, 6)] = $matches[1];
-                        }   
-                    }
+                        $embed_vars[$key] = $matches[1];
+                    }   
                 }
             }
-            
-            // add embed vars directly to the stash session cache
-            #$this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
 
-            // add embed vars to the static cache for parsing at the point the extended embed is included into the page
-            if (count($embed_vars) > 0)
+            if (is_array($this->EE->TMPL->tagparams))
             {
-                if ( ! isset(self::$_cache['embed_vars']))
-                {
-                    self::$_cache['embed_vars'] = array();
-                }
-
-                // generate a unique id to identify this embed instance
-                $id = $this->EE->functions->random();
-
-                // cache the variables for later
-                self::$_cache['embed_vars'][$id] = $embed_vars;
-
-                // add id as a parameter
-                $with .= ' id="' . $id .'"';
+                $this->EE->TMPL->tagparams = array_merge($embed_vars, $this->EE->TMPL->tagparams);
+            }
+            else
+            {
+                 $this->EE->TMPL->tagparams = $embed_vars;
             }
 
-            // now inject the embed into the named block/variable
-            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed:' . $with . RD;
-            return $this->set();
-        }   
+            $this->EE->TMPL->tagdata = '';
+        }
+
+        return $this->embed();
     }
 
     // ---------------------------------------------------------
@@ -2499,6 +2522,7 @@ class Stash {
             if ( ! $this->_is_cacheable())
             {
                 $this->EE->TMPL->tagparams['save'] = 'no';
+                self::$_nocache = FALSE; // remove {stash:nocache} pairs
             }
         }
         
@@ -2536,18 +2560,6 @@ class Stash {
             if (strncmp($key, 'stash:', 6) == 0)
             {
                 $this->EE->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
-            }
-        }
-
-        // merge any cached embed vars if this embed was injected via an extend
-        $id = $this->EE->TMPL->fetch_param('id');
-
-        if ( $id && isset(self::$_cache['embed_vars']))
-        {
-            if (isset(self::$_cache['embed_vars'][$id]))
-            {
-                $this->EE->TMPL->tagparams['embed_vars'] = array_merge(self::$_cache['embed_vars'][$id], $this->EE->TMPL->tagparams['embed_vars']);
-                unset(self::$_cache['embed_vars'][$id]);
             }
         }
 
@@ -2601,17 +2613,29 @@ class Stash {
         ...
         {/exp:stash:cache}
         */
+       
+        // process as a static cache?
+        if ( $this->EE->TMPL->fetch_param('process') == 'static')
+        {   
+            return $this->static_cache($this->EE->TMPL->tagdata);
+        }
+
+        // Is this page really cacheable? (Note: allow all request types to be cached)
+        if ( ! $this->_is_cacheable(FALSE))
+        {
+            self::$_nocache = FALSE; // remove {stash:nocache} pairs
+            $this->EE->TMPL->tagparams['replace'] = 'yes';
+            $this->EE->TMPL->tagparams['save'] = 'no'; // disable caching
+        }
+        else
+        {
+             $this->EE->TMPL->tagparams['save'] = 'yes';
+        }
 
         // Unprefix common variables in wrapped tags
         if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
         {
             $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
-        }
-
-        // process as a static cache?
-        if ( $this->EE->TMPL->fetch_param('process') == 'static')
-        {   
-            return $this->static_cache($this->EE->TMPL->tagdata);
         }
 
         // default name for cached items is 'cache'
@@ -2644,7 +2668,6 @@ class Stash {
         
         // mandatory parameter values for cached items
         $this->EE->TMPL->tagparams['scope']               = 'site';
-        $this->EE->TMPL->tagparams['save']                = 'yes';
         $this->EE->TMPL->tagparams['parse_tags']          = 'yes';
         $this->EE->TMPL->tagparams['parse_vars']          = 'yes';
         $this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
@@ -2726,10 +2749,12 @@ class Stash {
         $this->process = 'end';
         $this->priority = '999999'; //  should be the last thing post-processed (by Stash)
 
-        // has the tag been used as a tag pair? If so, just return to the template so it can be parsed naturally
+        // has the tag been used as a tag pair? If so, we'll parse the tagdata to remove {stash:nocache} pairs
         if ($this->EE->TMPL->tagdata)
         {
-            $output = $this->EE->TMPL->tagdata;
+            // parse the tagdata
+            self::$_nocache = FALSE; // remove {stash:nocache} pairs
+            $output = $this->parse();
         }
 
         if ($out = $this->_post_parse('save_output')) return $out . $output;
@@ -2750,10 +2775,11 @@ class Stash {
         // mandatory parameter values for cached output
         $this->EE->TMPL->tagparams['context']   = NULL;
         $this->EE->TMPL->tagparams['scope']     = 'site';
-        $this->EE->TMPL->tagparams['save']      = 'yes';
-        $this->EE->TMPL->tagparams['refresh']   = "0";   // static cached items can't expire
         $this->EE->TMPL->tagparams['replace']   = "no";  // static cached items cannot be replaced
         $this->EE->TMPL->tagparams['bundle']    = 'static'; // cached pages in the static bundle are saved to file automatically by the model
+
+        // optional parameters
+        $this->EE->TMPL->tagparams['refresh']   = $this->EE->TMPL->fetch_param('refresh', 0); // by default static cached items won't expire
 
         // bundle determines the cache driver
         $this->bundle_id = $this->EE->stash_model->get_bundle_by_name($this->EE->TMPL->tagparams['bundle']);
@@ -2769,6 +2795,10 @@ class Stash {
         if ( ! $this->_is_cacheable())
         {
             $this->EE->TMPL->tagparams['save'] = 'no';
+        }
+        else
+        {
+            $this->EE->TMPL->tagparams['save'] = 'yes';
         }
         
         // permitted parameters for cached
@@ -2871,18 +2901,46 @@ class Stash {
      * Check to see if a template (not a fragment) is suitable for caching
      *
      * @access public
+     * @param  boolean $check_request_type
      * @return string 
      */
-    private function _is_cacheable()
+    private function _is_cacheable($check_request_type=TRUE)
     {
         // Check if we should cache this URI
-        if ($_SERVER['REQUEST_METHOD'] == 'POST'     // … POST request
-            || $this->EE->input->get('ACT')          // … ACT request
-            || $this->EE->input->get('css')          // … css request
-            || $this->EE->input->get('URL')          // … URL request
-        )
+        if ($check_request_type)
+        {
+            if ($_SERVER['REQUEST_METHOD'] == 'POST'     // … POST request
+                || $this->EE->input->get('ACT')          // … ACT request
+                || $this->EE->input->get('css')          // … css request
+                || $this->EE->input->get('URL')          // … URL request
+            )
+            {
+                return FALSE;
+            }
+        }
+
+        // has caching been deliberately disabled?
+        if ( FALSE === (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save', 'yes')) )
         {
             return FALSE;
+        }
+
+        // logged_in_only: only cache if the page visitor is logged in
+        if ( (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('logged_in_only')) )
+        {
+            if ($this->EE->session->userdata['member_id'] == 0)
+            {
+                return FALSE; // don't cache
+            }
+        }
+
+        // logged_out_only: only cache if the page visitor is logged out
+        if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('logged_out_only')) )
+        {
+            if ($this->EE->session->userdata['member_id'] != 0)
+            {
+                return FALSE; // don't cache
+            }
         }
         
         return TRUE;
@@ -2989,7 +3047,7 @@ class Stash {
         $this->EE->TMPL->tagparams['parse_tags']          = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
         $this->EE->TMPL->tagparams['parse_vars']          = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
         $this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
-        $this->EE->TMPL->tagparams['parse_depth']         = $this->EE->TMPL->fetch_param('parse_depth', 3);
+        $this->EE->TMPL->tagparams['parse_depth']         = $this->EE->TMPL->fetch_param('parse_depth', 4);
         
         // postpone tag processing?
         if ( $this->process !== 'inline') 
@@ -4142,6 +4200,11 @@ class Stash {
             // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
             $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
         }
+        else
+        {
+            // remove extraneous {stash:nocache} tags, or {[prefix]:nocache} tags
+            $this->EE->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', $this->EE->TMPL->tagdata);
+        }
     
         // parse variables  
         if ($vars)
@@ -4153,6 +4216,11 @@ class Stash {
             {
                 // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
                 $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
+            }
+            else
+            {
+                // remove extraneous {stash:nocache} tags, or {[prefix]:nocache} tags
+                $this->EE->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', $this->EE->TMPL->tagdata);
             }
         }
 
@@ -4894,7 +4962,8 @@ class Stash {
         {
             $this->EE->TMPL->tagdata = $value;
         }
-    
+        
+        $this->init(); // re-initilize Stash 
         $result = $this->{$method}();
 
         // restore original template params and tagdata

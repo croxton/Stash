@@ -251,8 +251,8 @@ class Stash_ext {
                             $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
                         }
 
-                        // instantiate and initialize Stash
-                        $s = new Stash();
+                        // instantiate Stash without initialising
+                        $s = new Stash(TRUE);
 
                         // get the file
                         $out = $s->get($param);
