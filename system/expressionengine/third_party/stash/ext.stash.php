@@ -21,7 +21,7 @@ class Stash_ext {
     public $docs_url        = STASH_DOCS;
     public $settings        = array();
     public $settings_exist  = 'n';
-    private $hooks          = array('template_fetch_template', 'template_post_parse');
+    private $hooks          = array('stash_fetch_template', 'stash_post_parse', 'template_fetch_template', 'template_post_parse');
 
     // ------------------------------------------------------
 
@@ -80,6 +80,19 @@ class Stash_ext {
             return FALSE; // up to date
         }
 
+        // Update to 2.6.5
+        if (version_compare($current, '2.6.5', '<'))
+        {
+            // change existing extension priority to highest
+            $this->EE->db->where('class', __CLASS__);
+            $this->EE->db->where_in('hook', $this->hooks);
+            $this->EE->db->update('extensions', array('priority' => 1));
+
+            // add new hooks
+            $this->_add_hook('stash_fetch_template');
+            $this->_add_hook('stash_post_parse');
+        }
+
         // update table row with current version
         $this->EE->db->where('class', __CLASS__);
         $this->EE->db->update('extensions', array('version' => $this->version));
@@ -102,7 +115,7 @@ class Stash_ext {
                 'method'   => $name,
                 'hook'     => $name,
                 'settings' => '',
-                'priority' => 10,
+                'priority' => 1,
                 'version'  => $this->version,
                 'enabled'  => 'y'
             )
@@ -110,6 +123,20 @@ class Stash_ext {
     }
     
     // ------------------------------------------------------
+    // 
+    /**
+     * Method for stash_fetch_template hook
+     *
+     * Inject early stash embeds into the template
+     *
+     * @access     public
+     * @param      array
+     * @return     array
+     */
+    public function stash_fetch_template($row)
+    {
+        return $this->template_fetch_template($row);
+    }
     
     /**
      * Method for template_fetch_template hook
@@ -126,7 +153,7 @@ class Stash_ext {
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
         {
             $row = $this->EE->extensions->last_call;
-        }   
+        } 
         
         // do we have any stash embeds? {stash:embed name=""} or {stash:embed:name}
         $matches = array();
@@ -289,6 +316,19 @@ class Stash_ext {
     }
     
     // ------------------------------------------------------
+    // 
+    /**
+     * Method for stash_post_parse hook
+     *
+     * @param   string  Parsed template string
+     * @param   bool    Whether an embed or not
+     * @param   integer Site ID
+     * @return  string  Template string
+     */
+    public function stash_post_parse($template, $sub, $site_id)
+    { 
+        return $this->template_post_parse($template, $sub, $site_id, TRUE, FALSE);
+    }
 
     /**
      * Method for template_post_parse hook
@@ -297,9 +337,10 @@ class Stash_ext {
      * @param   bool    Whether an embed or not
      * @param   integer Site ID
      * @param   bool    Has the extension been called by Stash rather than EE?
+     * @param   bool    Final call of this extension
      * @return  string  Template string
      */
-    public function template_post_parse($template, $sub, $site_id, $from_stash = FALSE)
+    public function template_post_parse($template, $sub, $site_id, $from_stash = FALSE, $final = FALSE)
     {   
         // play nice with other extensions on this hook
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
@@ -308,7 +349,7 @@ class Stash_ext {
         }
 
         // is this the final template?
-        if ($sub == FALSE)
+        if ($sub == FALSE && $final == FALSE)
         {   
             // check the cache for postponed tags
             if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
@@ -422,6 +463,69 @@ class Stash_ext {
                 // batch processing of cached variables
                 $this->EE->TMPL->log_item("Stash: batch processing queued queries");
                 $this->EE->load->model('stash_model');
+
+                // get the query queue by reference
+                $queue = &$this->EE->stash_model->get_queue();
+
+                // we need to flatten the data in the queue to a string, so we can parse it
+                $data = array();
+
+                foreach($queue->inserts as $table => $inserts)
+                {
+                    foreach($inserts as $query)
+                    {
+                        $data[] = $query['parameters'];
+                    }
+                }
+
+                foreach($queue->updates as $table => $updates)
+                {
+                    foreach($updates as $query)
+                    {
+                        $data[] = $query['parameters'];
+                    }
+                }
+
+                $delim = '|' . $this->EE->functions->random() . '|';
+                $data = (string) implode($delim, $data);
+
+                // Run template_post_parse on the flattened data.
+                // We need to disable the in_progress recursion check in EE_Extensions::universal_call
+                // but this seems hacky :/
+                $this->EE->extensions->in_progress = '';
+                $data = $this->EE->extensions->call(
+                    'template_post_parse',
+                    $data,
+                    FALSE, 
+                    $this->EE->config->item('site_id'), 
+                    TRUE,
+                    TRUE // prevent recursion of this method
+                );
+                $this->EE->extensions->in_progress = 'template_post_parse'; // restore recursion check
+
+                // explode the data back into an array
+                $data = (array) explode($delim, $data);
+
+                // update the queues with parsed parameter values
+                foreach($queue->inserts as $table => $inserts)
+                {
+                    foreach($inserts as $cache_key => $query)
+                    {
+                       $queue->inserts[$table][$cache_key]['parameters'] = array_shift($data);
+                    }
+                }
+
+                foreach($queue->updates as $table => $inserts)
+                {
+                    foreach($updates as $cache_key => $query)
+                    {
+                       $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                    }
+                }
+
+                unset($data);
+
+                // process inserts/updates queue
                 $this->EE->stash_model->process_queue();
             }
         }

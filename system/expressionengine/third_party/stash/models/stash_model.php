@@ -977,6 +977,16 @@ class Stash_model extends CI_Model {
         // reset the queue
         self::$queue->inserts = self::$queue->updates = array();
     }
+
+    /**
+    * Get the Queue object by reference
+    *
+    * @return object
+    */
+    public function &get_queue() 
+    {
+        return self::$queue;
+    }
  
 }
 

@@ -4157,35 +4157,17 @@ class Stash {
         $tagparams = $this->EE->TMPL->tagparams;
         $tagdata = $this->EE->TMPL->tagdata;
         
-        // call the template_fetch_template hook to prep nested stash embeds
-        if ($this->EE->extensions->active_hook('template_fetch_template') === TRUE && ! $this->_embed_nested)
+        // call the stash_fetch_template hook to prep nested stash embeds
+        if ($this->EE->extensions->active_hook('stash_fetch_template') === TRUE && ! $this->_embed_nested)
         {
             // stash embed vars
             $embed_vars = (array) $this->EE->TMPL->fetch_param('embed_vars', array());      
             $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
             
-            // important: we only want to call Stash's hook, not any other add-ons
-            
-            // make a copy of the extensions for this hook
-            // we'll need to do this manually if extensions property visibility is ever changed to protected or private
-            $ext = $this->EE->extensions->extensions['template_fetch_template'];
-            
-            // temporarily make Stash the only extension
-            $this->EE->extensions->extensions['template_fetch_template'] = array(
-                array('Stash_ext' => array(
-                    'template_fetch_template',
-                    '',
-                    $this->version
-                )));
-            
             // call the hook
-            $this->EE->extensions->call('template_fetch_template', array(
+            $this->EE->extensions->call('stash_fetch_template', array(
                 'template_data'      => $this->EE->TMPL->tagdata
             ));
-            
-            // restore original extensions
-            $this->EE->extensions->extensions['template_fetch_template'] = $ext;
-            unset($ext);
         
             // don't run again for this template
             $this->_embed_nested = TRUE;
@@ -4359,32 +4341,15 @@ class Stash {
                 $this->EE->TMPL->parse_php = $parse_php;
             }   
                         
-            // call the 'template_post_parse' hook
-            if ($this->EE->extensions->active_hook('template_post_parse') === TRUE && $this->_embed_nested === TRUE)
-            {   
-                // make a copy of the extensions for the 'template_fetch_template' hook
-                $ext = $this->EE->extensions->extensions['template_fetch_template'];
-            
-                // temporarily make Stash the only extension on the 'template_fetch_template' hook
-                $this->EE->extensions->extensions['template_fetch_template'] = array(
-                array('Stash_ext' => array(
-                    'template_fetch_template',
-                    '',
-                    $this->version
-                )));
-                
-                // call the 'template_post_parse' hook
+            // call the 'stash_post_parse' hook
+            if ($this->EE->extensions->active_hook('stash_post_parse') === TRUE && $this->_embed_nested === TRUE)
+            {    
                 $this->EE->TMPL->tagdata = $this->EE->extensions->call(
-                    'template_post_parse',
+                    'stash_post_parse',
                     $this->EE->TMPL->tagdata,
                     FALSE, 
-                    $this->site_id, 
-                    TRUE
+                    $this->site_id
                 );
-                
-                // restore original extensions on the 'template_fetch_template' hook
-                $this->EE->extensions->extensions['template_fetch_template'] = $ext;
-                unset($ext);
             }
 
             // restore content inside {stash:nocache} tags
