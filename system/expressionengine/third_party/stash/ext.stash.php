@@ -461,72 +461,76 @@ class Stash_ext {
             if (FALSE == $from_stash)
             {
                 // batch processing of cached variables
-                $this->EE->TMPL->log_item("Stash: batch processing queued queries");
                 $this->EE->load->model('stash_model');
 
                 // get the query queue by reference
                 $queue = &$this->EE->stash_model->get_queue();
 
-                // we need to flatten the data in the queue to a string, so we can parse it
-                $data = array();
-
-                foreach($queue->inserts as $table => $inserts)
+                if ( count($queue->inserts) > 0 OR count($queue->updates) > 0)
                 {
-                    foreach($inserts as $query)
+                    $this->EE->TMPL->log_item("Stash: batch processing queued queries");
+                    
+                    // we need to flatten the data in the queue to a string, so we can parse it
+                    $data = array();
+
+                    foreach($queue->inserts as $table => $inserts)
                     {
-                        $data[] = $query['parameters'];
+                        foreach($inserts as $query)
+                        {
+                            $data[] = $query['parameters'];
+                        }
                     }
-                }
 
-                foreach($queue->updates as $table => $updates)
-                {
-                    foreach($updates as $query)
+                    foreach($queue->updates as $table => $updates)
                     {
-                        $data[] = $query['parameters'];
+                        foreach($updates as $query)
+                        {
+                            $data[] = $query['parameters'];
+                        }
                     }
-                }
 
-                $delim = '|' . $this->EE->functions->random() . '|';
-                $data = (string) implode($delim, $data);
+                    $delim = '|' . $this->EE->functions->random() . '|';
+                    $data = (string) implode($delim, $data);
 
-                // Run template_post_parse on the flattened data.
-                // We need to disable the in_progress recursion check in EE_Extensions::universal_call
-                // but this seems hacky :/
-                $this->EE->extensions->in_progress = '';
-                $data = $this->EE->extensions->call(
-                    'template_post_parse',
-                    $data,
-                    FALSE, 
-                    $this->EE->config->item('site_id'), 
-                    TRUE,
-                    TRUE // prevent recursion of this method
-                );
-                $this->EE->extensions->in_progress = 'template_post_parse'; // restore recursion check
+                    // Run template_post_parse on the flattened data.
+                    // We need to disable the in_progress recursion check in EE_Extensions::universal_call()
+                    // don't even think about making this private, @pkriete !  
+                    $this->EE->extensions->in_progress = '';
+                    $data = $this->EE->extensions->call(
+                        'template_post_parse',
+                        $data,
+                        FALSE, 
+                        $this->EE->config->item('site_id'), 
+                        TRUE,
+                        TRUE // prevent recursion of this method
+                    );
+                    $this->EE->extensions->in_progress = 'template_post_parse'; // restore recursion check
 
-                // explode the data back into an array
-                $data = (array) explode($delim, $data);
+                    // explode the data back into an array
+                    $data = (array) explode($delim, $data);
 
-                // update the queues with parsed parameter values
-                foreach($queue->inserts as $table => $inserts)
-                {
-                    foreach($inserts as $cache_key => $query)
+                    // update the queues with parsed parameter values
+                    foreach($queue->inserts as $table => $inserts)
                     {
-                       $queue->inserts[$table][$cache_key]['parameters'] = array_shift($data);
+                        foreach($inserts as $cache_key => $query)
+                        {
+                           $queue->inserts[$table][$cache_key]['parameters'] = array_shift($data);
+                        }
                     }
-                }
 
-                foreach($queue->updates as $table => $inserts)
-                {
-                    foreach($updates as $cache_key => $query)
+                    foreach($queue->updates as $table => $inserts)
                     {
-                       $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                        foreach($updates as $cache_key => $query)
+                        {
+                           $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                        }
                     }
+
+                    unset($data);
+
+                    // process inserts/updates queue
+                    $this->EE->stash_model->process_queue();
                 }
-
-                unset($data);
-
-                // process inserts/updates queue
-                $this->EE->stash_model->process_queue();
             }
         }
         
