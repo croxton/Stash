@@ -21,7 +21,6 @@ class Stash_ext {
     public $docs_url        = STASH_DOCS;
     public $settings        = array();
     public $settings_exist  = 'n';
-    private $hooks          = array('stash_fetch_template', 'stash_post_parse', 'template_fetch_template', 'template_post_parse');
 
     // ------------------------------------------------------
 
@@ -46,10 +45,10 @@ class Stash_ext {
      */
     public function activate_extension()
     {
-        foreach ($this->hooks AS $hook)
-        {
-            $this->_add_hook($hook);
-        }
+        $this->_add_hook('stash_fetch_template', 10);
+        $this->_add_hook('stash_post_parse', 1);
+        $this->_add_hook('template_fetch_template', 10);
+        $this->_add_hook('template_post_parse', 1);
     }
     
     // ------------------------------------------------------
@@ -83,14 +82,14 @@ class Stash_ext {
         // Update to 2.6.5
         if (version_compare($current, '2.6.5', '<'))
         {
-            // change existing extension priority to highest
+            // change existing 'template_post_parse' extension priority to highest
             $this->EE->db->where('class', __CLASS__);
-            $this->EE->db->where_in('hook', $this->hooks);
+            $this->EE->db->where('hook', 'template_post_parse');
             $this->EE->db->update('extensions', array('priority' => 1));
 
             // add new hooks
-            $this->_add_hook('stash_fetch_template');
-            $this->_add_hook('stash_post_parse');
+            $this->_add_hook('stash_fetch_template', 10);
+            $this->_add_hook('stash_post_parse', 1);
         }
 
         // update table row with current version
@@ -105,9 +104,10 @@ class Stash_ext {
      *
      * @access     private
      * @param      string
+     * @param      integer
      * @return     void
      */
-    private function _add_hook($name)
+    private function _add_hook($name, $priority = 10)
     {
         $this->EE->db->insert('extensions',
             array(
@@ -115,7 +115,7 @@ class Stash_ext {
                 'method'   => $name,
                 'hook'     => $name,
                 'settings' => '',
-                'priority' => 1,
+                'priority' => $priority,
                 'version'  => $this->version,
                 'enabled'  => 'y'
             )
@@ -465,35 +465,38 @@ class Stash_ext {
 
                 // get the query queue by reference
                 $queue = &$this->EE->stash_model->get_queue();
+                
+                // we need to flatten the data in the queue to a string, so we can parse it
+                // first, let's extract the data into a simple indexed array...
+                $data = array();
 
-                if ( count($queue->inserts) > 0 OR count($queue->updates) > 0)
+                foreach($queue->inserts as $table => $inserts)
                 {
-                    $this->EE->TMPL->log_item("Stash: batch processing queued queries");
-                    
-                    // we need to flatten the data in the queue to a string, so we can parse it
-                    $data = array();
-
-                    foreach($queue->inserts as $table => $inserts)
+                    foreach($inserts as $query)
                     {
-                        foreach($inserts as $query)
+                        $data[] = $query['parameters']; // will always exist
+                    }
+                }
+
+                foreach($queue->updates as $table => $updates)
+                {
+                    foreach($updates as $query)
+                    {
+                        if (isset($query['parameters']))
                         {
                             $data[] = $query['parameters'];
                         }
                     }
+                }
 
-                    foreach($queue->updates as $table => $updates)
-                    {
-                        foreach($updates as $query)
-                        {
-                            $data[] = $query['parameters'];
-                        }
-                    }
-
+                if ( count($data) > 0 )
+                {
+                    // flatten data so we can parse it
                     $delim = '|' . $this->EE->functions->random() . '|';
                     $data = (string) implode($delim, $data);
 
                     // Run template_post_parse on the flattened data.
-                    // We need to disable the in_progress recursion check in EE_Extensions::universal_call()
+                    // We need to disable the in_progress recursion check in EE_Extensions::universal_call
                     // don't even think about making this private, @pkriete !  
                     $this->EE->extensions->in_progress = '';
                     $data = $this->EE->extensions->call(
@@ -509,7 +512,7 @@ class Stash_ext {
                     // explode the data back into an array
                     $data = (array) explode($delim, $data);
 
-                    // update the queues with parsed parameter values
+                    // update the queues with the parsed parameter values
                     foreach($queue->inserts as $table => $inserts)
                     {
                         foreach($inserts as $cache_key => $query)
@@ -518,19 +521,23 @@ class Stash_ext {
                         }
                     }
 
-                    foreach($queue->updates as $table => $inserts)
+                    foreach($queue->updates as $table => $updates)
                     {
                         foreach($updates as $cache_key => $query)
                         {
-                           $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                            if (isset($query['parameters']))
+                            {
+                                $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                            }
                         }
                     }
 
                     unset($data);
-
-                    // process inserts/updates queue
-                    $this->EE->stash_model->process_queue();
                 }
+
+                // process inserts/updates queue
+                $this->EE->TMPL->log_item("Stash: batch processing queued queries");
+                $this->EE->stash_model->process_queue();
             }
         }
         
