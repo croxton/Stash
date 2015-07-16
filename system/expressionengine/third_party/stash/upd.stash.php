@@ -142,6 +142,9 @@ class Stash_upd {
 
         $sql = array();
 
+        // always flush the Stash table first
+        $sql[] = "TRUNCATE TABLE `{$this->EE->db->dbprefix}stash`";
+
         // Update to 2.3.7
         if (version_compare($current, '2.3.7', '<'))
         {
