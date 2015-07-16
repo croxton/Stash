@@ -7,7 +7,7 @@ require_once PATH_THIRD . 'stash/config.php';
  *
  * @package             Stash
  * @author              Mark Croxton (mcroxton@hallmark-design.co.uk)
- * @copyright           Copyright (c) 2012 Hallmark Design
+ * @copyright           Copyright (c) 2014 Hallmark Design
  * @license             http://creativecommons.org/licenses/by-nc-sa/3.0/
  * @link                http://hallmark-design.co.uk
  */
@@ -21,7 +21,6 @@ class Stash_ext {
     public $docs_url        = STASH_DOCS;
     public $settings        = array();
     public $settings_exist  = 'n';
-    private $hooks          = array('template_fetch_template', 'template_post_parse');
 
     // ------------------------------------------------------
 
@@ -46,10 +45,10 @@ class Stash_ext {
      */
     public function activate_extension()
     {
-        foreach ($this->hooks AS $hook)
-        {
-            $this->_add_hook($hook);
-        }
+        $this->_add_hook('stash_fetch_template', 10);
+        $this->_add_hook('stash_post_parse', 1);
+        $this->_add_hook('template_fetch_template', 10);
+        $this->_add_hook('template_post_parse', 1);
     }
     
     // ------------------------------------------------------
@@ -80,6 +79,19 @@ class Stash_ext {
             return FALSE; // up to date
         }
 
+        // Update to 2.6.5
+        if (version_compare($current, '2.6.5', '<'))
+        {
+            // change existing 'template_post_parse' extension priority to highest
+            $this->EE->db->where('class', __CLASS__);
+            $this->EE->db->where('hook', 'template_post_parse');
+            $this->EE->db->update('extensions', array('priority' => 1));
+
+            // add new hooks
+            $this->_add_hook('stash_fetch_template', 10);
+            $this->_add_hook('stash_post_parse', 1);
+        }
+
         // update table row with current version
         $this->EE->db->where('class', __CLASS__);
         $this->EE->db->update('extensions', array('version' => $this->version));
@@ -92,9 +104,10 @@ class Stash_ext {
      *
      * @access     private
      * @param      string
+     * @param      integer
      * @return     void
      */
-    private function _add_hook($name)
+    private function _add_hook($name, $priority = 10)
     {
         $this->EE->db->insert('extensions',
             array(
@@ -102,7 +115,7 @@ class Stash_ext {
                 'method'   => $name,
                 'hook'     => $name,
                 'settings' => '',
-                'priority' => 10,
+                'priority' => $priority,
                 'version'  => $this->version,
                 'enabled'  => 'y'
             )
@@ -110,6 +123,20 @@ class Stash_ext {
     }
     
     // ------------------------------------------------------
+    // 
+    /**
+     * Method for stash_fetch_template hook
+     *
+     * Inject early stash embeds into the template
+     *
+     * @access     public
+     * @param      array
+     * @return     array
+     */
+    public function stash_fetch_template($row)
+    {
+        return $this->template_fetch_template($row);
+    }
     
     /**
      * Method for template_fetch_template hook
@@ -121,12 +148,12 @@ class Stash_ext {
      * @return     array
      */
     public function template_fetch_template($row)
-    {       
+    {    
         // get the latest version of $row
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
         {
             $row = $this->EE->extensions->last_call;
-        }   
+        } 
         
         // do we have any stash embeds? {stash:embed name=""} or {stash:embed:name}
         $matches = array();
@@ -251,8 +278,12 @@ class Stash_ext {
                             $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
                         }
 
+                        // instantiate Stash without initialising
+                        $s = new Stash(TRUE);
+
                         // get the file
-                        $out = Stash::get($param);
+                        $out = $s->get($param);
+                        unset($s);
 
                         // minimal replace of embed vars if we're not using Stash to parse the template variables
                         if ($param['parse_vars'] == 'no')
@@ -285,6 +316,19 @@ class Stash_ext {
     }
     
     // ------------------------------------------------------
+    // 
+    /**
+     * Method for stash_post_parse hook
+     *
+     * @param   string  Parsed template string
+     * @param   bool    Whether an embed or not
+     * @param   integer Site ID
+     * @return  string  Template string
+     */
+    public function stash_post_parse($template, $sub, $site_id)
+    { 
+        return $this->template_post_parse($template, $sub, $site_id, TRUE, FALSE);
+    }
 
     /**
      * Method for template_post_parse hook
@@ -292,9 +336,11 @@ class Stash_ext {
      * @param   string  Parsed template string
      * @param   bool    Whether an embed or not
      * @param   integer Site ID
+     * @param   bool    Has the extension been called by Stash rather than EE?
+     * @param   bool    Final call of this extension
      * @return  string  Template string
      */
-    public function template_post_parse($template, $sub, $site_id)
+    public function template_post_parse($template, $sub, $site_id, $from_stash = FALSE, $final = FALSE)
     {   
         // play nice with other extensions on this hook
         if (isset($this->EE->extensions->last_call) && $this->EE->extensions->last_call)
@@ -303,7 +349,7 @@ class Stash_ext {
         }
 
         // is this the final template?
-        if ($sub == FALSE)
+        if ($sub == FALSE && $final == FALSE)
         {   
             // check the cache for postponed tags
             if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
@@ -348,10 +394,10 @@ class Stash_ext {
                 // loop through, prep the Stash instance, call the postponed tag and replace output into the placeholder
                 foreach($cache as $placeholder => $tag)
                 {   
-                    // make sure there is a placeholder in the template
-                    // it may have been removed by advanced conditional processing
                     if ( strpos( $template, $placeholder ) !== FALSE)
                     {
+                        // make sure there is a placeholder in the template
+                        // it may have been removed by advanced conditional processing
                         $this->EE->TMPL->log_item("Stash: post-processing tag: " . $tag['tagproper'] . " will be replaced into " . LD . $placeholder . RD);
                         
                         $this->EE->TMPL->tagparams = $tag['tagparams'];
@@ -377,24 +423,29 @@ class Stash_ext {
                             $this->EE->TMPL->tagparams['file_name'] = str_replace('@', $context, $this->EE->TMPL->tagparams['file_name']);
                         }
 
-                        // has the save_output tag been called?
-                        if ( $tag['method'] === 'save_output')
-                        {
-                            $save_output = $tag;
-                            $save_output['placeholder'] = $placeholder;
+                        // initialise Stash with our custom tagparams
+                        $s->init(TRUE);
+
+                        // has the save_output or final_output tags been called?
+                        if ( $tag['method'] === 'save_output' || $tag['method'] === 'final_output')
+                        {   
+                            // remove placeholder from the template
+                            $template = str_replace(LD.$placeholder.RD, '', $template);  
+
+                            // allow the called method to alter/cache the entire template
+                            $template = $s->{$tag['method']}($template);
                         }
                         else
                         {
-                            // initialise Stash with our custom tagparams
-                            $s->init(TRUE);
-                    
+                            // call the tag
                             $out = $s->{$tag['method']}();
-                    
-                            $template = str_replace(LD.$placeholder.RD, $out, $template);   
-                    
-                            // remove the placeholder from the cache so we don't iterate over it in future calls of this hook
-                            unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
+                            
+                            // replace the output of our tag into the template placeholder
+                            $template = str_replace(LD.$placeholder.RD, $out, $template);    
                         }
+
+                        // remove the placeholder from the cache so we don't iterate over it in future calls of this hook
+                        unset($this->EE->session->cache['stash']['__template_post_parse__'][$placeholder]);
                     }
                 }
                 
@@ -403,20 +454,91 @@ class Stash_ext {
                 $this->EE->TMPL->tagdata = $tagdata;
             }
 
-            // cache output to a static file
-            if($save_output)
-            {
-                $this->EE->TMPL->tagparams = $save_output['tagparams'];
-                $s->init(TRUE);
-                $template = str_replace(LD.$save_output['placeholder'].RD, '', $template);  
-                $s->{$save_output['method']}($template);
-
-                // restore original TMPL values
-                $this->EE->TMPL->tagparams = $tagparams;
-            }
-
             // cleanup
             unset($cache);
+
+            // just before the template is sent to output
+            if (FALSE == $from_stash)
+            {
+                // batch processing of cached variables
+                $this->EE->load->model('stash_model');
+
+                // get the query queue by reference
+                $queue = &$this->EE->stash_model->get_queue();
+                
+                // we need to flatten the data in the queue to a string, so we can parse it
+                // first, let's extract the data into a simple indexed array...
+                $data = array();
+
+                foreach($queue->inserts as $table => $inserts)
+                {
+                    foreach($inserts as $query)
+                    {
+                        $data[] = $query['parameters']; // will always exist
+                    }
+                }
+
+                foreach($queue->updates as $table => $updates)
+                {
+                    foreach($updates as $query)
+                    {
+                        if (isset($query['parameters']))
+                        {
+                            $data[] = $query['parameters'];
+                        }
+                    }
+                }
+
+                if ( count($data) > 0 )
+                {
+                    // flatten data so we can parse it
+                    $delim = '|' . $this->EE->functions->random() . '|';
+                    $data = (string) implode($delim, $data);
+
+                    // Run template_post_parse on the flattened data.
+                    // We need to disable the in_progress recursion check in EE_Extensions::universal_call
+                    // don't even think about making this private, @pkriete !  
+                    $this->EE->extensions->in_progress = '';
+                    $data = $this->EE->extensions->call(
+                        'template_post_parse',
+                        $data,
+                        FALSE, 
+                        $this->EE->config->item('site_id'), 
+                        TRUE,
+                        TRUE // prevent recursion of this method
+                    );
+                    $this->EE->extensions->in_progress = 'template_post_parse'; // restore recursion check
+
+                    // explode the data back into an array
+                    $data = (array) explode($delim, $data);
+
+                    // update the queues with the parsed parameter values
+                    foreach($queue->inserts as $table => $inserts)
+                    {
+                        foreach($inserts as $cache_key => $query)
+                        {
+                           $queue->inserts[$table][$cache_key]['parameters'] = array_shift($data);
+                        }
+                    }
+
+                    foreach($queue->updates as $table => $updates)
+                    {
+                        foreach($updates as $cache_key => $query)
+                        {
+                            if (isset($query['parameters']))
+                            {
+                                $queue->updates[$table][$cache_key]['parameters'] = array_shift($data);
+                            }
+                        }
+                    }
+
+                    unset($data);
+                }
+
+                // process inserts/updates queue
+                $this->EE->TMPL->log_item("Stash: batch processing queued queries");
+                $this->EE->stash_model->process_queue();
+            }
         }
         
         return $template;

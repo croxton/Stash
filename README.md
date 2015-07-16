@@ -2,7 +2,7 @@
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
-### Version 2.4.4
+### Version 2.6.5
 
 This is the latest stable version of Stash.
 
