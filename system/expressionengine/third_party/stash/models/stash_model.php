@@ -84,11 +84,8 @@ class Stash_model extends CI_Model {
             
             // cache result to eliminate need for a query in future gets
             self::$keys[$cache_key] = $parameters;
-
-            // write to static file cache?
-            $this->write_static_cache($key, $bundle_id, $site_id, $parameters);
             
-           return TRUE;
+            return TRUE;
         }
         else
         {
@@ -122,33 +119,27 @@ class Stash_model extends CI_Model {
         $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 
         $data = array(
-                'created' => $this->EE->localize->now,
-                'expire'  => $expire
+            'key_name'  => $key,
+            'bundle_id' => $bundle_id,
+            'site_id'   => $site_id,
+            'created'   => $this->EE->localize->now,
+            'expire'    => $expire,
         );
         
         if ($parameters !== NULL)
         {
             $data += array('parameters' => $parameters);
-        }
-
-        $where = array(
-            'key_name'  => $key,
-            'bundle_id' => $bundle_id,
-            'site_id'   => $site_id
-        );            
+        }          
                 
         if ( ! empty($session_id))
         {
-            $where += array('session_id' => $session_id);
+            $data += array('session_id' => $session_id);
         }       
         
-        if ($result = $this->queue_update('stash', $cache_key, $data, $where))                   
+        if ($result = $this->queue_update('stash', $cache_key, $data))                   
         {       
             // update cache
             self::$keys[$cache_key] = $parameters;
-
-            // write to static file cache?
-            $this->write_static_cache($key, $bundle_id, $site_id, $parameters);
 
             return TRUE;
         }
@@ -693,21 +684,21 @@ class Stash_model extends CI_Model {
     /**
     * Check if the variable can be cached as a static file and write it
      *
-     * @param string $key
-     * @param integer $bundle_id
-     * @param string $parameters
+     * @param array $data
      * @return boolean
      */
-    protected function write_static_cache($key, $bundle_id, $site_id, $parameters)
+    protected function write_static_cache($data)
     {
+        if ( ! isset($data['bundle_id'])) return FALSE;
+
         // write to static file cache?
-        if ($this->_can_static_cache($bundle_id))
+        if ($this->_can_static_cache($data['bundle_id']))
         {
             // extract the associated uri from the variable key
-            $uri = $this->parse_uri_from_key($key);
+            $uri = $this->parse_uri_from_key($data['key_name']);
 
             // cache that mother
-            return $this->_write_file($uri, $site_id, $parameters);
+            return $this->_write_file($uri, $data['site_id'], $data['parameters']);
         }
 
         return FALSE;
@@ -926,10 +917,9 @@ class Stash_model extends CI_Model {
     * @param string $table The table to insert into
     * @param string $cache_key Unique key identifying this variable
     * @param Array $data Array in form of "Column" => "Value", ... 
-    * @param Array $where Array in form of "Column" => "Value", ... 
     * @return boolean
     */
-    protected function queue_update($table, $cache_key, $data, $where) 
+    protected function queue_update($table, $cache_key, $data) 
     {
         if ( ! isset(self::$queue->updates[$table]))
         {
@@ -937,10 +927,7 @@ class Stash_model extends CI_Model {
         }
 
         // overwrite any existing key, so that only the last update to same cached item actually runs
-        self::$queue->updates[$table][$cache_key] = array(
-            'data' => $data,
-            'where' => $where
-        );
+        self::$queue->updates[$table][$cache_key] = $data;
         return TRUE;
     }
 
@@ -953,25 +940,46 @@ class Stash_model extends CI_Model {
     {
         // batch inserts - must run first
         foreach(self::$queue->inserts as $table => $data)
-        {
+        {   
             $this->insert_ignore_batch($table, $data);
+
+            // write to static file cache
+            foreach($data as $query)
+            {
+                $this->write_static_cache($query);
+            }
         }
 
         // run each queued update in order
         if (count(self::$queue->updates) > 0)
         {   
-            // using innodb, so we can wrap with a transaction
-            // to save a tiny bit of overhead
-            $this->db->trans_start();
-            foreach(self::$queue->updates as $table => $updates)
-            {
-                foreach($updates as $query)
-                {
-                    $this->db->where($query['where']);
-                    $this->db->update($table, $query['data']);
+            // update keys 
+            foreach(self::$queue->updates as $table => $data)
+            {   
+                foreach($data as $query)
+                {   
+                    // required columns
+                    $where = array(
+                        'key_name'  => $query['key_name'],
+                        'bundle_id' => $query['bundle_id'],
+                        'site_id'   => $query['site_id']
+                    ); 
+                    unset($query['key_name'], $query['bundle_id'], $query['site_id']);
+
+                    if ( isset($query['session_id']))
+                    {
+                         $where += array('session_id' => $query['session_id']);
+                         unset($query['session_id']);
+                    }
+
+                    // update db
+                    $this->db->where($where);
+                    $this->db->update($table, $query);
+
+                    // update static file cache
+                    $this->write_static_cache($query);
                 }
             }
-            $this->db->trans_complete();
         }
 
         // reset the queue
