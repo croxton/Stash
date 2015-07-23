@@ -963,8 +963,7 @@ class Stash_model extends CI_Model {
                         'key_name'  => $query['key_name'],
                         'bundle_id' => $query['bundle_id'],
                         'site_id'   => $query['site_id']
-                    ); 
-                    unset($query['key_name'], $query['bundle_id'], $query['site_id']);
+                    );
 
                     if ( isset($query['session_id']))
                     {
