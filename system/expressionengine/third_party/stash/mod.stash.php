@@ -523,6 +523,16 @@ class Stash {
             // apply any string manipulations
             $this->EE->TMPL->tagdata = $this->_clean_string($this->EE->TMPL->tagdata);
 
+            // static caching?
+            if ($this->EE->TMPL->fetch_param('bundle') === 'static')
+            {
+                // we need to parse remaining globals since unlike db cached pages, static pages won't pass through PHP/EE again
+                $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_globals($this->EE->TMPL->tagdata); 
+
+                // parse ACTion id placeholders
+                $this->EE->TMPL->tagdata = $this->EE->functions->insert_action_ids($this->EE->TMPL->tagdata);
+            }
+
             if ( !! $name )
             {                   
                 // get params
@@ -2785,11 +2795,7 @@ class Stash {
         $this->bundle_id = $this->EE->stash_model->get_bundle_by_name($this->EE->TMPL->tagparams['bundle']);
 
         // set the entire template data as the tagdata, removing the placeholder for this tag from the output saved to file
-        // we need to parse remaining globals since unlike db cached pages, static pages won't pass through PHP/EE again
-        $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_globals($output); 
-
-        // parse ACTion id placeholders
-        $this->EE->TMPL->tagdata = $this->EE->functions->insert_action_ids($this->EE->TMPL->tagdata);
+        $this->EE->TMPL->tagdata = $output;
 
         // as this is the full rendered output of a template, check that we should really be saving it
         if ( ! $this->_is_cacheable())
