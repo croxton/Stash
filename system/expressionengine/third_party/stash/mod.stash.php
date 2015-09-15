@@ -2753,8 +2753,12 @@ class Stash {
             }
         }
 
+        // Allow @URI to be overridden...
+        $uri = $this->EE->TMPL->fetch_param('uri', '@URI');
+
         // parse cache key, making sure query strings are excluded from the @URI
-        $this->EE->TMPL->tagparams['name'] = $this->_parse_context('@URI:' . $this->EE->TMPL->tagparams['name'], TRUE);
+        $this->EE->TMPL->tagparams['name'] = $this->_parse_context($uri . ':' . $this->EE->TMPL->tagparams['name'], TRUE);
+
 
         $this->process = 'end';
         $this->priority = '999999'; //  should be the last thing post-processed (by Stash)
