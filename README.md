@@ -1,8 +1,8 @@
 ##Stash
 
-* Author: [Mark Croxton](http://hallmark-design.co.uk/)
+![Release](https://img.shields.io/badge/release-2.6.7-brightgreen.svg)
 
-### Version 2.6.7
+* Author: [Mark Croxton](http://hallmark-design.co.uk/)
 
 This is the development version of Stash. Test thoroughly before using in production.
 
