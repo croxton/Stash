@@ -1,11 +1,11 @@
 ##Stash
 
-![Release](https://img.shields.io/badge/release-2.6.7-brightgreen.svg)
+![Release](https://img.shields.io/badge/release-3.0.0-brightgreen.svg)
 
-This is the development version of Stash. Test thoroughly before using in production.
+Stash for ExpressionEngine 3.
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
-* Requires: ExpressionEngine 2.4+
+* Requires: ExpressionEngine 3.0+
 
 ### Description
 
