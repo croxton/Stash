@@ -25,7 +25,6 @@ class Stash_upd {
      */
     public function __construct()
     {
-        $this->EE = get_instance();
     }
     
     /**
@@ -39,7 +38,7 @@ class Stash_upd {
         $sql = array();
         
         // install module 
-        $this->EE->db->insert(
+        ee()->db->insert(
             'modules',
             array(
                 'module_name' => $this->name,
@@ -51,7 +50,7 @@ class Stash_upd {
         
         // stash table
         $sql[] = "
-        CREATE TABLE `{$this->EE->db->dbprefix}stash` (
+        CREATE TABLE `".ee()->db->dbprefix."stash` (
           `id` int(11) unsigned NOT NULL auto_increment,
           `site_id` int(4) unsigned NOT NULL default '1',
           `session_id` varchar(40) default NULL,
@@ -71,7 +70,7 @@ class Stash_upd {
 
         // stash_bundles table
         $sql[] = "
-        CREATE TABLE `{$this->EE->db->dbprefix}stash_bundles` (
+        CREATE TABLE `".ee()->db->dbprefix."stash_bundles` (
           `id` int(11) unsigned NOT NULL auto_increment,
           `bundle_name` varchar(255) NOT NULL,
           `bundle_label` varchar(255) default NULL,
@@ -83,19 +82,19 @@ class Stash_upd {
 
         // foreign key constraints
         $sql[] = "
-        ALTER TABLE `{$this->EE->db->dbprefix}stash`
-        ADD CONSTRAINT `{$this->EE->db->dbprefix}stash_fk` FOREIGN KEY (`bundle_id`) REFERENCES `{$this->EE->db->dbprefix}stash_bundles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+        ALTER TABLE `".ee()->db->dbprefix."stash`
+        ADD CONSTRAINT `".ee()->db->dbprefix."stash_fk` FOREIGN KEY (`bundle_id`) REFERENCES `".ee()->db->dbprefix."stash_bundles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
         ";
         
         // default bundles
-        $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(1, 'default', 'Default', 1);";
-        $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(2, 'templates', 'Templates', 1);";
-        $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(3, 'static', 'Static', 1);";
+        $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(1, 'default', 'Default', 1);";
+        $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(2, 'templates', 'Templates', 1);";
+        $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(3, 'static', 'Static', 1);";
         
         // run the queries one by one
         foreach ($sql as $query)
         {
-            $this->EE->db->query($query);
+            ee()->db->query($query);
         }
 
         return TRUE;
@@ -109,18 +108,18 @@ class Stash_upd {
      */
     public function uninstall()
     {
-        $query = $this->EE->db->get_where('modules', array('module_name' => 'Stash'));
+        $query = ee()->db->get_where('modules', array('module_name' => 'Stash'));
         
         if ($query->row('module_id'))
         {
-            $this->EE->db->delete('module_member_groups', array('module_id' => $query->row('module_id')));
+            ee()->db->delete('module_member_groups', array('module_id' => $query->row('module_id')));
         }
 
-        $this->EE->db->delete('modules', array('module_name' => 'Stash'));
+        ee()->db->delete('modules', array('module_name' => 'Stash'));
         
-        $this->EE->load->dbforge();
-        $this->EE->dbforge->drop_table('stash');
-        $this->EE->dbforge->drop_table('stash_bundles');
+        ee()->load->dbforge();
+        ee()->dbforge->drop_table('stash');
+        ee()->dbforge->drop_table('stash_bundles');
 
         return TRUE;
     }
@@ -143,33 +142,33 @@ class Stash_upd {
         $sql = array();
 
         // always flush the Stash table first
-        $sql[] = "TRUNCATE TABLE `{$this->EE->db->dbprefix}stash`";
+        $sql[] = "TRUNCATE TABLE `".ee()->db->dbprefix."stash`";
 
         // Update to 2.3.7
         if (version_compare($current, '2.3.7', '<'))
         {
             // increase variable max key and parameter sizes
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` CHANGE `key_name` `key_name` VARCHAR(255) NOT NULL";
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` CHANGE `key_label` `key_label` VARCHAR(255) NOT NULL";
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` CHANGE `parameters` `parameters` MEDIUMTEXT DEFAULT NULL";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash` CHANGE `key_name` `key_name` VARCHAR(255) NOT NULL";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash` CHANGE `key_label` `key_label` VARCHAR(255) NOT NULL";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash` CHANGE `parameters` `parameters` MEDIUMTEXT DEFAULT NULL";
 
             // alter the bundle table
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash_bundles` CHANGE `bundle_name` `bundle_name` VARCHAR(255) NOT NULL";
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash_bundles` CHANGE `bundle_label` `bundle_label` VARCHAR(255) NOT NULL";
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash_bundles` DROP `site_id`";
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash_bundles` ADD `is_locked` TINYINT(1) NOT NULL default '0'";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash_bundles` CHANGE `bundle_name` `bundle_name` VARCHAR(255) NOT NULL";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash_bundles` CHANGE `bundle_label` `bundle_label` VARCHAR(255) NOT NULL";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash_bundles` DROP `site_id`";
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash_bundles` ADD `is_locked` TINYINT(1) NOT NULL default '0'";
 
             // delete all bundle records - note that this will cascade and delete variables
-            $sql[] = "DELETE FROM `{$this->EE->db->dbprefix}stash_bundles` WHERE 1;";
+            $sql[] = "DELETE FROM `".ee()->db->dbprefix."stash_bundles` WHERE 1;";
 
             // add the 'default' and 'template' bundles, mark as locked
-            $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(1, 'default', 'Default', 1);";
-            $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(2, 'templates', 'Templates', 1);";
-            $sql[] = "INSERT INTO `{$this->EE->db->dbprefix}stash_bundles` VALUES(3, 'static', 'Static', 1);";
+            $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(1, 'default', 'Default', 1);";
+            $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(2, 'templates', 'Templates', 1);";
+            $sql[] = "INSERT INTO `".ee()->db->dbprefix."stash_bundles` VALUES(3, 'static', 'Static', 1);";
 
             foreach ($sql as $query)
             {
-                $this->EE->db->query($query);
+                ee()->db->query($query);
             }
         }
 
@@ -177,7 +176,7 @@ class Stash_upd {
         if (version_compare($current, '2.5.4', '<'))
         {  
             // change indexes
-            $sql[] = "ALTER TABLE `{$this->EE->db->dbprefix}stash` 
+            $sql[] = "ALTER TABLE `".ee()->db->dbprefix."stash` 
                       DROP INDEX `key_session`, 
                       DROP INDEX `key_name`, 
                       ADD UNIQUE `cache_key` (`key_name`, `bundle_id`, `site_id`, `session_id`),
@@ -186,7 +185,7 @@ class Stash_upd {
 
         foreach ($sql as $query)
         {
-            $this->EE->db->query($query);
+            ee()->db->query($query);
         }   
 
         // update version number

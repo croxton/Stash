@@ -12,8 +12,6 @@
 
 class Stash_model extends CI_Model {
     
-    public $EE;
-    
     protected static $keys = array();
     protected static $inserted_keys = array();
     protected static $queue;
@@ -34,7 +32,6 @@ class Stash_model extends CI_Model {
     function __construct()
     {
         parent::__construct();
-        $this->EE = get_instance();
 
         // batch processing of queued queries
         self::$queue = new stdClass();
@@ -71,7 +68,7 @@ class Stash_model extends CI_Model {
                 'bundle_id'     => $bundle_id,
                 'session_id'    => $session_id,
                 'site_id'       => $site_id,
-                'created'       => $this->EE->localize->now,
+                'created'       => ee()->localize->now,
                 'expire'        => $expire,
                 'parameters'    => $parameters,
                 'key_label'     => $label
@@ -122,7 +119,7 @@ class Stash_model extends CI_Model {
             'key_name'  => $key,
             'bundle_id' => $bundle_id,
             'site_id'   => $site_id,
-            'created'   => $this->EE->localize->now,
+            'created'   => ee()->localize->now,
             'expire'    => $expire,
         );
         
@@ -160,7 +157,7 @@ class Stash_model extends CI_Model {
      */
     function refresh_key($key, $bundle_id = 1, $session_id = '', $site_id = 1, $refresh)
     {   
-        $expire = $this->EE->localize->now + $refresh;
+        $expire = ee()->localize->now + $refresh;
         return $this->update_key($key, $bundle_id, $session_id, $site_id, $expire);
     }
     
@@ -201,7 +198,7 @@ class Stash_model extends CI_Model {
                 if ($key_expire > 0 && $session_id != '_global' && ! empty($session_id))
                 {
                     $refresh = $key_expire - $key_created; // refresh period  (seconds)
-                    $expire  = $key_expire - $this->EE->localize->now; // time to expiry (seconds)
+                    $expire  = $key_expire - ee()->localize->now; // time to expiry (seconds)
             
                     if ( ($refresh / $expire) > 2 ) 
                     {
@@ -322,7 +319,7 @@ class Stash_model extends CI_Model {
         $clear_static = TRUE; // attempt to delete corresponding *individual* static cache files?
 
         // Can we clear the entire static cache in one go (to minimize disk access)?
-        if ($this->EE->config->item('stash_static_cache_enabled') 
+        if (ee()->config->item('stash_static_cache_enabled') 
             && $regex == NULL
             && $invalidate == 0)
         {
@@ -420,7 +417,7 @@ class Stash_model extends CI_Model {
         else
         {
             // delete immediately
-            $result = $this->EE->db->where_in('id', $ids)->delete('stash');
+            $result = ee()->db->where_in('id', $ids)->delete('stash');
 
             // delete corresponding caches
             foreach ($vars as $row)
@@ -434,10 +431,10 @@ class Stash_model extends CI_Model {
                 // -------------------------------------
                 // 'stash_delete' hook
                 // -------------------------------------
-                if ($this->EE->extensions->active_hook('stash_delete') === TRUE 
+                if (ee()->extensions->active_hook('stash_delete') === TRUE 
                     && $call_hook === TRUE)
                 {
-                    $this->EE->extensions->call('stash_delete', array(
+                    ee()->extensions->call('stash_delete', array(
                         'key_name'      => $row->key_name,
                         'key_label'     => $row->key_label, 
                         'bundle_id'     => $row->bundle_id, 
@@ -460,10 +457,10 @@ class Stash_model extends CI_Model {
     function flush_cache($site_id = 1)
     {
         // delete all variables saved in the db
-        if ($result = $this->EE->db->where('site_id', $site_id)->delete('stash'))
+        if ($result = ee()->db->where('site_id', $site_id)->delete('stash'))
         {
             // remove all files in the static dir, if static caching is enabled
-            if ( $this->EE->config->item('stash_static_cache_enabled'))
+            if ( ee()->config->item('stash_static_cache_enabled'))
             {
                 $this->_delete_dir('/', $site_id);
             }
@@ -471,9 +468,9 @@ class Stash_model extends CI_Model {
             // -------------------------------------
             // 'stash_flush_cache' hook
             // -------------------------------------
-            if ($this->EE->extensions->active_hook('stash_flush_cache') === TRUE)
+            if (ee()->extensions->active_hook('stash_flush_cache') === TRUE)
             {
-                $this->EE->extensions->call('stash_flush_cache', $site_id);
+                ee()->extensions->call('stash_flush_cache', $site_id);
             }
 
             return $result;
@@ -492,7 +489,7 @@ class Stash_model extends CI_Model {
      */
     private function _invalidate($ids, $period=0)
     {
-        $now = $this->EE->localize->now;
+        $now = ee()->localize->now;
 
         if (count($ids) > 1)
         {
@@ -506,15 +503,15 @@ class Stash_model extends CI_Model {
             // what we're doing here is approximately dividing the expiry delay across the target ids,
             // increasing the delay according the original id value, so that variables   
             // generated later in the original template, get regenereated later too
-            $this->EE->db->where_in('id', $ids);
-            $this->db->set('expire', 'FLOOR (' . $this->EE->localize->now . ' + '.$period.' - ( ('.$id_end.' - id) / '.$id_count.' * ' . $period . ' ))', false);
+            ee()->db->where_in('id', $ids);
+            $this->db->set('expire', 'FLOOR (' . ee()->localize->now . ' + '.$period.' - ( ('.$id_end.' - id) / '.$id_count.' * ' . $period . ' ))', false);
             return $this->db->update('stash');
         } 
         else
         {   
             // invalidating a single item
-            $this->EE->db->where('id', $ids[0]);
-            $this->db->set('expire', $this->EE->localize->now);
+            ee()->db->where('id', $ids[0]);
+            $this->db->set('expire', ee()->localize->now);
             return $this->db->update('stash'); 
         }
     }
@@ -527,7 +524,7 @@ class Stash_model extends CI_Model {
     function prune_keys()
     {
         $query = $this->db->get_where('stash', array(
-            'expire <'  => $this->EE->localize->now, 
+            'expire <'  => ee()->localize->now, 
             'expire !=' => '0'
         ));
 
@@ -735,7 +732,7 @@ class Stash_model extends CI_Model {
      */
     private function _write_file($uri, $site_id, $parameters = NULL)
     {
-        $this->EE->load->helper('file');
+        ee()->load->helper('file');
 
         if ($path = $this->_path($uri, $site_id))
         {
@@ -776,7 +773,7 @@ class Stash_model extends CI_Model {
     */
     private function _delete_dir($uri, $site_id)
     {
-        $this->EE->load->helper('file');
+        ee()->load->helper('file');
 
         if ( $path = $this->_path($uri, $site_id) && delete_files($this->_path($uri, $site_id), TRUE) )
         {
@@ -794,7 +791,7 @@ class Stash_model extends CI_Model {
     private function _path($uri = '/', $site_id)
     {
         // Get parts
-        $path = $this->EE->config->item('stash_static_basepath');
+        $path = ee()->config->item('stash_static_basepath');
 
         // Check the supplied cache path exists
         if ( ! file_exists($path))
@@ -814,7 +811,7 @@ class Stash_model extends CI_Model {
     */
     private function _can_static_cache($bundle_id)
     {
-        if ( $this->EE->config->item('stash_static_cache_enabled'))
+        if ( ee()->config->item('stash_static_cache_enabled'))
         {
             if ($this->get_bundle_by_id($bundle_id) === 'static')
             {

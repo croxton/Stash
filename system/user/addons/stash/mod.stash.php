@@ -14,7 +14,6 @@ require_once PATH_THIRD . 'stash/config.php';
 
 class Stash {
 
-    public $EE;
     public $version = STASH_VER;
     public $site_id;
     public $path;
@@ -60,41 +59,39 @@ class Stash {
      */
     public function __construct($calling_from_hook = FALSE)
     {
-        $this->EE =& get_instance();
-        
         // load dependencies - make sure the package path is available in case the class is being called statically
-        $this->EE->load->add_package_path(PATH_THIRD.'stash/', TRUE);
-        $this->EE->lang->loadfile('stash');
-        $this->EE->load->model('stash_model');
+        ee()->load->add_package_path(PATH_THIRD.'stash/', TRUE);
+        ee()->lang->loadfile('stash');
+        ee()->load->model('stash_model');
 
         // default site id
-        $this->site_id = $this->EE->config->item('site_id');
+        $this->site_id = ee()->config->item('site_id');
         
         // config defaults
-        $this->path                 = $this->EE->config->item('stash_file_basepath') ? $this->EE->config->item('stash_file_basepath') : APPPATH . 'stash/';
+        $this->path                 = ee()->config->item('stash_file_basepath') ? ee()->config->item('stash_file_basepath') : APPPATH . 'stash/';
         $this->file_sync            = $this->_get_boolean_config_item('stash_file_sync', FALSE); // default = FALSE
-        $this->stash_cookie         = $this->EE->config->item('stash_cookie') ? $this->EE->config->item('stash_cookie') : 'stashid';
-        $this->stash_cookie_expire  = $this->EE->config->item('stash_cookie_expire') ? $this->EE->config->item('stash_cookie_expire') : 0;
+        $this->stash_cookie         = ee()->config->item('stash_cookie') ? ee()->config->item('stash_cookie') : 'stashid';
+        $this->stash_cookie_expire  = ee()->config->item('stash_cookie_expire') ? ee()->config->item('stash_cookie_expire') : 0;
         $this->stash_cookie_enabled = $this->_get_boolean_config_item('stash_cookie_enabled'); // default = TRUE
-        $this->default_scope        = $this->EE->config->item('stash_default_scope') ? $this->EE->config->item('stash_default_scope') : 'user';
-        $this->default_refresh      = $this->EE->config->item('stash_default_refresh') ? $this->EE->config->item('stash_default_refresh') : 0; // minutes
+        $this->default_scope        = ee()->config->item('stash_default_scope') ? ee()->config->item('stash_default_scope') : 'user';
+        $this->default_refresh      = ee()->config->item('stash_default_refresh') ? ee()->config->item('stash_default_refresh') : 0; // minutes
         $this->limit_bots           = $this->_get_boolean_config_item('stash_limit_bots', FALSE); // default = FALSE
 
         // cache pruning can cache stampede mitigation defaults
         $this->prune                = $this->_get_boolean_config_item('stash_prune_enabled'); // default = TRUE
-        $this->prune_probability    = $this->EE->config->item('stash_prune_probability')   ? $this->EE->config->item('stash_prune_probability') : .4; // percent
-        $this->invalidation_period  = $this->EE->config->item('stash_invalidation_period') ? $this->EE->config->item('stash_invalidation_period') : 0; // seconds
+        $this->prune_probability    = ee()->config->item('stash_prune_probability')   ? ee()->config->item('stash_prune_probability') : .4; // percent
+        $this->invalidation_period  = ee()->config->item('stash_invalidation_period') ? ee()->config->item('stash_invalidation_period') : 0; // seconds
 
         // permitted file extensions for Stash embeds
-        $this->file_extensions  =   $this->EE->config->item('stash_file_extensions')     
-                                    ? (array) $this->EE->config->item('stash_file_extensions') 
+        $this->file_extensions  =   ee()->config->item('stash_file_extensions')     
+                                    ? (array) ee()->config->item('stash_file_extensions') 
                                     : array('html', 'md', 'css', 'js', 'rss', 'xml');
 
         // Support {if var1 IN (var2) }...{/if} style conditionals in Stash templates / tagdata?  
-        $this->parse_if_in  = $this->EE->config->item('stash_parse_if_in') ? $this->EE->config->item('stash_parse_if_in') : FALSE;
+        $this->parse_if_in  = ee()->config->item('stash_parse_if_in') ? ee()->config->item('stash_parse_if_in') : FALSE;
 
         // include query string when using the @URI context (full page caching)?
-        $this->include_query_str = $this->EE->config->item('stash_query_strings') ? $this->EE->config->item('stash_query_strings') : FALSE;
+        $this->include_query_str = ee()->config->item('stash_query_strings') ? ee()->config->item('stash_query_strings') : FALSE;
         
         // initialise tag parameters
         if (FALSE === $calling_from_hook)
@@ -105,13 +102,13 @@ class Stash {
         // fetch the stash session id
         if ($this->stash_cookie_enabled)
         {
-            if ( ! isset($this->EE->session->cache['stash']['_session_id']) )
+            if ( ! isset(ee()->session->cache['stash']['_session_id']) )
             {   
                 // do we have a stash cookie? 
                 if ($cookie_data = $this->_get_stash_cookie())
                 {
                     // YES - restore session
-                    $this->EE->session->cache['stash']['_session_id'] = $cookie_data['id'];
+                    ee()->session->cache['stash']['_session_id'] = $cookie_data['id'];
 
                     // shall we prune expired variables?
                     if ($this->prune)
@@ -123,7 +120,7 @@ class Stash {
                         if (mt_rand(0, ($prune_chance-1)) === 0) 
                         {   
                             // prune variables with expiry date older than right now 
-                            $this->EE->stash_model->prune_keys();
+                            ee()->stash_model->prune_keys();
                         }
                     }
                 }
@@ -137,10 +134,10 @@ class Stash {
                     }
                     
                     // NO - let's generate a unique id
-                    $unique_id = $this->EE->functions->random();
+                    $unique_id = ee()->functions->random();
                     
                     // add to stash array
-                    $this->EE->session->cache['stash']['_session_id'] = $unique_id;
+                    ee()->session->cache['stash']['_session_id'] = $unique_id;
                     
                     // create a cookie; store the creation date in the cookie itself
                     $this->_set_stash_cookie($unique_id);
@@ -148,7 +145,7 @@ class Stash {
             }
         
             // create a reference to the session id
-            $this->_session_id =& $this->EE->session->cache['stash']['_session_id'];  
+            $this->_session_id =& ee()->session->cache['stash']['_session_id'];  
         }
         else
         {
@@ -188,8 +185,8 @@ class Stash {
                 inline = process as a normal tag within the natural parse order of the template
                 end = called after all tag parsing has completed
             */
-            $this->process  = $this->EE->TMPL->fetch_param('process', 'inline'); // start | inline | end
-            $this->priority = $this->EE->TMPL->fetch_param('priority', '1'); // ensure a priority is set
+            $this->process  = ee()->TMPL->fetch_param('process', 'inline'); // start | inline | end
+            $this->priority = ee()->TMPL->fetch_param('priority', '1'); // ensure a priority is set
         }
         
         // legacy: make 'final' the same as 'end'
@@ -205,30 +202,30 @@ class Stash {
         }
         
         // allow the site_id to be overridden, for e.g. shared variables across mutliple sites
-        $this->site_id = (integer) $this->EE->TMPL->fetch_param('site_id', $this->site_id);
+        $this->site_id = (integer) ee()->TMPL->fetch_param('site_id', $this->site_id);
 
         // selected bundle
-        $bundle = $this->EE->TMPL->fetch_param('bundle', 'default');
+        $bundle = ee()->TMPL->fetch_param('bundle', 'default');
 
         // lookup the id of an existing bundle, or map to one of the preset bundles
-        if ( ! $this->bundle_id = $this->EE->stash_model->get_bundle_by_name($bundle))
+        if ( ! $this->bundle_id = ee()->stash_model->get_bundle_by_name($bundle))
         {
             // not found, fallback to the default
             $this->bundle_id = 1;
         }
         
         // xss scripting protection
-        $this->xss_clean = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('xss_clean'));
+        $this->xss_clean = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('xss_clean'));
         
         // if the variable is already set, do we want to replace it's value? Default = yes
-        $this->replace = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('replace', 'yes'));
+        $this->replace = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('replace', 'yes'));
 
         // parse="yes"?
         $this->set_parse_params();
         
         // do we want to parse any tags and variables inside tagdata? Default = no  
-        $this->parse_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('parse_tags'));
-        $this->parse_vars = $this->EE->TMPL->fetch_param('parse_vars', NULL);
+        $this->parse_tags = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('parse_tags'));
+        $this->parse_vars = ee()->TMPL->fetch_param('parse_vars', NULL);
         
         // legacy behaviour: if parse_vars is null but parse tags is true, we should make sure vars are parsed too
         if ($this->parse_tags && $this->parse_vars == NULL)
@@ -241,34 +238,34 @@ class Stash {
         }
         
         // parsing: how many passes of the template should we make? (more passes = more overhead). Default = 1
-        $this->parse_depth = preg_replace('/[^0-9]/', '', $this->EE->TMPL->fetch_param('parse_depth', 1));
+        $this->parse_depth = preg_replace('/[^0-9]/', '', ee()->TMPL->fetch_param('parse_depth', 1));
         
         // parsing: parse advanced conditionals. Default = no
-        $this->parse_conditionals = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('parse_conditionals'));
+        $this->parse_conditionals = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('parse_conditionals'));
         
         // stash type, default to 'variable'
-        $this->type = strtolower( $this->EE->TMPL->fetch_param('type', 'variable') );
+        $this->type = strtolower( ee()->TMPL->fetch_param('type', 'variable') );
         
         // create a stash array in the session if we don't have one
-        if ( ! array_key_exists('stash', $this->EE->session->cache) )
+        if ( ! array_key_exists('stash', ee()->session->cache) )
         {
-            $this->EE->session->cache['stash'] = array();
+            ee()->session->cache['stash'] = array();
         }   
         
         // determine the memory storage location
         if ($this->type === 'variable')
         {
             // we're setting/getting a 'native' stash variable
-            $this->_stash =& $this->EE->session->cache['stash'];
+            $this->_stash =& ee()->session->cache['stash'];
         }
         elseif ($this->type === 'snippet' || $this->type === 'global')
         {
             // we're setting/getting a global variable {snippet}
-            $this->_stash =& $this->EE->config->_global_vars;
+            $this->_stash =& ee()->config->_global_vars;
         }
         else
         {
-            $this->EE->output->show_user_error('general', $this->EE->lang->line('unknown_stash_type') . $this->type);
+            ee()->output->show_user_error('general', ee()->lang->line('unknown_stash_type') . $this->type);
         }
     }
     
@@ -286,15 +283,15 @@ class Stash {
         // -------------------------------------
         // 'stash_load_template_class' hook
         // -------------------------------------
-        if ($this->EE->extensions->active_hook('stash_load_template_class') === TRUE)
+        if (ee()->extensions->active_hook('stash_load_template_class') === TRUE)
         {
-            $this->EE->TMPL = $this->EE->extensions->call('stash_load_template_class');
+            ee()->TMPL = ee()->extensions->call('stash_load_template_class');
         } 
         else 
         {
             require_once APPPATH.'libraries/Template.php';
-            $this->EE->TMPL = new EE_Template();
-            $this->EE->TMPL->modules = array('stash');
+            ee()->TMPL = new EE_Template();
+            ee()->TMPL->modules = array('stash');
         }
     }
     
@@ -369,16 +366,16 @@ class Stash {
             default :
             
             // if there is an extra tagpart, then we have a context and a name
-            if (isset($this->EE->TMPL->tagparts[2]))
+            if (isset(ee()->TMPL->tagparts[2]))
             {   
-                $this->EE->TMPL->tagparams['context'] = $name;
-                $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];  
+                ee()->TMPL->tagparams['context'] = $name;
+                ee()->TMPL->tagparams['name'] = ee()->TMPL->tagparts[2];  
             }
             else
             {
-                $this->EE->TMPL->tagparams['name'] = $name;
+                ee()->TMPL->tagparams['name'] = $name;
             }
-            return $this->EE->TMPL->tagdata ? $this->set() : $this->get();
+            return ee()->TMPL->tagdata ? $this->set() : $this->get();
         }
     }
 
@@ -420,17 +417,17 @@ class Stash {
         $set = TRUE;
         
         // var name
-        $name = $this->EE->TMPL->fetch_param('name', FALSE);        
+        $name = ee()->TMPL->fetch_param('name', FALSE);        
         
         // context handling
-        $context = $this->EE->TMPL->fetch_param('context', NULL);
+        $context = ee()->TMPL->fetch_param('context', NULL);
         
         if ( !! $name)
         {
             if ($context !== NULL && count( explode(':', $name) == 1 ) )
             {
                 $name = $context . ':' . $name;
-                $this->EE->TMPL->tagparams['context'] = NULL;
+                ee()->TMPL->tagparams['context'] = NULL;
             }
         }
         
@@ -438,27 +435,27 @@ class Stash {
         $stash_key = $this->_parse_context($name);
         
         // scope
-        $scope  = strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
+        $scope  = strtolower(ee()->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
         
         // do we want this tag to return it's tagdata? (default: no)
-        $output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'));
+        $output = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('output'));
 
         // do we want to parse early global variables in variables retrieved from the cache
         
         // append or prepend passed as parameters?
-        if (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('prepend')))
+        if (preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('prepend')))
         {
             $this->_update = TRUE;
             $this->_append = FALSE;
         }
-        elseif (preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('append')))
+        elseif (preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('append')))
         {
             $this->_update = TRUE;
             $this->_append = TRUE;
         }
         
         // do we want to save this variable in a bundle?
-        $bundle = $this->EE->TMPL->fetch_param('bundle', NULL); // save in a bundle?
+        $bundle = ee()->TMPL->fetch_param('bundle', NULL); // save in a bundle?
         
         // do we want to replace an existing variable?
         if ( !! $name && ! $this->replace && ! $this->_update)
@@ -475,7 +472,7 @@ class Stash {
                 // narrow the scope to user?
                 $session_id = $scope === 'user' ? $this->_session_id : '_global';
                 
-                $existing_value = $this->EE->stash_model->get_key(
+                $existing_value = ee()->stash_model->get_key(
                     $stash_key, 
                     $this->bundle_id,
                     $session_id, 
@@ -486,7 +483,7 @@ class Stash {
             if ( $existing_value !== FALSE)
             {
                 // yes, it's already been stashed
-                $this->EE->TMPL->tagdata = $this->_stash[$name] = $existing_value;
+                ee()->TMPL->tagdata = $this->_stash[$name] = $existing_value;
 
                 // don't overwrite existing value
                 $set = FALSE;
@@ -495,7 +492,7 @@ class Stash {
         }
         
         // do we want to ignore empty tagdata values?
-        if ( $not_empty = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('not_empty')) )
+        if ( $not_empty = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('not_empty')) )
         {
             if ( ! $this->not_empty())
             {
@@ -506,12 +503,12 @@ class Stash {
         if ($set)
         {
             // support for deprecated no_results_prefix parameter
-            $no_results_prefix = $this->EE->TMPL->fetch_param('no_results_prefix');
+            $no_results_prefix = ee()->TMPL->fetch_param('no_results_prefix');
 
             // check for an unprefix parameter to avoid variable name conflicts in nested tags
-            if($unprefix = $this->EE->TMPL->fetch_param('unprefix', $no_results_prefix))
+            if($unprefix = ee()->TMPL->fetch_param('unprefix', $no_results_prefix))
             {
-                $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = $this->_un_prefix($unprefix, ee()->TMPL->tagdata);
             }
             
             if ( ($this->parse_tags || $this->parse_vars || $this->parse_conditionals) && ! $this->parse_complete)
@@ -521,34 +518,34 @@ class Stash {
             }
             
             // apply any string manipulations
-            $this->EE->TMPL->tagdata = $this->_clean_string($this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_clean_string(ee()->TMPL->tagdata);
 
             // static caching?
-            if ($this->EE->TMPL->fetch_param('bundle') === 'static')
+            if (ee()->TMPL->fetch_param('bundle') === 'static')
             {
                 // we need to parse remaining globals since unlike db cached pages, static pages won't pass through PHP/EE again
-                $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_globals($this->EE->TMPL->tagdata); 
+                ee()->TMPL->tagdata = ee()->TMPL->parse_globals(ee()->TMPL->tagdata); 
 
                 // parse ACTion id placeholders
-                $this->EE->TMPL->tagdata = $this->EE->functions->insert_action_ids($this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = ee()->functions->insert_action_ids(ee()->TMPL->tagdata);
             }
 
             if ( !! $name )
             {                   
                 // get params
-                $label           = $this->EE->TMPL->fetch_param('label', $name);
-                $save            = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));                        
-                $match           = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to test value against
-                $against         = $this->EE->TMPL->fetch_param('against', $this->EE->TMPL->tagdata); // text to apply test against
-                $filter          = $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search for
-                $default         = $this->EE->TMPL->fetch_param('default', NULL); // default value
-                $delimiter       = $this->EE->TMPL->fetch_param('delimiter', '|'); // implode arrays using this delimiter
+                $label           = ee()->TMPL->fetch_param('label', $name);
+                $save            = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('save'));                        
+                $match           = ee()->TMPL->fetch_param('match', NULL); // regular expression to test value against
+                $against         = ee()->TMPL->fetch_param('against', ee()->TMPL->tagdata); // text to apply test against
+                $filter          = ee()->TMPL->fetch_param('filter', NULL); // regex pattern to search for
+                $default         = ee()->TMPL->fetch_param('default', NULL); // default value
+                $delimiter       = ee()->TMPL->fetch_param('delimiter', '|'); // implode arrays using this delimiter
 
                 // cache refresh time
-                $refresh         = (int) $this->EE->TMPL->fetch_param('refresh', $this->default_refresh);
+                $refresh         = (int) ee()->TMPL->fetch_param('refresh', $this->default_refresh);
                 
                 // do we want to set a placeholder somewhere in this template ?
-                $set_placeholder = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('set_placeholder'));
+                $set_placeholder = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('set_placeholder'));
                 
                 // make sure we have a value to fallback to for output in current template
                 if ($set_placeholder && is_null($default))
@@ -559,7 +556,7 @@ class Stash {
                 // set refresh
                 if ($refresh > 0)
                 {
-                    $refresh = $this->EE->localize->now + ($refresh * 60);
+                    $refresh = ee()->localize->now + ($refresh * 60);
                 }
                 
                 // regex match
@@ -573,7 +570,7 @@ class Stash {
                         // if a default has been specified fallback to it
                         if (! is_null($default))
                         {
-                            $this->EE->TMPL->tagdata = $default;
+                            ee()->TMPL->tagdata = $default;
                         }
                         else
                         {
@@ -583,21 +580,21 @@ class Stash {
                 }               
 
                 // regex filter
-                if ( $filter !== NULL && ! is_array($this->EE->TMPL->tagdata))
+                if ( $filter !== NULL && ! is_array(ee()->TMPL->tagdata))
                 {
-                    preg_match($filter, $this->EE->TMPL->tagdata, $found);
+                    preg_match($filter, ee()->TMPL->tagdata, $found);
                     if (isset($found[1]))
                     {
-                        $this->EE->TMPL->tagdata = $found[1];
+                        ee()->TMPL->tagdata = $found[1];
                     }   
                 }
                 
                 // make sure we're working with a string
                 // if we're setting a variable from a global ($_POST, $_GET etc), it could be an array
-                if ( is_array($this->EE->TMPL->tagdata))
+                if ( is_array(ee()->TMPL->tagdata))
                 {   
-                    $this->EE->TMPL->tagdata = array_filter($this->EE->TMPL->tagdata, 'strlen');
-                    $this->EE->TMPL->tagdata = implode($delimiter, $this->EE->TMPL->tagdata);
+                    ee()->TMPL->tagdata = array_filter(ee()->TMPL->tagdata, 'strlen');
+                    ee()->TMPL->tagdata = implode($delimiter, ee()->TMPL->tagdata);
                 }
             
                 if ( $this->_update )
@@ -611,23 +608,23 @@ class Stash {
                     // Append or prepend?
                     if ( $this->_append )
                     {
-                        $this->_stash[$name] .= $this->EE->TMPL->tagdata;
+                        $this->_stash[$name] .= ee()->TMPL->tagdata;
                     }
                     else
                     {
-                        $this->_stash[$name] = $this->EE->TMPL->tagdata.$this->_stash[$name];
+                        $this->_stash[$name] = ee()->TMPL->tagdata.$this->_stash[$name];
                     }
                 } 
                 else
                 {
-                    $this->_stash[$name] = $this->EE->TMPL->tagdata;
+                    $this->_stash[$name] = ee()->TMPL->tagdata;
                 }
                 
                 // replace value into a {placeholder} anywhere in the current template?
                 if ($set_placeholder)
                 {   
-                    $this->EE->TMPL->template = $this->EE->functions->var_swap(
-                        $this->EE->TMPL->template, 
+                    ee()->TMPL->template = ee()->functions->var_swap(
+                        ee()->TMPL->template, 
                         array($name => $this->_stash[$name])
                     );
                 }
@@ -641,7 +638,7 @@ class Stash {
                 
                     if ($this->xss_clean)
                     {   
-                        $this->EE->security->xss_clean($parameters);
+                        ee()->security->xss_clean($parameters);
                     }
 
                     // what's the intended variable scope? 
@@ -655,7 +652,7 @@ class Stash {
                     }
                     
                     // let's check if there is an existing record
-                    $result = $this->EE->stash_model->get_key($stash_key, $this->bundle_id, $session_filter, $this->site_id);
+                    $result = ee()->stash_model->get_key($stash_key, $this->bundle_id, $session_filter, $this->site_id);
 
                     if ( $result !== FALSE)
                     {
@@ -666,7 +663,7 @@ class Stash {
                         // allow append/prepend if the stash key has been created *in this page load*
                         $cache_key = $stash_key. '_'. $this->bundle_id .'_' .$this->site_id . '_' . $session_filter;
                         
-                        if ( $result !== $parameters && ($this->replace || ($this->_update && $this->EE->stash_model->is_inserted_key($cache_key)) ))
+                        if ( $result !== $parameters && ($this->replace || ($this->_update && ee()->stash_model->is_inserted_key($cache_key)) ))
                         {   
                             $update_key = TRUE;    
                         }
@@ -674,7 +671,7 @@ class Stash {
                         if ($update_key)
                         {
                             // update
-                            $this->EE->stash_model->update_key(
+                            ee()->stash_model->update_key(
                                 $stash_key,
                                 $this->bundle_id,
                                 $session_filter,
@@ -689,9 +686,9 @@ class Stash {
                         // no record - insert one
                         
                         // Don't save if this template has a 404 header set from a redirect
-                        if ( $this->EE->output->out_type !== "404")
+                        if ( ee()->output->out_type !== "404")
                         {
-                            $this->EE->stash_model->insert_key(
+                            ee()->stash_model->insert_key(
                                 $stash_key,
                                 $this->bundle_id,
                                 $session_filter,
@@ -709,13 +706,13 @@ class Stash {
                 // no name supplied, so let's assume we want to set sections of content within tag pairs
                 // {stash:my_variable}...{/stash:my_variable}
                 $vars = array();
-                $tagdata = $this->EE->TMPL->tagdata;
+                $tagdata = ee()->TMPL->tagdata;
             
                 // context handling
                 if ( $context !== NULL ) 
                 {
                     $prefix = $context . ':';
-                    $this->EE->TMPL->tagparams['context'] = NULL;
+                    ee()->TMPL->tagparams['context'] = NULL;
                 }
                 else
                 {
@@ -726,12 +723,12 @@ class Stash {
                 // this permits dynamic tag pairs, e.g. {stash:{key}}{/stash:{key}} 
                 if ($this->parse_complete)
                 {
-                    $tag_vars = $this->EE->functions->assign_variables($this->EE->TMPL->tagdata);
+                    $tag_vars = ee()->functions->assign_variables(ee()->TMPL->tagdata);
                     $tag_pairs = $tag_vars['var_pair'];
                 }
                 else
                 {
-                    $tag_pairs =& $this->EE->TMPL->var_pair;
+                    $tag_pairs =& ee()->TMPL->var_pair;
                 }
             
                 foreach($tag_pairs as $key => $val)
@@ -743,8 +740,8 @@ class Stash {
                         if (!empty($matches))
                         {       
                             // set the variable, but cleanup first in case there are any nested tags
-                            $this->EE->TMPL->tagparams['name'] = $prefix . str_replace('stash:', '', $key);
-                            $this->EE->TMPL->tagdata = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
+                            ee()->TMPL->tagparams['name'] = $prefix . str_replace('stash:', '', $key);
+                            ee()->TMPL->tagdata = preg_replace('/'.LD.'stash:[a-zA-Z0-9\-_]+'.RD.'(.*)'.LD.'\/stash:[a-zA-Z0-9\-_]+'.RD.'/Usi', '', $matches[1]);
                             $this->parse_complete = TRUE; // don't allow tagdata to be parsed
                             $this->set();
                         }   
@@ -752,7 +749,7 @@ class Stash {
                 }
             
                 // reset tagdata to original value
-                $this->EE->TMPL->tagdata = $tagdata;
+                ee()->TMPL->tagdata = $tagdata;
                 unset($tagdata);
             }
         }
@@ -768,12 +765,12 @@ class Stash {
                 self::$bundles[$bundle][$name] = $this->_stash[$name];
             }
 
-            $this->EE->TMPL->log_item('Stash: SET '. $name . ' to value ' . $this->_stash[$name]);  
+            ee()->TMPL->log_item('Stash: SET '. $name . ' to value ' . $this->_stash[$name]);  
         }
         
         if ($output)
         {
-            return $this->EE->TMPL->tagdata;
+            return ee()->TMPL->tagdata;
         }
     }
     
@@ -816,17 +813,17 @@ class Stash {
             if ($out = $this->_post_parse(__FUNCTION__)) return $out;
         }
 
-        $name           = $this->EE->TMPL->fetch_param('name');
-        $default        = $this->EE->TMPL->fetch_param('default', NULL); // default value
-        $dynamic        = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('dynamic'));
-        $save           = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save'));     
-        $scope          = strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
-        $bundle         = $this->EE->TMPL->fetch_param('bundle', NULL); // save in a bundle?
-        $match          = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to test value against
-        $filter         = $this->EE->TMPL->fetch_param('filter', NULL); // regex pattern to search for
+        $name           = ee()->TMPL->fetch_param('name');
+        $default        = ee()->TMPL->fetch_param('default', NULL); // default value
+        $dynamic        = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('dynamic'));
+        $save           = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('save'));     
+        $scope          = strtolower(ee()->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
+        $bundle         = ee()->TMPL->fetch_param('bundle', NULL); // save in a bundle?
+        $match          = ee()->TMPL->fetch_param('match', NULL); // regular expression to test value against
+        $filter         = ee()->TMPL->fetch_param('filter', NULL); // regex pattern to search for
 
         // do we want this tag to return the value, or just set the variable quietly in the background?
-        $output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
+        $output = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('output', 'yes'));
         
         // parse any vars in the $name parameter?
         if ($this->parse_vars)
@@ -835,28 +832,28 @@ class Stash {
         }
         
         // low search support - do we have a query string?
-        $low_query = $this->EE->TMPL->fetch_param('low_query', NULL);
+        $low_query = ee()->TMPL->fetch_param('low_query', NULL);
 
         // context handling
-        $context = $this->EE->TMPL->fetch_param('context', NULL);
+        $context = ee()->TMPL->fetch_param('context', NULL);
         $global_name = $name;
         
         if ($context !== NULL && count( explode(':', $name) == 1 ) )
         {
             $name = $context . ':' . $name;
-            $this->EE->TMPL->tagparams['context'] = NULL;
+            ee()->TMPL->tagparams['context'] = NULL;
         }
         
         // parse '@' context pointers
         $name_in_context = $this->_parse_context($name);
         
         // read from file?
-        $file = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('file'));
-        $file_name = $this->EE->TMPL->fetch_param('file_name', FALSE); // default value
+        $file = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('file'));
+        $file_name = ee()->TMPL->fetch_param('file_name', FALSE); // default value
         
         // when to parse the variable if reading from a file and saving: 
         // before we save it to database (set) or when we retrieve it (get), or on set and get (both)
-        $parse_stage = strtolower($this->EE->TMPL->fetch_param('parse_stage', 'set')); // set|get|both
+        $parse_stage = strtolower(ee()->TMPL->fetch_param('parse_stage', 'set')); // set|get|both
         
         if ( !! $file_name)
         {
@@ -877,7 +874,7 @@ class Stash {
         if (strncmp($name, 'segment_', 8) === 0)
         {
             $seg_index = substr($name, 8);
-            $value = $this->EE->uri->segment($seg_index);
+            $value = ee()->uri->segment($seg_index);
         }
 
         // let's see if it's been stashed before in this page load
@@ -913,7 +910,7 @@ class Stash {
                 $stash_key = $this->_parse_context($name);
                     
                 // look for our key
-                if ( $parameters = $this->EE->stash_model->get_key(
+                if ( $parameters = ee()->stash_model->get_key(
                     $stash_key, 
                     $this->bundle_id,
                     $session_id, 
@@ -957,13 +954,13 @@ class Stash {
                 // or is it in the $_POST or $_GET superglobals ( run through xss_clean() )?
                 if ($from_global === FALSE)
                 {
-                    $from_global = $this->EE->input->get_post($global_name, TRUE);
+                    $from_global = ee()->input->get_post($global_name, TRUE);
                 }
                 
                 if ($from_global === FALSE)
                 {
                     // no, so let's check the uri segments
-                    $segs = $this->EE->uri->segment_array();
+                    $segs = ee()->uri->segment_array();
 
                     foreach ( $segs as $index => $segment )
                     {
@@ -1028,7 +1025,7 @@ class Stash {
 
                 if ( file_exists($file_path))
                 {   
-                    $this->EE->TMPL->log_item("Stash: reading file " . $file_path);
+                    ee()->TMPL->log_item("Stash: reading file " . $file_path);
 
                     $value = str_replace("\r\n", "\n", file_get_contents($file_path));
 
@@ -1042,7 +1039,7 @@ class Stash {
                 }
                 else
                 {
-                    $this->EE->output->show_user_error('general', sprintf($this->EE->lang->line('stash_file_not_found'), $file_path));
+                    ee()->output->show_user_error('general', sprintf(ee()->lang->line('stash_file_not_found'), $file_path));
                     return;
                 }
             }
@@ -1059,14 +1056,14 @@ class Stash {
         // note: don't save if we're updating a variable (to avoid recursion)
         if ( $set && ! $this->_update)
         {   
-            $this->EE->TMPL->tagparams['name'] = $name;
-            $this->EE->TMPL->tagparams['output'] = 'yes';
-            $this->EE->TMPL->tagdata = $value;
+            ee()->TMPL->tagparams['name'] = $name;
+            ee()->TMPL->tagparams['output'] = 'yes';
+            ee()->TMPL->tagdata = $value;
             $this->replace = TRUE;
             $value = $this->set();  
         }
             
-        $this->EE->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value ' . $value);
+        ee()->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value ' . $value);
         
         // save to bundle
         if ($bundle !== NULL)
@@ -1125,28 +1122,28 @@ class Stash {
         {/exp:stash:block:page_content}
         --------------------------------------------------------- */
 
-        $tag_parts = $this->EE->TMPL->tagparts;
+        $tag_parts = ee()->TMPL->tagparts;
 
         if ( is_array( $tag_parts ) && isset( $tag_parts[2] ) )
         {
             if (isset($tag_parts[3]))
             {
-                $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->fetch_param('context', $tag_parts[2]);
-                $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', $tag_parts[3]);
+                ee()->TMPL->tagparams['context'] = ee()->TMPL->fetch_param('context', $tag_parts[2]);
+                ee()->TMPL->tagparams['name'] = ee()->TMPL->fetch_param('name', $tag_parts[3]);
             }
             else
             {
                 // no context or name provided?
-                if ( ! isset($this->EE->TMPL->tagparams['name']) AND ! isset($this->EE->TMPL->tagparams['context']))
+                if ( ! isset(ee()->TMPL->tagparams['name']) AND ! isset(ee()->TMPL->tagparams['context']))
                 {
-                     $this->EE->TMPL->tagparams['context'] = 'block';
+                     ee()->TMPL->tagparams['context'] = 'block';
                 }
-                $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', $tag_parts[2]);
+                ee()->TMPL->tagparams['name'] = ee()->TMPL->fetch_param('name', $tag_parts[2]);
             }
         }
 
         // is this block dependent on one or more other stash variables *being set*?
-        if ($requires = $this->EE->TMPL->fetch_param('requires', FALSE))
+        if ($requires = ee()->TMPL->fetch_param('requires', FALSE))
         {
             $requires = explode('|', $requires);
             foreach ($requires as $var) 
@@ -1158,8 +1155,8 @@ class Stash {
             }
         }
 
-        $this->EE->TMPL->tagparams['default'] = $this->EE->TMPL->tagdata;
-        $this->EE->TMPL->tagdata = FALSE;
+        ee()->TMPL->tagparams['default'] = ee()->TMPL->tagdata;
+        ee()->TMPL->tagdata = FALSE;
         return $this->get();
     }
 
@@ -1185,16 +1182,16 @@ class Stash {
     
         --------------------------------------------------------- */
 
-        if ( FALSE === $with = $this->EE->TMPL->fetch_param('with', FALSE)) return;
+        if ( FALSE === $with = ee()->TMPL->fetch_param('with', FALSE)) return;
          
         $embed_params = array();
-        unset($this->EE->TMPL->tagparams['with']);
+        unset(ee()->TMPL->tagparams['with']);
 
         // have values other than embed name been passed in the "with" param? These should be passed as parameters to the embed:
         $with = explode(' ', $with, 2);
 
         // extract embed vars passed as params
-        foreach ($this->EE->TMPL->tagparams as $key => $val)
+        foreach (ee()->TMPL->tagparams as $key => $val)
         {
             if (strncmp($key, 'stash:', 6) == 0)
             {
@@ -1203,21 +1200,21 @@ class Stash {
         }
 
         // if this is a tag pair, construct an embed_extend tag and pass data enclosed by {stash:...} pairs to it
-        if ($this->EE->TMPL->tagdata)
+        if (ee()->TMPL->tagdata)
         {
             // construct the embed_extend tag
-            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed_extend name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD . $this->EE->TMPL->tagdata . LD . '/exp:stash:embed_extend' . RD;
+            ee()->TMPL->tagdata = LD . 'exp:stash:embed_extend name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD . ee()->TMPL->tagdata . LD . '/exp:stash:embed_extend' . RD;
         }
         else
         {
             // construct the embed tag
-            $this->EE->TMPL->tagdata = LD . 'exp:stash:embed name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD;
+            ee()->TMPL->tagdata = LD . 'exp:stash:embed name="' . $with[0] . '"' . (isset($with[1]) ? ' ' . $with[1] : '') . ' ' . implode(" ", $embed_params) . RD;
         }
     
         // escape it?
-        if ( (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('escape')) )
+        if ( (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('escape')) )
         {
-            $this->EE->TMPL->tagdata = LD .'stash:nocache'. RD . $this->EE->TMPL->tagdata . LD .'/stash:nocache'. RD;
+            ee()->TMPL->tagdata = LD .'stash:nocache'. RD . ee()->TMPL->tagdata . LD .'/stash:nocache'. RD;
         }
         
         // inject the embed into a variable / block
@@ -1235,16 +1232,16 @@ class Stash {
      */
     public function embed_extend()
     {
-        if ($this->EE->TMPL->tagdata)
+        if (ee()->TMPL->tagdata)
         {
             $embed_vars = array();
 
-            foreach($this->EE->TMPL->var_pair as $key => $val)
+            foreach(ee()->TMPL->var_pair as $key => $val)
             {
                 if (strncmp($key, 'stash:', 6) ==  0)
                 {
                     $pattern = '/'.LD.$key.RD.'(.*)'.LD.'\/'.$key.RD.'/Usi';
-                    preg_match($pattern, $this->EE->TMPL->tagdata, $matches);
+                    preg_match($pattern, ee()->TMPL->tagdata, $matches);
 
                     if ( ! empty($matches))
                     {
@@ -1253,16 +1250,16 @@ class Stash {
                 }
             }
 
-            if (is_array($this->EE->TMPL->tagparams))
+            if (is_array(ee()->TMPL->tagparams))
             {
-                $this->EE->TMPL->tagparams = array_merge($embed_vars, $this->EE->TMPL->tagparams);
+                ee()->TMPL->tagparams = array_merge($embed_vars, ee()->TMPL->tagparams);
             }
             else
             {
-                 $this->EE->TMPL->tagparams = $embed_vars;
+                 ee()->TMPL->tagparams = $embed_vars;
             }
 
-            $this->EE->TMPL->tagdata = '';
+            ee()->TMPL->tagdata = '';
         }
 
         return $this->embed();
@@ -1293,13 +1290,13 @@ class Stash {
         --------------------------------------------------------- */
 
         // get the original variable value, restricting which params are passed to a minimum
-        $this->EE->TMPL->tagdata = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
+        ee()->TMPL->tagdata = $this->_run_tag('get', array('name', 'type', 'scope', 'context'));
 
         // prep the tagparams with the values for the clone
-        $this->EE->TMPL->tagparams['name']      = $this->EE->TMPL->fetch_param('copy_name', FALSE);
-        $this->EE->TMPL->tagparams['context']   = $this->EE->TMPL->fetch_param('copy_context', NULL);
-        $this->EE->TMPL->tagparams['scope']     = strtolower($this->EE->TMPL->fetch_param('copy_scope', $this->default_scope));
-        $this->EE->TMPL->tagparams['type']      = $this->EE->TMPL->fetch_param('copy_type', 'variable');
+        ee()->TMPL->tagparams['name']      = ee()->TMPL->fetch_param('copy_name', FALSE);
+        ee()->TMPL->tagparams['context']   = ee()->TMPL->fetch_param('copy_context', NULL);
+        ee()->TMPL->tagparams['scope']     = strtolower(ee()->TMPL->fetch_param('copy_scope', $this->default_scope));
+        ee()->TMPL->tagparams['type']      = ee()->TMPL->fetch_param('copy_type', 'variable');
 
         // re-initialise Stash with the new params
         $this->init();
@@ -1356,9 +1353,9 @@ class Stash {
         {exp:stash:set_value name="title" value="{exp:another:tag}" type="snippet" parse="inward"}
         --------------------------------------------------------- */
         
-        $this->EE->TMPL->tagdata = $this->EE->TMPL->fetch_param('value', FALSE);
+        ee()->TMPL->tagdata = ee()->TMPL->fetch_param('value', FALSE);
         
-        if ( $this->EE->TMPL->tagdata !== FALSE )
+        if ( ee()->TMPL->tagdata !== FALSE )
         {
             return $this->set();
         }
@@ -1404,7 +1401,7 @@ class Stash {
      */
     public function context()
     {
-        if ( !! $name = $this->EE->TMPL->fetch_param('name', FALSE) )
+        if ( !! $name = ee()->TMPL->fetch_param('name', FALSE) )
         {
             self::$context = $name;
         }
@@ -1437,11 +1434,11 @@ class Stash {
         {
             $test = $string;
         }
-        elseif ( $this->EE->TMPL->tagdata )
+        elseif ( ee()->TMPL->tagdata )
         {
             // parse any vars in the string we're testing
             $this->_parse_sub_template(FALSE, TRUE);
-            $test = $this->EE->TMPL->tagdata;
+            $test = ee()->TMPL->tagdata;
         }
         else
         {
@@ -1498,12 +1495,12 @@ class Stash {
         --------------------------------------------------------- */
         
         // name and context
-        $name = $this->EE->TMPL->fetch_param('name', FALSE);        
-        $context = $this->EE->TMPL->fetch_param('context', NULL);
-        $scope  = strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
+        $name = ee()->TMPL->fetch_param('name', FALSE);        
+        $context = ee()->TMPL->fetch_param('context', NULL);
+        $scope  = strtolower(ee()->TMPL->fetch_param('scope', $this->default_scope)); // local|user|site
 
         // are we trying to *overwrite* an existing list (replace it but not change the existing list if the new list is empty)?
-        $overwrite = $this->EE->TMPL->fetch_param('overwrite', FALSE); 
+        $overwrite = ee()->TMPL->fetch_param('overwrite', FALSE); 
         if ($overwrite)
         {
             $this->replace = TRUE;
@@ -1521,7 +1518,7 @@ class Stash {
         $stash_key = $this->_parse_context($name);
         
         // no results prefix
-        $prefix = $this->EE->TMPL->fetch_param('prefix', NULL);
+        $prefix = ee()->TMPL->fetch_param('prefix', NULL);
         
         // check for prefixed no_results block
         if ( ! is_null($prefix))
@@ -1530,9 +1527,9 @@ class Stash {
         }
 
         // Unprefix common variables in wrapped tags
-        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        if($unprefix = ee()->TMPL->fetch_param('unprefix'))
         {
-            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_un_prefix($unprefix, ee()->TMPL->tagdata);
         }
         
         // do we want to replace an existing list variable?
@@ -1552,7 +1549,7 @@ class Stash {
                 // narrow the scope to user?
                 $session_id = $scope === 'user' ? $this->_session_id : '_global';
                 
-                $existing_value = $this->EE->stash_model->get_key(
+                $existing_value = ee()->stash_model->get_key(
                     $stash_key, 
                     $this->bundle_id,
                     $session_id, 
@@ -1563,7 +1560,7 @@ class Stash {
             if ( $existing_value !== FALSE)
             {   
                 // yes, it's already been stashed, make sure it's in the stash memory cache
-                $this->EE->TMPL->tagdata = $this->_stash[$name] = $existing_value;
+                ee()->TMPL->tagdata = $this->_stash[$name] = $existing_value;
                 
                 // don't overwrite existing value
                 $set = FALSE;
@@ -1574,37 +1571,37 @@ class Stash {
         if ($set)
         {  
             // do any parsing and string transforms before making the list
-            $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_parse_output(ee()->TMPL->tagdata);
             $this->parse_complete = TRUE; // make sure we don't run parsing again, if we're saving the list
 
             // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
-            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+            preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', ee()->TMPL->tagdata, $matches);
 
             if (isset($matches[1]))
             {
-                $this->EE->TMPL->var_pair = array_flip(array_unique($matches[1]));
+                ee()->TMPL->var_pair = array_flip(array_unique($matches[1]));
             }
 
             // get the first key and see if it repeats
-            $keys = array_keys($this->EE->TMPL->var_pair);
+            $keys = array_keys(ee()->TMPL->var_pair);
         
             if ( ! empty($keys))
             {
                 $first_key = $keys[0];
 
-                preg_match_all('/'. LD . $first_key . RD . '/', $this->EE->TMPL->tagdata, $matches);
+                preg_match_all('/'. LD . $first_key . RD . '/', ee()->TMPL->tagdata, $matches);
         
                 if (count($matches[0]) > 1)
                 {
                     // yes we have repeating keys, so let's split the tagdata up into rows
-                    $this->EE->TMPL->tagdata = str_replace(
+                    ee()->TMPL->tagdata = str_replace(
                             LD . $first_key . RD, 
                             $this->_list_delimiter . LD . $first_key . RD,
-                            $this->EE->TMPL->tagdata
+                            ee()->TMPL->tagdata
                     );
             
                     // get an array of rows, remove first element which will be empty
-                    $rows = explode($this->_list_delimiter, $this->EE->TMPL->tagdata);
+                    $rows = explode($this->_list_delimiter, ee()->TMPL->tagdata);
                     array_shift($rows);
             
                     // serialize each row and append
@@ -1612,14 +1609,14 @@ class Stash {
                     $tagdata = '';
                     foreach($rows as $row)
                     {
-                        $this->EE->TMPL->tagdata = $row;
+                        ee()->TMPL->tagdata = $row;
                         $this->_serialize_stash_tag_pairs();
-                        if ( ! empty($this->EE->TMPL->tagdata))
+                        if ( ! empty(ee()->TMPL->tagdata))
                         {
-                            $tagdata .= $this->_list_delimiter . $this->EE->TMPL->tagdata;
+                            $tagdata .= $this->_list_delimiter . ee()->TMPL->tagdata;
                         }
                     }
-                    $this->EE->TMPL->tagdata = trim($tagdata, $this->_list_delimiter);
+                    ee()->TMPL->tagdata = trim($tagdata, $this->_list_delimiter);
                 }
                 else
                 {
@@ -1627,14 +1624,14 @@ class Stash {
                     $this->_serialize_stash_tag_pairs();
                 }
         
-                if ( $this->not_empty($this->EE->TMPL->tagdata))
+                if ( $this->not_empty(ee()->TMPL->tagdata))
                 {
                     // set the list, but do we need to disable match/against?
-                    if  ( FALSE !== $this->EE->TMPL->fetch_param('against', FALSE))
+                    if  ( FALSE !== ee()->TMPL->fetch_param('against', FALSE))
                     {
                         // already matched/against a specified column in the list, so disable match/against
-                        unset($this->EE->TMPL->tagparams['match']);
-                        unset($this->EE->TMPL->tagparams['against']);
+                        unset(ee()->TMPL->tagparams['match']);
+                        unset(ee()->TMPL->tagparams['against']);
                     }
 
                     return $this->set();    
@@ -1648,7 +1645,7 @@ class Stash {
                     $this->_stash[$name] = '';
                 }
 
-                if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output'))) // default="no"
+                if ((bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('output'))) // default="no"
                 { 
                     // optionally parse and return no_results tagdata
                     // note: output="yes" with set_list should only be used for debugging
@@ -1702,23 +1699,23 @@ class Stash {
      */
     private function _update_list($append=TRUE)
     {
-        $name = $this->EE->TMPL->fetch_param('name');
-        $context = $this->EE->TMPL->fetch_param('context', NULL);
-        $this->EE->TMPL->tagdata = $this->_parse_output($this->EE->TMPL->tagdata);
+        $name = ee()->TMPL->fetch_param('name');
+        $context = ee()->TMPL->fetch_param('context', NULL);
+        ee()->TMPL->tagdata = $this->_parse_output(ee()->TMPL->tagdata);
         $this->parse_complete = TRUE; // make sure we don't run parsing again
 
         // get stash variable pairs (note: picks up outer pairs, nested pairs and singles are ignored)
-        preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', $this->EE->TMPL->tagdata, $matches);
+        preg_match_all('#'.LD.'(stash:[a-z0-9\-_]+)'.RD.'.*?'.LD.'/\g{1}'.RD.'#ims', ee()->TMPL->tagdata, $matches);
 
         if (isset($matches[1]))
         {
-            $this->EE->TMPL->var_pair = array_flip(array_unique($matches[1]));
+            ee()->TMPL->var_pair = array_flip(array_unique($matches[1]));
         }
 
         // format our list
         $this->_serialize_stash_tag_pairs();
         
-        if ( $this->not_empty($this->EE->TMPL->tagdata))
+        if ( $this->not_empty(ee()->TMPL->tagdata))
         {
             // does the list really exist?
             if ($context !== NULL && count( explode(':', $name) == 1 ) )
@@ -1744,20 +1741,20 @@ class Stash {
             {
                 if ($append)
                 {
-                    $this->EE->TMPL->tagdata = $this->_list_delimiter . $this->EE->TMPL->tagdata;
+                    ee()->TMPL->tagdata = $this->_list_delimiter . ee()->TMPL->tagdata;
                 }
                 else
                 {
-                    $this->EE->TMPL->tagdata =  $this->EE->TMPL->tagdata . $this->_list_delimiter;
+                    ee()->TMPL->tagdata =  ee()->TMPL->tagdata . $this->_list_delimiter;
                 }
             }
 
             // update the list, but do we need to disable match/against?
-            if  ( FALSE !== $this->EE->TMPL->fetch_param('against', FALSE))
+            if  ( FALSE !== ee()->TMPL->fetch_param('against', FALSE))
             {
                 // already matched/against a specified column in the list, so disable match/against
-                unset($this->EE->TMPL->tagparams['match']);
-                unset($this->EE->TMPL->tagparams['against']);
+                unset(ee()->TMPL->tagparams['match']);
+                unset(ee()->TMPL->tagparams['against']);
             }
 
             return $append ? $this->append() : $this->prepend();
@@ -1784,7 +1781,7 @@ class Stash {
         --------------------------------------------------------- */    
 
         // list names
-        $lists = $this->EE->TMPL->fetch_param('lists');
+        $lists = ee()->TMPL->fetch_param('lists');
         $lists = explode(',', $lists);
 
         // create an array of values
@@ -1802,7 +1799,7 @@ class Stash {
         }
 
         // implode values into the format of a delimited list, and set as the tagdata
-        $this->EE->TMPL->tagdata = implode($this->_list_delimiter, $values);
+        ee()->TMPL->tagdata = implode($this->_list_delimiter, $values);
 
         // set as a new variable
         return $this->set();  
@@ -1821,17 +1818,17 @@ class Stash {
         --------------------------------------------------------- */  
 
         // the original list
-        $old_list = $this->EE->TMPL->fetch_param('list', FALSE);
+        $old_list = ee()->TMPL->fetch_param('list', FALSE);
 
         // the new list
-        $new_list = $this->EE->TMPL->fetch_param('name', FALSE);
+        $new_list = ee()->TMPL->fetch_param('name', FALSE);
 
         // limit the number of rows to copy?
-        $limit = $this->EE->TMPL->fetch_param('limit',  FALSE);
+        $limit = ee()->TMPL->fetch_param('limit',  FALSE);
 
         if ($old_list && $new_list)
         {
-            $this->EE->TMPL->tagparams['name'] = $old_list;
+            ee()->TMPL->tagparams['name'] = $old_list;
 
             // apply filters to the original list and generate an array
             $list = $this->rebuild_list();
@@ -1843,14 +1840,14 @@ class Stash {
             }
 
             // flatten the list array into a string, ready for setting as a variable
-            $this->EE->TMPL->tagdata = $this->flatten_list($list);
+            ee()->TMPL->tagdata = $this->flatten_list($list);
 
             // reset the name parameter
-            $this->EE->TMPL->tagparams['name'] = $new_list;
+            ee()->TMPL->tagparams['name'] = $new_list;
 
             // unset params used for filtering
-            unset($this->EE->TMPL->tagparams['match']);
-            unset($this->EE->TMPL->tagparams['against']);
+            unset(ee()->TMPL->tagparams['match']);
+            unset(ee()->TMPL->tagparams['against']);
 
             // set as a new variable
             return $this->set(); 
@@ -1894,15 +1891,15 @@ class Stash {
             if ($out = $this->_post_parse(__FUNCTION__)) return $out;
         }
 
-        $limit              = $this->EE->TMPL->fetch_param('limit',  FALSE);
-        $offset             = $this->EE->TMPL->fetch_param('offset', 0);
-        $default            = $this->EE->TMPL->fetch_param('default', '');          // default value
-        $filter             = $this->EE->TMPL->fetch_param('filter', NULL);         // regex pattern to search final output for
-        $prefix             = $this->EE->TMPL->fetch_param('prefix', NULL);         // optional namespace for common vars like {count}
-        $require_prefix     = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('require_prefix', 'yes')); // if prefix="" is set, only placeholders using the prefix will be parsed
-        $paginate           = $this->EE->TMPL->fetch_param('paginate', FALSE);
-        $paginate_param     = $this->EE->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination
-        $track              = $this->EE->TMPL->fetch_param('track',  FALSE);        // one or more column values to track as a static variable, e.g. entry_id|color
+        $limit              = ee()->TMPL->fetch_param('limit',  FALSE);
+        $offset             = ee()->TMPL->fetch_param('offset', 0);
+        $default            = ee()->TMPL->fetch_param('default', '');          // default value
+        $filter             = ee()->TMPL->fetch_param('filter', NULL);         // regex pattern to search final output for
+        $prefix             = ee()->TMPL->fetch_param('prefix', NULL);         // optional namespace for common vars like {count}
+        $require_prefix     = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('require_prefix', 'yes')); // if prefix="" is set, only placeholders using the prefix will be parsed
+        $paginate           = ee()->TMPL->fetch_param('paginate', FALSE);
+        $paginate_param     = ee()->TMPL->fetch_param('paginate_param', NULL); // if using query string style pagination
+        $track              = ee()->TMPL->fetch_param('track',  FALSE);        // one or more column values to track as a static variable, e.g. entry_id|color
         
         $list_html      = '';
         $list_markers   = array();  
@@ -1961,28 +1958,28 @@ class Stash {
             // remove prefix if used in the paginate tag pair
             if ( ! is_null($prefix))
             {
-                if (preg_match("/(".LD.$prefix.":paginate".RD.".+?".LD.'\/'.$prefix.":paginate".RD.")/s", $this->EE->TMPL->tagdata, $paginate_match))
+                if (preg_match("/(".LD.$prefix.":paginate".RD.".+?".LD.'\/'.$prefix.":paginate".RD.")/s", ee()->TMPL->tagdata, $paginate_match))
                 {
                     $paginate_template = str_replace($prefix.':','', $paginate_match[1]);
-                    $this->EE->TMPL->tagdata = str_replace($paginate_match[1], $paginate_template, $this->EE->TMPL->tagdata);
+                    ee()->TMPL->tagdata = str_replace($paginate_match[1], $paginate_template, ee()->TMPL->tagdata);
                 }
             }
                     
             // pagination template
-            $this->EE->load->library('pagination');
+            ee()->load->library('pagination');
             
             // are we passing the offset in the query string?
             if ( ! is_null($paginate_param))
             {
                 // prep the base pagination object
-                $this->EE->pagination->query_string_segment = $paginate_param;
-                $this->EE->pagination->page_query_string = TRUE;
+                ee()->pagination->query_string_segment = $paginate_param;
+                ee()->pagination->page_query_string = TRUE;
             }
             
             // create a pagination object instance
             if (version_compare(APP_VER, '2.8', '>=')) 
             { 
-                $this->pagination = $this->EE->pagination->create();
+                $this->pagination = ee()->pagination->create();
             } 
             else
             {
@@ -1993,13 +1990,13 @@ class Stash {
             if ( ! is_null($paginate_param))
             {
                 // we only want the offset integer, ignore the 'P' prefix inserted by EE_Pagination
-                $this->pagination->offset = filter_var($this->EE->input->get($paginate_param, TRUE), FILTER_SANITIZE_NUMBER_INT);
+                $this->pagination->offset = filter_var(ee()->input->get($paginate_param, TRUE), FILTER_SANITIZE_NUMBER_INT);
                 
-                if ( ! is_null($this->EE->TMPL->fetch_param('paginate_base', NULL)))
+                if ( ! is_null(ee()->TMPL->fetch_param('paginate_base', NULL)))
                 {
                     // make sure paginate_base ends with a '?', if specified
-                    $base=$this->EE->TMPL->tagparams['paginate_base'];
-                    $this->EE->TMPL->tagparams['paginate_base'] = $base.((!strpos($base, '?'))? '?': '');
+                    $base=ee()->TMPL->tagparams['paginate_base'];
+                    ee()->TMPL->tagparams['paginate_base'] = $base.((!strpos($base, '?'))? '?': '');
                 }
             }
             else
@@ -2014,7 +2011,7 @@ class Stash {
             if (version_compare(APP_VER, '2.8', '>=')) 
             { 
                  // find and remove the pagination template from tagdata wrapped by get_list
-                $this->EE->TMPL->tagdata = $this->pagination->prepare(ee()->TMPL->tagdata);
+                ee()->TMPL->tagdata = $this->pagination->prepare(ee()->TMPL->tagdata);
 
                 // build
                 $this->pagination->build($page_total_rows, $page_limit);
@@ -2114,16 +2111,16 @@ class Stash {
                 }
                 
                 // {prefix:switch = ""}
-                if (strpos($this->EE->TMPL->tagdata, LD.$prefix.':switch') !== FALSE)
+                if (strpos(ee()->TMPL->tagdata, LD.$prefix.':switch') !== FALSE)
                 {
-                    $this->EE->TMPL->tagdata = str_replace(LD.$prefix.':switch', LD.'switch', $this->EE->TMPL->tagdata);
+                    ee()->TMPL->tagdata = str_replace(LD.$prefix.':switch', LD.'switch', ee()->TMPL->tagdata);
                 }   
             }
             
             // disable backspace param to stop parse_variables() doing it automatically
             // because it can potentially break unparsed conditionals / tags etc in the list
-            $backspace = $this->EE->TMPL->fetch_param('backspace', FALSE);
-            $this->EE->TMPL->tagparams['backspace'] = FALSE;
+            $backspace = ee()->TMPL->fetch_param('backspace', FALSE);
+            ee()->TMPL->tagparams['backspace'] = FALSE;
 
             // prep {if IN ()}...{/if} conditionals
             if ($this->parse_if_in)
@@ -2131,11 +2128,11 @@ class Stash {
                 // prefixed ifs? We have to hide them in EE 2.9+ if this tagdata is in the root template
                 if ( ! is_null($prefix))
                 {
-                    $this->EE->TMPL->tagdata = str_replace(LD.$prefix.':if', LD.'if', $this->EE->TMPL->tagdata);
-                    $this->EE->TMPL->tagdata = str_replace(LD.'/'.$prefix.':if'.RD, LD.'/if'.RD, $this->EE->TMPL->tagdata);
+                    ee()->TMPL->tagdata = str_replace(LD.$prefix.':if', LD.'if', ee()->TMPL->tagdata);
+                    ee()->TMPL->tagdata = str_replace(LD.'/'.$prefix.':if'.RD, LD.'/if'.RD, ee()->TMPL->tagdata);
                 }
 
-                $this->EE->TMPL->tagdata = $this->_prep_in_conditionals($this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = $this->_prep_in_conditionals(ee()->TMPL->tagdata);
             }
             
             // Replace into template.
@@ -2150,13 +2147,13 @@ class Stash {
             // use the prefix="" param for local list vars when you need to reference external
             // variables inside the get_list tag pair which have names that could collide.
 
-            $list_html = $this->EE->TMPL->parse_variables($this->EE->TMPL->tagdata, $list);
+            $list_html = ee()->TMPL->parse_variables(ee()->TMPL->tagdata, $list);
         
             // restore original backspace parameter
-            $this->EE->TMPL->tagparams['backspace'] = $backspace;
+            ee()->TMPL->tagparams['backspace'] = $backspace;
         
             // parse other markers
-            $list_html = $this->EE->TMPL->parse_variables_row($list_html, $list_markers);
+            $list_html = ee()->TMPL->parse_variables_row($list_html, $list_markers);
             
             // render pagination
             if ($paginate)
@@ -2210,26 +2207,26 @@ class Stash {
             {contact_name}
         {/exp:stash:get_bundle}
         --------------------------------------------------------- */
-        $out = $this->EE->TMPL->tagdata;
+        $out = ee()->TMPL->tagdata;
         
-        if ( !! $bundle = $this->EE->TMPL->fetch_param('name', FALSE) )
+        if ( !! $bundle = ee()->TMPL->fetch_param('name', FALSE) )
         {
             
             // get the bundle id, cache to memory for efficient reuse later
-            $bundle_id = $this->EE->stash_model->get_bundle_by_name($bundle);
+            $bundle_id = ee()->stash_model->get_bundle_by_name($bundle);
             
             // does this bundle already exist?
             if ( $bundle_id )
             {           
                 $bundle_array = array();
-                $tpl = $this->EE->TMPL->tagdata;
+                $tpl = ee()->TMPL->tagdata;
                 $this->bundle_id = $bundle_id;
                 
                 // get params
-                $unique = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique', 'yes'));
-                $index  = $this->EE->TMPL->fetch_param('index', NULL);  
-                $context = $this->EE->TMPL->fetch_param('context', NULL);
-                $scope = strtolower($this->EE->TMPL->fetch_param('scope', 'user')); // user|site
+                $unique = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('unique', 'yes'));
+                $index  = ee()->TMPL->fetch_param('index', NULL);  
+                $context = ee()->TMPL->fetch_param('context', NULL);
+                $scope = strtolower(ee()->TMPL->fetch_param('scope', 'user')); // user|site
 
                 // if this is a unique bundle, restore the bundled variables to static bundles array
                 if ($unique || ! is_null($index))
@@ -2237,7 +2234,7 @@ class Stash {
                     if ( $index !== NULL && $index > 0)
                     {
                         $bundle .= '_'.$index;
-                        $this->EE->TMPL->tagparams['name'] = $bundle;
+                        ee()->TMPL->tagparams['name'] = $bundle;
                     }
                     
                     // get bundle var
@@ -2250,7 +2247,7 @@ class Stash {
                     $bundle_entry_key = $this->_parse_context($bundle_entry_key);
                     
                     // look for our key
-                    if ( $bundle_value = $this->EE->stash_model->get_key(
+                    if ( $bundle_value = ee()->stash_model->get_key(
                         $bundle_entry_key, 
                         $this->bundle_id,
                         $session_id, 
@@ -2284,16 +2281,16 @@ class Stash {
                         $out = '';
                         foreach($bundle_array as $vars)
                         {   
-                            $out .= $this->EE->functions->var_swap($tpl, $vars);
+                            $out .= ee()->functions->var_swap($tpl, $vars);
                         
                             // set variables
                             if ($set)
                             {
                                 foreach($vars as $name => $value)
                                 {
-                                    $this->EE->TMPL->tagparams['name'] = $name;
-                                    $this->EE->TMPL->tagparams['type'] = 'variable';
-                                    $this->EE->TMPL->tagdata = $value;
+                                    ee()->TMPL->tagparams['name'] = $name;
+                                    ee()->TMPL->tagparams['type'] = 'variable';
+                                    ee()->TMPL->tagdata = $value;
                                     $this->replace = TRUE;
                                 
                                     $this->_run_tag('set', array('name', 'type', 'scope', 'context'));
@@ -2309,7 +2306,7 @@ class Stash {
                     }
                 }
                 
-                $this->EE->TMPL->log_item("Stash: RETRIEVED bundle ".$bundle);
+                ee()->TMPL->log_item("Stash: RETRIEVED bundle ".$bundle);
             }
         }
             
@@ -2331,23 +2328,23 @@ class Stash {
         {exp:stash:set_bundle name="contact_form"}
         --------------------------------------------------------- */
         
-        if ( !! $bundle = $this->EE->TMPL->fetch_param('name', FALSE) )
+        if ( !! $bundle = ee()->TMPL->fetch_param('name', FALSE) )
         {           
             if ( isset(self::$bundles[$bundle]))
             {
                 // get params
-                $bundle_label = $this->EE->TMPL->fetch_param('label', $bundle);
-                $unique = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('unique', 'yes'));
+                $bundle_label = ee()->TMPL->fetch_param('label', $bundle);
+                $unique = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('unique', 'yes'));
                 $bundle_entry_key = $bundle_entry_label = $bundle;
                 
                 // get the bundle id
-                $bundle_id = $this->EE->stash_model->get_bundle_by_name($bundle);
+                $bundle_id = ee()->stash_model->get_bundle_by_name($bundle);
                 
                 // does this bundle already exist? Let's try to get it's id
                 if ( ! $bundle_id )
                 {
                     // doesn't exist, let's create it
-                    $bundle_id = $this->EE->stash_model->insert_bundle(
+                    $bundle_id = ee()->stash_model->insert_bundle(
                         $bundle,
                         $bundle_label
                     );      
@@ -2355,7 +2352,7 @@ class Stash {
                 elseif ( ! $unique)
                 {
                     // bundle exists, but do we want more than one entry per bundle?
-                    $entry_count = $this->EE->stash_model->bundle_entry_count($bundle_id, $this->site_id);
+                    $entry_count = ee()->stash_model->bundle_entry_count($bundle_id, $this->site_id);
                     if ($entry_count > 0)
                     {
                         $bundle_entry_key .= '_'.$entry_count;
@@ -2364,11 +2361,11 @@ class Stash {
                 }
                 
                 // stash the data under a single key
-                $this->EE->TMPL->tagparams['name']  = $bundle_entry_key;
-                $this->EE->TMPL->tagparams['label'] = $bundle_entry_label;
-                $this->EE->TMPL->tagparams['save']  = 'yes';
-                $this->EE->TMPL->tagparams['scope'] = 'user';
-                $this->EE->TMPL->tagdata = serialize(self::$bundles[$bundle]);
+                ee()->TMPL->tagparams['name']  = $bundle_entry_key;
+                ee()->TMPL->tagparams['label'] = $bundle_entry_label;
+                ee()->TMPL->tagparams['save']  = 'yes';
+                ee()->TMPL->tagparams['scope'] = 'user';
+                ee()->TMPL->tagdata = serialize(self::$bundles[$bundle]);
                 $this->bundle_id = $bundle_id;
                 
                 unset(self::$bundles[$bundle]);
@@ -2408,35 +2405,35 @@ class Stash {
             $self = new self(); 
             
             // set parameters
-            $this->EE->TMPL->tagparams = $params;
+            ee()->TMPL->tagparams = $params;
             
             // convert tagdata array
             if ( is_array($dynamic))
             {
-                $this->EE->TMPL->tagdata = '';
+                ee()->TMPL->tagdata = '';
                 
                 foreach ($dynamic as $name => $options)
                 {
-                    $this->EE->TMPL->tagdata .= LD.'exp:stash:get dynamic="yes" name="'.$name.'"';
+                    ee()->TMPL->tagdata .= LD.'exp:stash:get dynamic="yes" name="'.$name.'"';
                     foreach ($options as $option => $value)
                     {
-                        $this->EE->TMPL->tagdata .= ' '.$option.'="'.$value.'"';
+                        ee()->TMPL->tagdata .= ' '.$option.'="'.$value.'"';
                     }
-                    $this->EE->TMPL->tagdata .= RD;
+                    ee()->TMPL->tagdata .= RD;
                 }
             }
             else
             {
-                $this->EE->TMPL->tagdata = $dynamic;
+                ee()->TMPL->tagdata = $dynamic;
             }
         
             return $self->bundle();
         }
         
-        if ( !! $bundle = $this->EE->TMPL->fetch_param('name', FALSE) )
+        if ( !! $bundle = ee()->TMPL->fetch_param('name', FALSE) )
         {
             // build a string of parameters to inject into nested stash tags
-            $context = $this->EE->TMPL->fetch_param('context', NULL);
+            $context = ee()->TMPL->fetch_param('context', NULL);
             $params = 'bundle="' . $bundle . '" scope="local"';
             
             if ($context !== NULL )
@@ -2445,7 +2442,7 @@ class Stash {
             }
             
             // add params to nested tags
-            $this->EE->TMPL->tagdata = preg_replace( '/('.LD.'exp:stash:get|'.LD.'exp:stash:set)/i', '$1 '.$params, $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = preg_replace( '/('.LD.'exp:stash:get|'.LD.'exp:stash:set)/i', '$1 '.$params, ee()->TMPL->tagdata);
             
             // get existing values from bundle
             $this->get_bundle(FALSE);
@@ -2483,55 +2480,55 @@ class Stash {
         --------------------------------------------------------- */
             
         // mandatory parameter values for template files
-        $this->EE->TMPL->tagparams['file']                = 'yes';
-        $this->EE->TMPL->tagparams['embed_vars']          = array();
+        ee()->TMPL->tagparams['file']                = 'yes';
+        ee()->TMPL->tagparams['embed_vars']          = array();
 
         // parse="yes"?
         $this->set_parse_params();
 
         // default parameter values
-        $this->EE->TMPL->tagparams['save']                = $this->EE->TMPL->fetch_param('save', 'yes');
-        $this->EE->TMPL->tagparams['scope']               = $this->EE->TMPL->fetch_param('scope', 'site');
-        $this->EE->TMPL->tagparams['parse_tags']          = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
-        $this->EE->TMPL->tagparams['parse_vars']          = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
-        $this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
+        ee()->TMPL->tagparams['save']                = ee()->TMPL->fetch_param('save', 'yes');
+        ee()->TMPL->tagparams['scope']               = ee()->TMPL->fetch_param('scope', 'site');
+        ee()->TMPL->tagparams['parse_tags']          = ee()->TMPL->fetch_param('parse_tags', 'yes');
+        ee()->TMPL->tagparams['parse_vars']          = ee()->TMPL->fetch_param('parse_vars', 'yes');
+        ee()->TMPL->tagparams['parse_conditionals']  = ee()->TMPL->fetch_param('parse_conditionals', 'yes');
 
         // name and context passed in tagparts?
-        if (isset($this->EE->TMPL->tagparts[3]))
+        if (isset(ee()->TMPL->tagparts[3]))
         {   
-            $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->tagparts[2];
-            $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[3];  
+            ee()->TMPL->tagparams['context'] = ee()->TMPL->tagparts[2];
+            ee()->TMPL->tagparams['name'] = ee()->TMPL->tagparts[3];  
         }
-        elseif(isset($this->EE->TMPL->tagparts[2]))
+        elseif(isset(ee()->TMPL->tagparts[2]))
         {
-            $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->tagparts[2];
+            ee()->TMPL->tagparams['name'] = ee()->TMPL->tagparts[2];
         }
 
         // default to processing embeds at end
-        $this->EE->TMPL->tagparams['process'] = $this->EE->TMPL->fetch_param('process', 'end');
+        ee()->TMPL->tagparams['process'] = ee()->TMPL->fetch_param('process', 'end');
 
         // is this a static template?
-        if ( $this->EE->TMPL->tagparams['process'] !== 'static')
+        if ( ee()->TMPL->tagparams['process'] !== 'static')
         {   
             // non-static templates are assigned to the template bundle by default
-            $this->EE->TMPL->tagparams['bundle'] = $this->EE->TMPL->fetch_param('bundle', 'template');
+            ee()->TMPL->tagparams['bundle'] = ee()->TMPL->fetch_param('bundle', 'template');
 
             // by default, parse the template when it is retrieved from the database (like a standard EE embed)
-            $this->EE->TMPL->tagparams['parse_stage'] = $this->EE->TMPL->fetch_param('parse_stage', 'get');
+            ee()->TMPL->tagparams['parse_stage'] = ee()->TMPL->fetch_param('parse_stage', 'get');
         }
         else
         {
             // mandatory params for static templates
-            $this->EE->TMPL->tagparams['bundle']  = 'static'; // must be assigned to the static bundle
-            $this->EE->TMPL->tagparams['process'] = 'end';
-            $this->EE->TMPL->tagparams['context'] = "@URI"; // must be in the context of current URI
-            $this->EE->TMPL->tagparams['parse_stage'] = "set"; // static templates must be pre-parsed
-            $this->EE->TMPL->tagparams['refresh'] = "0"; // static templates can never expire
+            ee()->TMPL->tagparams['bundle']  = 'static'; // must be assigned to the static bundle
+            ee()->TMPL->tagparams['process'] = 'end';
+            ee()->TMPL->tagparams['context'] = "@URI"; // must be in the context of current URI
+            ee()->TMPL->tagparams['parse_stage'] = "set"; // static templates must be pre-parsed
+            ee()->TMPL->tagparams['refresh'] = "0"; // static templates can never expire
 
             // as this is the full rendered output of a template, check that we should really be saving it
             if ( ! $this->_is_cacheable())
             {
-                $this->EE->TMPL->tagparams['save'] = 'no';
+                ee()->TMPL->tagparams['save'] = 'no';
                 self::$_nocache = FALSE; // remove {stash:nocache} pairs
             }
         }
@@ -2539,17 +2536,17 @@ class Stash {
         // set default parameter values for template files
         
         // set a parse depth of 4
-        $this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 4);
+        ee()->TMPL->tagparams['parse_depth'] = ee()->TMPL->fetch_param('parse_depth', 4);
         
         // don't replace the variable by default (only read from file once)
         // note: file syncing can be forced by setting stash_file_sync = TRUE in config
-        $this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
+        ee()->TMPL->tagparams['replace'] = ee()->TMPL->fetch_param('replace', 'no');
         
         // set priority to 0 by default, so that embeds come before post-processed variables
-        $this->EE->TMPL->tagparams['priority'] = $this->EE->TMPL->fetch_param('priority', '0');
+        ee()->TMPL->tagparams['priority'] = ee()->TMPL->fetch_param('priority', '0');
         
         // initialise?
-        $init = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('init', 'yes'));
+        $init = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('init', 'yes'));
         
         // re-initialise parameters, unless disabled by init parameter
         if ($init)
@@ -2563,13 +2560,13 @@ class Stash {
         
         // save stash embed vars passed as parameters in the form stash:my_var which we'll
         // inject later into the stash array for replacement, so remove the stash: prefix
-        $params = $this->EE->TMPL->tagparams;
+        $params = ee()->TMPL->tagparams;
 
         foreach ($params as $key => $val)
         {
             if (strncmp($key, 'stash:', 6) == 0)
             {
-                $this->EE->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
+                ee()->TMPL->tagparams['embed_vars'][substr($key, 6)] = $val;
             }
         }
 
@@ -2625,63 +2622,63 @@ class Stash {
         */
        
         // process as a static cache?
-        if ( $this->EE->TMPL->fetch_param('process') == 'static')
+        if ( ee()->TMPL->fetch_param('process') == 'static')
         {   
-            return $this->static_cache($this->EE->TMPL->tagdata);
+            return $this->static_cache(ee()->TMPL->tagdata);
         }
 
         // Is this page really cacheable? (Note: allow all request types to be cached)
         if ( ! $this->_is_cacheable(FALSE))
         {
             self::$_nocache = FALSE; // remove {stash:nocache} pairs
-            $this->EE->TMPL->tagparams['replace'] = 'yes';
-            $this->EE->TMPL->tagparams['save'] = 'no'; // disable caching
+            ee()->TMPL->tagparams['replace'] = 'yes';
+            ee()->TMPL->tagparams['save'] = 'no'; // disable caching
         }
         else
         {
-             $this->EE->TMPL->tagparams['save'] = 'yes';
+             ee()->TMPL->tagparams['save'] = 'yes';
         }
 
         // Unprefix common variables in wrapped tags
-        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        if($unprefix = ee()->TMPL->fetch_param('unprefix'))
         {
-            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_un_prefix($unprefix, ee()->TMPL->tagdata);
         }
 
         // default name for cached items is 'cache'
-        $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', 'cache'); 
+        ee()->TMPL->tagparams['name'] = ee()->TMPL->fetch_param('name', 'cache'); 
 
         // cached items are saved to the template bundle by default, allow this to be overridden
-        $this->EE->TMPL->tagparams['bundle'] = $this->EE->TMPL->fetch_param('bundle', 'template'); 
+        ee()->TMPL->tagparams['bundle'] = ee()->TMPL->fetch_param('bundle', 'template'); 
 
         // by default, parse on both set and get (i.e. so partial caching is possible)
-        $this->EE->TMPL->tagparams['parse_stage'] = $this->EE->TMPL->fetch_param('parse_stage', 'both');
+        ee()->TMPL->tagparams['parse_stage'] = ee()->TMPL->fetch_param('parse_stage', 'both');
 
         // key_name format for cached items is @URI:context:name, where @URI is the current page URI
         // thus context is always @URI, and name must be set to context:name
-        if ( $context = $this->EE->TMPL->fetch_param('context', FALSE))
+        if ( $context = ee()->TMPL->fetch_param('context', FALSE))
         {
-            $this->EE->TMPL->tagparams['name'] = $this->_parse_context($context . ':') . $this->EE->TMPL->tagparams['name'];
+            ee()->TMPL->tagparams['name'] = $this->_parse_context($context . ':') . ee()->TMPL->tagparams['name'];
         }
 
         // context parameter MUST be set to the page URI pointer
-        $this->EE->TMPL->tagparams['context'] = '@URI';
+        ee()->TMPL->tagparams['context'] = '@URI';
 
         // set a default parse depth of 4
-        $this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 4);
+        ee()->TMPL->tagparams['parse_depth'] = ee()->TMPL->fetch_param('parse_depth', 4);
         
         // don't replace the variable by default
-        $this->EE->TMPL->tagparams['replace'] = $this->EE->TMPL->fetch_param('replace', 'no');
+        ee()->TMPL->tagparams['replace'] = ee()->TMPL->fetch_param('replace', 'no');
 
         // set a default refresh of 0 (never)
-        $this->EE->TMPL->tagparams['refresh'] = $this->EE->TMPL->fetch_param('refresh', 0);
+        ee()->TMPL->tagparams['refresh'] = ee()->TMPL->fetch_param('refresh', 0);
         
         // mandatory parameter values for cached items
-        $this->EE->TMPL->tagparams['scope']               = 'site';
-        $this->EE->TMPL->tagparams['parse_tags']          = 'yes';
-        $this->EE->TMPL->tagparams['parse_vars']          = 'yes';
-        $this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
-        $this->EE->TMPL->tagparams['output']              = 'yes';
+        ee()->TMPL->tagparams['scope']               = 'site';
+        ee()->TMPL->tagparams['parse_tags']          = 'yes';
+        ee()->TMPL->tagparams['parse_vars']          = 'yes';
+        ee()->TMPL->tagparams['parse_conditionals']  = 'yes';
+        ee()->TMPL->tagparams['output']              = 'yes';
         $this->process = 'end';
 
         // re-initialise Stash with the new params
@@ -2716,12 +2713,12 @@ class Stash {
         $this->_run_tag('set', $reserved_vars);
 
         // Is partially cached content possible? We'll need to make sure it's parsed before returning to the template
-        if ($this->EE->TMPL->tagparams['parse_stage'] == 'both' || $this->EE->TMPL->tagparams['parse_stage'] == 'get')
+        if (ee()->TMPL->tagparams['parse_stage'] == 'both' || ee()->TMPL->tagparams['parse_stage'] == 'get')
         {
             $this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
         }
 
-        return $this->EE->TMPL->tagdata;
+        return ee()->TMPL->tagdata;
     }
 
     // ----------------------------------------------------------
@@ -2741,30 +2738,30 @@ class Stash {
         */
 
         // default name for static cached items is 'static'
-        $this->EE->TMPL->tagparams['name'] = $this->EE->TMPL->fetch_param('name', 'static'); 
+        ee()->TMPL->tagparams['name'] = ee()->TMPL->fetch_param('name', 'static'); 
 
         // format for key_name for cached items is @URI:context:name, where @URI is the current page URI
         // thus context is always @URI, and name must be set to context:name
-        if ( $context = $this->EE->TMPL->fetch_param('context', FALSE))
+        if ( $context = ee()->TMPL->fetch_param('context', FALSE))
         {
             if ($context !== '@URI')
             {
-                $this->EE->TMPL->tagparams['name'] = $context . ':' . $this->EE->TMPL->tagparams['name'];
+                ee()->TMPL->tagparams['name'] = $context . ':' . ee()->TMPL->tagparams['name'];
             }
         }
 
         // Allow @URI to be overridden...
-        $uri = $this->EE->TMPL->fetch_param('uri', '@URI');
+        $uri = ee()->TMPL->fetch_param('uri', '@URI');
 
         // parse cache key, making sure query strings are excluded from the @URI
-        $this->EE->TMPL->tagparams['name'] = $this->_parse_context($uri . ':' . $this->EE->TMPL->tagparams['name'], TRUE);
+        ee()->TMPL->tagparams['name'] = $this->_parse_context($uri . ':' . ee()->TMPL->tagparams['name'], TRUE);
 
 
         $this->process = 'end';
         $this->priority = '999999'; //  should be the last thing post-processed (by Stash)
 
         // has the tag been used as a tag pair? If so, we'll parse the tagdata to remove {stash:nocache} pairs
-        if ($this->EE->TMPL->tagdata)
+        if (ee()->TMPL->tagdata)
         {
             // parse the tagdata
             self::$_nocache = FALSE; // remove {stash:nocache} pairs
@@ -2787,28 +2784,28 @@ class Stash {
     public function save_output($output='')
     { 
         // mandatory parameter values for cached output
-        $this->EE->TMPL->tagparams['context']   = NULL;
-        $this->EE->TMPL->tagparams['scope']     = 'site';
-        $this->EE->TMPL->tagparams['replace']   = "no";  // static cached items cannot be replaced
-        $this->EE->TMPL->tagparams['bundle']    = 'static'; // cached pages in the static bundle are saved to file automatically by the model
+        ee()->TMPL->tagparams['context']   = NULL;
+        ee()->TMPL->tagparams['scope']     = 'site';
+        ee()->TMPL->tagparams['replace']   = "no";  // static cached items cannot be replaced
+        ee()->TMPL->tagparams['bundle']    = 'static'; // cached pages in the static bundle are saved to file automatically by the model
 
         // optional parameters
-        $this->EE->TMPL->tagparams['refresh']   = $this->EE->TMPL->fetch_param('refresh', 0); // by default static cached items won't expire
+        ee()->TMPL->tagparams['refresh']   = ee()->TMPL->fetch_param('refresh', 0); // by default static cached items won't expire
 
         // bundle determines the cache driver
-        $this->bundle_id = $this->EE->stash_model->get_bundle_by_name($this->EE->TMPL->tagparams['bundle']);
+        $this->bundle_id = ee()->stash_model->get_bundle_by_name(ee()->TMPL->tagparams['bundle']);
 
         // set the entire template data as the tagdata, removing the placeholder for this tag from the output saved to file
-        $this->EE->TMPL->tagdata = $output;
+        ee()->TMPL->tagdata = $output;
 
         // as this is the full rendered output of a template, check that we should really be saving it
         if ( ! $this->_is_cacheable())
         {
-            $this->EE->TMPL->tagparams['save'] = 'no';
+            ee()->TMPL->tagparams['save'] = 'no';
         }
         else
         {
-            $this->EE->TMPL->tagparams['save'] = 'yes';
+            ee()->TMPL->tagparams['save'] = 'yes';
         }
         
         // permitted parameters for cached
@@ -2831,7 +2828,7 @@ class Stash {
     
         $this->_run_tag('set', $reserved_vars);
 
-        return $this->EE->TMPL->tagdata;
+        return ee()->TMPL->tagdata;
     }
 
     // ---------------------------------------------------------
@@ -2845,29 +2842,29 @@ class Stash {
     public function not_found()
     {   
         // try to prevent recursion
-        if ( $this->EE->output->out_type == "404") 
+        if ( ee()->output->out_type == "404") 
         {
             return;
         }
 
         $url = FALSE;
-        $template = explode('/', $this->EE->config->item('site_404'));
+        $template = explode('/', ee()->config->item('site_404'));
 
         if (isset($template[1]))
         {
             // build an absolute URL to the 404 template
-            $url = $this->EE->functions->create_url($template[0].'/'.$template[1]);
+            $url = ee()->functions->create_url($template[0].'/'.$template[1]);
         }
 
         // We'll use cURL to grab the rendered 404 template
         // The template MUST be publicly accessible without being logged in
         if ($url 
-            && $this->EE->config->item('is_system_on') !== 'n'
+            && ee()->config->item('is_system_on') !== 'n'
             && is_callable('curl_init'))
         {     
             // set header
-            $this->EE->config->set_item('send_headers', FALSE); // trick EE into not sending a 200
-            $this->EE->output->set_status_header('404');
+            ee()->config->set_item('send_headers', FALSE); // trick EE into not sending a 200
+            ee()->output->set_status_header('404');
 
             // grab the rendered 404 page
             $ch = curl_init();
@@ -2897,11 +2894,11 @@ class Stash {
         // if cURL fails or system is off, fallback to a redirect
         if ($url)
         {
-            $this->EE->functions->redirect($url, FALSE, '404');
+            ee()->functions->redirect($url, FALSE, '404');
         }
         else 
         {
-            $this->EE->TMPL->log_item('Stash: 404 template is not configured. Please select a 404 template in Design > Templates > Global Preferences.');
+            ee()->TMPL->log_item('Stash: 404 template is not configured. Please select a 404 template in Design > Templates > Global Preferences.');
         }
     }
 
@@ -2920,9 +2917,9 @@ class Stash {
         if ($check_request_type)
         {
             if ($_SERVER['REQUEST_METHOD'] == 'POST'     // … POST request
-                || $this->EE->input->get('ACT')          // … ACT request
-                || $this->EE->input->get('css')          // … css request
-                || $this->EE->input->get('URL')          // … URL request
+                || ee()->input->get('ACT')          // … ACT request
+                || ee()->input->get('css')          // … css request
+                || ee()->input->get('URL')          // … URL request
             )
             {
                 return FALSE;
@@ -2930,24 +2927,24 @@ class Stash {
         }
 
         // has caching been deliberately disabled?
-        if ( FALSE === (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('save', 'yes')) )
+        if ( FALSE === (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('save', 'yes')) )
         {
             return FALSE;
         }
 
         // logged_in_only: only cache if the page visitor is logged in
-        if ( (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('logged_in_only')) )
+        if ( (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('logged_in_only')) )
         {
-            if ($this->EE->session->userdata['member_id'] == 0)
+            if (ee()->session->userdata['member_id'] == 0)
             {
                 return FALSE; // don't cache
             }
         }
 
         // logged_out_only: only cache if the page visitor is logged out
-        if ((bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('logged_out_only')) )
+        if ((bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('logged_out_only')) )
         {
-            if ($this->EE->session->userdata['member_id'] != 0)
+            if (ee()->session->userdata['member_id'] != 0)
             {
                 return FALSE; // don't cache
             }
@@ -2973,7 +2970,7 @@ class Stash {
         */
 
         // disable nocache for all template data parsed after this point?
-        self::$_nocache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('nocache', 'y'));
+        self::$_nocache = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('nocache', 'y'));
 
         $this->process = 'end';
         $this->priority = '999998'; //  should be the *second to last* thing post-processed (by Stash)
@@ -2995,7 +2992,7 @@ class Stash {
         if ( ! self::$_nocache)
         {
             // yes - let's remove any {[prefix]:nocache} tags from the final output
-            $strip = $this->EE->TMPL->fetch_param('strip', FALSE);
+            $strip = ee()->TMPL->fetch_param('strip', FALSE);
 
             if ($strip)
             {
@@ -3011,17 +3008,17 @@ class Stash {
                 $strip[] = $prefix . $this->_nocache_suffix;
             }
 
-            $this->EE->TMPL->tagparams['strip'] = implode('|', $strip);
+            ee()->TMPL->tagparams['strip'] = implode('|', $strip);
         }
 
         // Do string transformations
         $output = $this->_clean_string($output);
 
         // set as template tagdata
-        $this->EE->TMPL->tagdata = $output;
+        ee()->TMPL->tagdata = $output;
 
         // remove the placeholder from the output
-        return $this->EE->TMPL->tagdata;
+        return ee()->TMPL->tagdata;
     }
 
     
@@ -3054,10 +3051,10 @@ class Stash {
         $this->set_parse_params();
 
         // default parameter values
-        $this->EE->TMPL->tagparams['parse_tags']          = $this->EE->TMPL->fetch_param('parse_tags', 'yes');
-        $this->EE->TMPL->tagparams['parse_vars']          = $this->EE->TMPL->fetch_param('parse_vars', 'yes');
-        $this->EE->TMPL->tagparams['parse_conditionals']  = $this->EE->TMPL->fetch_param('parse_conditionals', 'yes');
-        $this->EE->TMPL->tagparams['parse_depth']         = $this->EE->TMPL->fetch_param('parse_depth', 4);
+        ee()->TMPL->tagparams['parse_tags']          = ee()->TMPL->fetch_param('parse_tags', 'yes');
+        ee()->TMPL->tagparams['parse_vars']          = ee()->TMPL->fetch_param('parse_vars', 'yes');
+        ee()->TMPL->tagparams['parse_conditionals']  = ee()->TMPL->fetch_param('parse_conditionals', 'yes');
+        ee()->TMPL->tagparams['parse_depth']         = ee()->TMPL->fetch_param('parse_depth', 4);
         
         // postpone tag processing?
         if ( $this->process !== 'inline') 
@@ -3069,20 +3066,20 @@ class Stash {
         $this->init();
 
         // Unprefix common variables in wrapped tags
-        if($unprefix = $this->EE->TMPL->fetch_param('unprefix'))
+        if($unprefix = ee()->TMPL->fetch_param('unprefix'))
         {
-            $this->EE->TMPL->tagdata = $this->_un_prefix($unprefix, $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_un_prefix($unprefix, ee()->TMPL->tagdata);
         }
         
         // do the business
         $this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
         
         // output the parsed template data?
-        $output = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('output', 'yes'));
+        $output = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('output', 'yes'));
 
         if ($output)
         {
-            return $this->EE->TMPL->tagdata;
+            return ee()->TMPL->tagdata;
         }
     }
 
@@ -3114,12 +3111,12 @@ class Stash {
         }
         
         // register params
-        $name = $this->EE->TMPL->fetch_param('name', FALSE);        
-        $context = $this->EE->TMPL->fetch_param('context', NULL);
-        $scope = strtolower($this->EE->TMPL->fetch_param('scope', $this->default_scope));
-        $flush_cache = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('flush_cache', 'yes'));
-        $bundle = $this->EE->TMPL->fetch_param('bundle', NULL);
-        $bundle_id = $this->EE->TMPL->fetch_param('bundle_id', FALSE);
+        $name = ee()->TMPL->fetch_param('name', FALSE);        
+        $context = ee()->TMPL->fetch_param('context', NULL);
+        $scope = strtolower(ee()->TMPL->fetch_param('scope', $this->default_scope));
+        $flush_cache = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('flush_cache', 'yes'));
+        $bundle = ee()->TMPL->fetch_param('bundle', NULL);
+        $bundle_id = ee()->TMPL->fetch_param('bundle_id', FALSE);
         
         // narrow the scope to user session?
         $session_id = NULL;
@@ -3136,7 +3133,7 @@ class Stash {
         // named bundle?
         if ( ! is_null($bundle) && ! $bundle_id)
         {
-            $bundle_id = $this->EE->stash_model->get_bundle_by_name($bundle);
+            $bundle_id = ee()->stash_model->get_bundle_by_name($bundle);
         }
         
         // unset a single variable, or multiple variables that match a regex
@@ -3157,7 +3154,7 @@ class Stash {
                 if ($flush_cache && $scope !== 'local')
                 {
                     // delete variables with key_names that match the regex
-                    $this->EE->stash_model->delete_matching_keys(
+                    ee()->stash_model->delete_matching_keys(
                         $bundle_id,
                         $session_id, 
                         $this->site_id,
@@ -3189,7 +3186,7 @@ class Stash {
                     // as we're deleting a specific key, the bundle_id is required
                     $bundle_id = $bundle_id ? $bundle_id : $this->bundle_id;
                     
-                    $this->EE->stash_model->delete_key(
+                    ee()->stash_model->delete_key(
                         $stash_key, 
                         $bundle_id,
                         $session_id, 
@@ -3207,7 +3204,7 @@ class Stash {
             // remove from cache
             if ($flush_cache)
             {
-                $this->EE->stash_model->delete_matching_keys(
+                ee()->stash_model->delete_matching_keys(
                     $bundle_id,
                     $session_id, 
                     $this->site_id,
@@ -3229,17 +3226,17 @@ class Stash {
      */
     public function flush_cache()
     {
-        if ($this->EE->session->userdata['group_title'] == "Super Admins")
+        if (ee()->session->userdata['group_title'] == "Super Admins")
         {
-            if ( $this->EE->stash_model->flush_cache($this->site_id))
+            if ( ee()->stash_model->flush_cache($this->site_id))
             {
-                return $this->EE->lang->line('cache_flush_success');
+                return ee()->lang->line('cache_flush_success');
             }
         }
         else
         {
             // not authorised
-            $this->EE->output->show_user_error('general', $this->EE->lang->line('not_authorized'));
+            ee()->output->show_user_error('general', ee()->lang->line('not_authorized'));
         }
     }
 
@@ -3260,7 +3257,7 @@ class Stash {
     private function _matches($match, $against)
     {
         $is_match = TRUE;
-        $match = $this->EE->security->entity_decode($match);
+        $match = ee()->security->entity_decode($match);
 
         if ( ! is_array($against)) 
         {
@@ -3280,7 +3277,7 @@ class Stash {
             {
                 $part = '';
             }
-            $this->EE->TMPL->log_item('Stash: MATCH '. $match . ' AGAINST ' . $part);
+            ee()->TMPL->log_item('Stash: MATCH '. $match . ' AGAINST ' . $part);
             
             if ( ! preg_match($match, $part))
             {
@@ -3317,15 +3314,15 @@ class Stash {
             }
         }
 
-        $sort       = strtolower($this->EE->TMPL->fetch_param('sort', FALSE));
-        $sort_type  = strtolower($this->EE->TMPL->fetch_param('sort_type', FALSE)); // string || integer || lowercase
-        $orderby    = $this->EE->TMPL->fetch_param('orderby', FALSE);
-        $match      = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
-        $against    = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
-        $unique     = $this->EE->TMPL->fetch_param('unique', NULL);
-        $slice      = $this->EE->TMPL->fetch_param('slice', NULL); // e.g. "0, 2" - slice the list array before order/sort/limit
-        $in         = $this->EE->TMPL->fetch_param('in',  FALSE); // compare column against a tracked value, e.g. list_column:tracked_column, and include if it matches
-        $not_in     = $this->EE->TMPL->fetch_param('not_in',  FALSE); // compare column against a tracked value, and exclude if it matches
+        $sort       = strtolower(ee()->TMPL->fetch_param('sort', FALSE));
+        $sort_type  = strtolower(ee()->TMPL->fetch_param('sort_type', FALSE)); // string || integer || lowercase
+        $orderby    = ee()->TMPL->fetch_param('orderby', FALSE);
+        $match      = ee()->TMPL->fetch_param('match', NULL); // regular expression to each list item against
+        $against    = ee()->TMPL->fetch_param('against', NULL); // array key to test $match against
+        $unique     = ee()->TMPL->fetch_param('unique', NULL);
+        $slice      = ee()->TMPL->fetch_param('slice', NULL); // e.g. "0, 2" - slice the list array before order/sort/limit
+        $in         = ee()->TMPL->fetch_param('in',  FALSE); // compare column against a tracked value, e.g. list_column:tracked_column, and include if it matches
+        $not_in     = ee()->TMPL->fetch_param('not_in',  FALSE); // compare column against a tracked value, and exclude if it matches
         
         // make sure any parsing is done AFTER the list has been replaced in to the template 
         // not when it's still a serialized array
@@ -3595,25 +3592,25 @@ class Stash {
      */
     private function _serialize_stash_tag_pairs()
     {
-        $match   = $this->EE->TMPL->fetch_param('match', NULL); // regular expression to each list item against
-        $against = $this->EE->TMPL->fetch_param('against', NULL); // array key to test $match against
+        $match   = ee()->TMPL->fetch_param('match', NULL); // regular expression to each list item against
+        $against = ee()->TMPL->fetch_param('against', NULL); // array key to test $match against
         
         //  get the stash var pairs values
         $stash_vars = array(); 
      
-        foreach($this->EE->TMPL->var_pair as $key => $val)
+        foreach(ee()->TMPL->var_pair as $key => $val)
         {   
             // valid variable pair?
             if (strncmp($key, 'stash:', 6) ==  0)
             {   
                 // but does the pair exist for this row of the list?
-                $starts_at = strpos($this->EE->TMPL->tagdata, LD.$key.RD) + strlen(LD.$key.RD);
-                $ends_at = strpos($this->EE->TMPL->tagdata, LD."/".$key.RD, $starts_at);
+                $starts_at = strpos(ee()->TMPL->tagdata, LD.$key.RD) + strlen(LD.$key.RD);
+                $ends_at = strpos(ee()->TMPL->tagdata, LD."/".$key.RD, $starts_at);
 
                 if (FALSE !== $starts_at && FALSE !== $ends_at)
                 {   
                     // extract value between the pair
-                    $tag_value = substr($this->EE->TMPL->tagdata, $starts_at, $ends_at - $starts_at);
+                    $tag_value = substr(ee()->TMPL->tagdata, $starts_at, $ends_at - $starts_at);
 
                     // don't save a string containing just white space, but be careful to preserve zeros
                     if ( $this->not_empty($tag_value) || $tag_value === '0')
@@ -3644,16 +3641,16 @@ class Stash {
             if ( ! $this->_matches($match, $stash_vars[$against]))
             {
                 // match not found, end here
-                $this->EE->TMPL->tagdata = '';
+                ee()->TMPL->tagdata = '';
                 return;
             }
             // disable match/against when setting the variable
-            #unset($this->EE->TMPL->tagparams['match']);
-            #unset($this->EE->TMPL->tagparams['against']);
+            #unset(ee()->TMPL->tagparams['match']);
+            #unset(ee()->TMPL->tagparams['against']);
         }
     
         // flatten the array into a string
-        $this->EE->TMPL->tagdata = $this->_list_row_implode($stash_vars);
+        ee()->TMPL->tagdata = $this->_list_row_implode($stash_vars);
     }
     
     // ---------------------------------------------------------
@@ -4092,12 +4089,12 @@ class Stash {
 
         // provide a fallback value for index pages
         $uri = $ee_uri->uri_string();
-        $uri = empty($uri) ? $this->EE->stash_model->get_index_key() : $uri;
+        $uri = empty($uri) ? ee()->stash_model->get_index_key() : $uri;
 
         // append query string?
         if ($this->include_query_str 
             && ! $disable_query_str
-            && $query_str = $this->EE->input->server('QUERY_STRING')
+            && $query_str = ee()->input->server('QUERY_STRING')
         ){
             $uri = $uri . '?' . $query_str;
         }
@@ -4109,7 +4106,7 @@ class Stash {
         }
 
         // apply a global variable prefix, if set
-        if ( $prefix = $this->EE->config->item('stash_var_prefix'))
+        if ( $prefix = ee()->config->item('stash_var_prefix'))
         {
             if (strstr($name, ':'))
             {
@@ -4138,10 +4135,10 @@ class Stash {
      */
     private function _parse_sub_template($tags = TRUE, $vars = TRUE, $conditionals = FALSE, $depth = 1, $nocache_id = FALSE)
     {   
-        $this->EE->TMPL->log_item("Stash: processing inner tags");
+        ee()->TMPL->log_item("Stash: processing inner tags");
 
         // optional prefix to use for nocache pairs
-        if ($nocache_prefix = $this->EE->TMPL->fetch_param('prefix', FALSE))
+        if ($nocache_prefix = ee()->TMPL->fetch_param('prefix', FALSE))
         {
             // add to the array for optional removal at the end of template parsing
             if ( ! in_array($nocache_prefix, self::$_nocache_prefixes))
@@ -4157,26 +4154,26 @@ class Stash {
         // nocache tags
         if (FALSE === $nocache_id)
         {
-            $this->nocache_id = $this->EE->functions->random();
+            $this->nocache_id = ee()->functions->random();
         }
 
         $nocache = $nocache_prefix . $this->_nocache_suffix;
         $nocache_pattern = '/'.LD.$nocache.RD.'(.*)'.LD.'\/'.$nocache.RD.'/Usi';
             
         // save TMPL values for later
-        $tagparams = $this->EE->TMPL->tagparams;
-        $tagdata = $this->EE->TMPL->tagdata;
+        $tagparams = ee()->TMPL->tagparams;
+        $tagdata = ee()->TMPL->tagdata;
         
         // call the stash_fetch_template hook to prep nested stash embeds
-        if ($this->EE->extensions->active_hook('stash_fetch_template') === TRUE && ! $this->_embed_nested)
+        if (ee()->extensions->active_hook('stash_fetch_template') === TRUE && ! $this->_embed_nested)
         {
             // stash embed vars
-            $embed_vars = (array) $this->EE->TMPL->fetch_param('embed_vars', array());      
-            $this->EE->session->cache['stash'] = array_merge($this->EE->session->cache['stash'], $embed_vars);
+            $embed_vars = (array) ee()->TMPL->fetch_param('embed_vars', array());      
+            ee()->session->cache['stash'] = array_merge(ee()->session->cache['stash'], $embed_vars);
             
             // call the hook
-            $this->EE->extensions->call('stash_fetch_template', array(
-                'template_data'      => $this->EE->TMPL->tagdata
+            ee()->extensions->call('stash_fetch_template', array(
+                'template_data'      => ee()->TMPL->tagdata
             ));
         
             // don't run again for this template
@@ -4184,45 +4181,45 @@ class Stash {
         }
         
         // restore original TMPL values
-        $this->EE->TMPL->tagparams = $tagparams;
-        $this->EE->TMPL->tagdata = $tagdata;
+        ee()->TMPL->tagparams = $tagparams;
+        ee()->TMPL->tagdata = $tagdata;
 
         if (self::$_nocache)
         {
             // protect content inside {stash:nocache} tags, or {[prefix]:nocache} tags
-            $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), ee()->TMPL->tagdata);
         }
         else
         {
             // remove extraneous {stash:nocache} tags, or {[prefix]:nocache} tags
-            $this->EE->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', ee()->TMPL->tagdata);
         }
     
         // parse variables  
         if ($vars)
         {   
             // note: each pass can expose more variables to be parsed after tag processing
-            $this->EE->TMPL->tagdata = $this->_parse_template_vars($this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = $this->_parse_template_vars(ee()->TMPL->tagdata);
 
             if (self::$_nocache)
             {
                 // protect content inside {stash:nocache} tags that might have been exposed by parse_vars
-                $this->EE->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), $this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = preg_replace_callback($nocache_pattern, array($this, '_placeholders'), ee()->TMPL->tagdata);
             }
             else
             {
                 // remove extraneous {stash:nocache} tags, or {[prefix]:nocache} tags
-                $this->EE->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', $this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = str_replace(array(LD.$nocache.RD, LD.'/'.$nocache.RD), '', ee()->TMPL->tagdata);
             }
         }
 
         // parse conditionals?
-        if ($conditionals && strpos($this->EE->TMPL->tagdata, LD.'if') !== FALSE)
+        if ($conditionals && strpos(ee()->TMPL->tagdata, LD.'if') !== FALSE)
         {   
             // prep {If var1 IN (var2)}../if] style conditionals
             if ($this->parse_if_in)
             {
-                $this->EE->TMPL->tagdata = $this->_prep_in_conditionals($this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = $this->_prep_in_conditionals(ee()->TMPL->tagdata);
             }
 
             // parse conditionals
@@ -4230,8 +4227,8 @@ class Stash {
             {
                 // pre EE 2.9, we can only parse "simple" segment and global conditionals on each pass, 
                 // leaving "advanced" ones until after tag parsing has completed
-                $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_simple_segment_conditionals($this->EE->TMPL->tagdata);
-                $this->EE->TMPL->tagdata = $this->EE->TMPL->simple_conditionals($this->EE->TMPL->tagdata, $this->EE->config->_global_vars);
+                ee()->TMPL->tagdata = ee()->TMPL->parse_simple_segment_conditionals(ee()->TMPL->tagdata);
+                ee()->TMPL->tagdata = ee()->TMPL->simple_conditionals(ee()->TMPL->tagdata, ee()->config->_global_vars);
             }
             else
             {   
@@ -4242,84 +4239,85 @@ class Stash {
                 $logged_in_user_cond = array();
                 foreach ($user_vars as $val)
                 {
-                    if (isset($this->EE->session->userdata[$val]) AND ($val == 'group_description' OR strval($this->EE->session->userdata[$val]) != ''))
+                    if (isset(ee()->session->userdata[$val]) AND ($val == 'group_description' OR strval(ee()->session->userdata[$val]) != ''))
                     {
-                        $logged_in_user_cond['logged_in_'.$val] = $this->EE->session->userdata[$val];
+                        $logged_in_user_cond['logged_in_'.$val] = ee()->session->userdata[$val];
                     }
                 }
 
                 // Parse conditionals for known variables *without* converting unknown variables
                 // used in if/else statements to false or 'n'
-                $this->EE->TMPL->tagdata = $this->EE->functions->prep_conditionals(
-                    $this->EE->TMPL->tagdata,
+                ee()->TMPL->tagdata = ee()->functions->prep_conditionals(
+                    ee()->TMPL->tagdata,
                     array_merge(
-                        $this->EE->TMPL->segment_vars,
-                        $this->EE->TMPL->template_route_vars,
-                        $this->EE->TMPL->embed_vars,
+                        ee()->TMPL->segment_vars,
+                        ee()->TMPL->template_route_vars,
+                        ee()->TMPL->embed_vars,
                         $logged_in_user_cond,
-                        $this->EE->config->_global_vars
+                        ee()->config->_global_vars
                     )
                 );
             }
         }
         
         // Remove any EE comments that might have been exposed before parsing tags
-        if (strpos($this->EE->TMPL->tagdata, '{!--') !== FALSE) 
+        if (strpos(ee()->TMPL->tagdata, '{!--') !== FALSE) 
         {
-            $this->EE->TMPL->tagdata = preg_replace("/\{!--.*?--\}/s", '', $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = preg_replace("/\{!--.*?--\}/s", '', ee()->TMPL->tagdata);
         }
 
-        // clone the template object
-        $TMPL2 = $this->EE->TMPL;
-        unset($this->EE->TMPL);
-        
         // parse tags, but check that there really are unparsed tags in the current shell   
-        if ($tags && (strpos($TMPL2->tagdata, LD.'exp:') !== FALSE))
+        if ($tags && (strpos(ee()->TMPL->tagdata, LD.'exp:') !== FALSE))
         {
+            // clone the template object
+            $TMPL2 = ee()->TMPL;
+            ee()->remove('TMPL');
+            ee()->set('TMPL', new EE_Template());
+
             // copy object properties from original
-            $this->EE->TMPL = new EE_Template();
-            $this->EE->TMPL->start_microtime = $TMPL2->start_microtime;
-            $this->EE->TMPL->template = $TMPL2->tagdata;
-            $this->EE->TMPL->tag_data   = array();
-            $this->EE->TMPL->var_single = array();
-            $this->EE->TMPL->var_cond   = array();
-            $this->EE->TMPL->var_pair   = array();
-            $this->EE->TMPL->plugins = $TMPL2->plugins;
-            $this->EE->TMPL->modules = $TMPL2->modules;
-            $this->EE->TMPL->module_data = $TMPL2->module_data;
+            ee()->TMPL->start_microtime = $TMPL2->start_microtime;
+            ee()->TMPL->template = $TMPL2->tagdata;
+            ee()->TMPL->tag_data   = array();
+            ee()->TMPL->var_single = array();
+            ee()->TMPL->var_cond   = array();
+            ee()->TMPL->var_pair   = array();
+            ee()->TMPL->plugins = $TMPL2->plugins;
+            ee()->TMPL->modules = $TMPL2->modules;
+            ee()->TMPL->module_data = $TMPL2->module_data;
 
             // copy globals
-            $this->EE->TMPL->segment_vars = $TMPL2->segment_vars;
-            $this->EE->TMPL->embed_vars = $TMPL2->embed_vars;
+            ee()->TMPL->segment_vars = $TMPL2->segment_vars;
+            ee()->TMPL->embed_vars = $TMPL2->embed_vars;
 
-            $this->EE->TMPL->template_route_vars = array();
+            ee()->TMPL->template_route_vars = array();
             if ( isset($TMPL2->template_route_vars))
             {
-                $this->EE->TMPL->template_route_vars = $TMPL2->template_route_vars;
+                ee()->TMPL->template_route_vars = $TMPL2->template_route_vars;
             }
 
-            $this->EE->TMPL->layout_conditionals = array();
+            ee()->TMPL->layout_conditionals = array();
             if ( isset($TMPL2->layout_conditionals))
             {
-                $this->EE->TMPL->layout_conditionals = $TMPL2->layout_conditionals;
+                ee()->TMPL->layout_conditionals = $TMPL2->layout_conditionals;
             }
 
             // parse tags
-            $this->EE->TMPL->parse_tags();
-            $this->EE->TMPL->process_tags();
-            $this->EE->TMPL->loop_count = 0;
+            ee()->TMPL->parse_tags();
+            ee()->TMPL->process_tags();
+            ee()->TMPL->loop_count = 0;
+            
+            $TMPL2->tagdata = ee()->TMPL->template;
+            $TMPL2->log = array_merge($TMPL2->log, ee()->TMPL->log);
 
-            $TMPL2->tagdata = $this->EE->TMPL->template;
-            $TMPL2->log = array_merge($TMPL2->log, $this->EE->TMPL->log);
+            ee()->remove('TMPL');
+            ee()->set('TMPL', $TMPL2);
+            unset($TMPL2);
         }
         else
         {
             $depth = 1;
         }
-    
-        $this->EE->TMPL = $TMPL2;   
-        unset($TMPL2);
-        
+
         // recursively parse?
         if ( $depth > 1)
         {
@@ -4333,30 +4331,30 @@ class Stash {
             // recursive parsing complete
 
             // parse advanced conditionals?
-            if ($conditionals && strpos($this->EE->TMPL->tagdata, LD.'if') !== FALSE)
+            if ($conditionals && strpos(ee()->TMPL->tagdata, LD.'if') !== FALSE)
             {
                 // record if PHP is enabled for this template
-                $parse_php = $this->EE->TMPL->parse_php;
+                $parse_php = ee()->TMPL->parse_php;
                 
-                if ( ! isset($this->EE->TMPL->layout_conditionals))
+                if ( ! isset(ee()->TMPL->layout_conditionals))
                 {
-                    $this->EE->TMPL->layout_conditionals = array();
+                    ee()->TMPL->layout_conditionals = array();
                 }
 
                 // this will parse all remaining conditionals, with unknown variables used in if/else
                 // statements being converted to false or 'n' so they are parsed safely
-                $this->EE->TMPL->tagdata = $this->EE->TMPL->advanced_conditionals($this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = ee()->TMPL->advanced_conditionals(ee()->TMPL->tagdata);
                 
                 // restore original parse_php flag for this template
-                $this->EE->TMPL->parse_php = $parse_php;
+                ee()->TMPL->parse_php = $parse_php;
             }   
                         
             // call the 'stash_post_parse' hook
-            if ($this->EE->extensions->active_hook('stash_post_parse') === TRUE && $this->_embed_nested === TRUE)
+            if (ee()->extensions->active_hook('stash_post_parse') === TRUE && $this->_embed_nested === TRUE)
             {    
-                $this->EE->TMPL->tagdata = $this->EE->extensions->call(
+                ee()->TMPL->tagdata = ee()->extensions->call(
                     'stash_post_parse',
-                    $this->EE->TMPL->tagdata,
+                    ee()->TMPL->tagdata,
                     FALSE, 
                     $this->site_id
                 );
@@ -4366,11 +4364,11 @@ class Stash {
             // we must do this even if nocache has been disabled, since it may have been disabled after tags were escaped
             foreach ($this->_ph as $index => $val)
             {
-                $this->EE->TMPL->tagdata = str_replace('[_'.__CLASS__.'_'.($index+1).'_'.$this->nocache_id.']', $val, $this->EE->TMPL->tagdata);
+                ee()->TMPL->tagdata = str_replace('[_'.__CLASS__.'_'.($index+1).'_'.$this->nocache_id.']', $val, ee()->TMPL->tagdata);
             }  
 
             // parse EE nocache placeholders {NOCACHE}
-            $this->EE->TMPL->tagdata = $this->EE->TMPL->parse_nocache($this->EE->TMPL->tagdata);   
+            ee()->TMPL->tagdata = ee()->TMPL->parse_nocache(ee()->TMPL->tagdata);   
         }
     }
     
@@ -4386,9 +4384,9 @@ class Stash {
     private function _parse_template_vars($template = '')
     {   
         // globals vars {name}
-        if (count($this->EE->config->_global_vars) > 0 && strpos($template, LD) !== FALSE)
+        if (count(ee()->config->_global_vars) > 0 && strpos($template, LD) !== FALSE)
         {
-            foreach ($this->EE->config->_global_vars as $key => $val)
+            foreach (ee()->config->_global_vars as $key => $val)
             {
                 $template = str_replace(LD.$key.RD, $val, $template);
             }   
@@ -4396,7 +4394,7 @@ class Stash {
         
         // stash vars {stash:var} 
         // note: due to the order we're doing this, global vars can themselves contain stash vars...
-        if (count($this->EE->session->cache['stash']) > 0 && strpos($template, LD.'stash:') !== FALSE)
+        if (count(ee()->session->cache['stash']) > 0 && strpos($template, LD.'stash:') !== FALSE)
         {   
             // We only want to replace single stash placeholder tags, 
             // NOT tag pairs such as {stash:var}whatever{/stash:var}
@@ -4408,7 +4406,7 @@ class Stash {
                  $tag_vars = array_flip($matches[1]);
             }
             
-            foreach($this->EE->session->cache['stash'] as $key => $val)
+            foreach(ee()->session->cache['stash'] as $key => $val)
             {
                 if (isset($tag_vars['stash:'.$key]))
                 {
@@ -4424,9 +4422,9 @@ class Stash {
 
             foreach ($user_vars as $val)
             {
-                if (isset($this->EE->session->userdata[$val]) AND ($val == 'group_description' OR strval($this->EE->session->userdata[$val]) != ''))
+                if (isset(ee()->session->userdata[$val]) AND ($val == 'group_description' OR strval(ee()->session->userdata[$val]) != ''))
                 {
-                    $template = str_replace(LD.'logged_in_'.$val.RD, $this->EE->session->userdata[$val], $template);
+                    $template = str_replace(LD.'logged_in_'.$val.RD, ee()->session->userdata[$val], $template);
                 }
             }  
         }    
@@ -4460,11 +4458,11 @@ class Stash {
                 {   
                     if (version_compare(APP_VER, '2.6', '>=')) 
                     {           
-                        $template = str_replace($matches[0][$j], $this->EE->localize->format_date($matches[2][$j]), $template); 
+                        $template = str_replace($matches[0][$j], ee()->localize->format_date($matches[2][$j]), $template); 
                     }
                     else
                     {
-                        $template = str_replace($matches[0][$j], $this->EE->localize->decode_date($matches[2][$j], $this->EE->localize->now), $template);
+                        $template = str_replace($matches[0][$j], ee()->localize->decode_date($matches[2][$j], ee()->localize->now), $template);
                     }   
                 }
             }
@@ -4475,7 +4473,7 @@ class Stash {
         {
             for ($i = 1; $i < 10; $i++)
             {
-                $template = str_replace(LD.'segment_'.$i.RD, $this->EE->uri->segment($i), $template); 
+                $template = str_replace(LD.'segment_'.$i.RD, ee()->uri->segment($i), $template); 
             }
         }
         
@@ -4500,10 +4498,10 @@ class Stash {
         if ( ($this->parse_tags || $this->parse_vars || $this->parse_conditionals) && ! $this->parse_complete)
         {   
             // do parsing
-            $this->EE->TMPL->tagdata = $value;
+            ee()->TMPL->tagdata = $value;
             $this->_parse_sub_template($this->parse_tags, $this->parse_vars, $this->parse_conditionals, $this->parse_depth);
-            $value = $this->EE->TMPL->tagdata;
-            unset($this->EE->TMPL->tagdata);
+            $value = ee()->TMPL->tagdata;
+            unset(ee()->TMPL->tagdata);
         }
     
         // regex match
@@ -4544,18 +4542,18 @@ class Stash {
     private function _clean_string($value = NULL)
     {
         // register parameters
-        $trim = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('trim'));
-        $strip_tags = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_tags'));   
-        $strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_curly_braces'));   
-        $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('strip_unparsed'));
-        $compress = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('compress'));
-        $backspace = (int) $this->EE->TMPL->fetch_param('backspace', 0);
-        $strip_vars = $this->EE->TMPL->fetch_param('strip', FALSE);
+        $trim = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('trim'));
+        $strip_tags = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('strip_tags'));   
+        $strip_curly_braces = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('strip_curly_braces'));   
+        $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('strip_unparsed'));
+        $compress = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('compress'));
+        $backspace = (int) ee()->TMPL->fetch_param('backspace', 0);
+        $strip_vars = ee()->TMPL->fetch_param('strip', FALSE);
         
         // support legacy parameter name
         if ( ! $strip_unparsed)
         {
-            $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', $this->EE->TMPL->fetch_param('remove_unparsed_vars'));
+            $strip_unparsed = (bool) preg_match('/1|on|yes|y/i', ee()->TMPL->fetch_param('remove_unparsed_vars'));
         }
         
         // trim?
@@ -4606,7 +4604,7 @@ class Stash {
         // xss clean?
         if ($this->xss_clean)
         {
-            $value = $this->EE->security->xss_clean($value);
+            $value = ee()->security->xss_clean($value);
         }
         
         // remove leftover placeholder variables {var} (leave stash: vars untouched)
@@ -4642,7 +4640,7 @@ class Stash {
     private function _run_tag($method, $params = array())
     {
         // make a copy of the original parameters
-        $original_params = $this->EE->TMPL->tagparams;
+        $original_params = ee()->TMPL->tagparams;
         
         // array of permitted parameters
         $allowed_params = array_flip($params);
@@ -4650,9 +4648,9 @@ class Stash {
         // set permitted params for use
         foreach($allowed_params as $key => &$value)
         {
-            if ( isset($this->EE->TMPL->tagparams[$key]))
+            if ( isset(ee()->TMPL->tagparams[$key]))
             {
-                $value = $this->EE->TMPL->tagparams[$key];
+                $value = ee()->TMPL->tagparams[$key];
             }
             else
             {
@@ -4661,7 +4659,7 @@ class Stash {
         }
         
         // overwrite template params with our safe set
-        $this->EE->TMPL->tagparams = $allowed_params;
+        ee()->TMPL->tagparams = $allowed_params;
         
         // run the tag if it is public
         if (method_exists($this, $method))
@@ -4675,7 +4673,7 @@ class Stash {
         }
         
         // restore original parameters
-        $this->EE->TMPL->tagparams = $original_params;
+        ee()->TMPL->tagparams = $original_params;
         
         unset($original_params);
         
@@ -4710,32 +4708,32 @@ class Stash {
     {
         // base our needle off the calling tag
         // add a random number to prevent EE caching the tag, if it is used more than once
-        $placeholder = md5($this->EE->TMPL->tagproper) . rand();    
+        $placeholder = md5(ee()->TMPL->tagproper) . rand();    
               
-        if ( ! isset($this->EE->session->cache['stash']['__template_post_parse__']))
+        if ( ! isset(ee()->session->cache['stash']['__template_post_parse__']))
         {
-            $this->EE->session->cache['stash']['__template_post_parse__'] = array();
+            ee()->session->cache['stash']['__template_post_parse__'] = array();
         }
         
         if ($this->process == 'end')
         {
             // postpone until end of tag processing
-            $cache =& $this->EE->session->cache['stash']['__template_post_parse__'];
+            $cache =& ee()->session->cache['stash']['__template_post_parse__'];
         }
         else
         {
             // unknown or impossible post-process stage
-            $this->EE->output->show_user_error('general', sprintf($this->EE->lang->line('unknown_post_process'), $this->EE->TMPL->tagproper, $this->process));
+            ee()->output->show_user_error('general', sprintf(ee()->lang->line('unknown_post_process'), ee()->TMPL->tagproper, $this->process));
             return;
         }
             
-        $this->EE->TMPL->log_item("Stash: this tag will be post-processed on {$this->process}: {$this->EE->TMPL->tagproper}");
+        ee()->TMPL->log_item("Stash: this tag will be post-processed on {$this->process}: {ee()->TMPL->tagproper}");
 
         $cache[$placeholder] = array(
             'method'    => $method,
-            'tagproper' => $this->EE->TMPL->tagproper,
-            'tagparams' => $this->EE->TMPL->tagparams,
-            'tagdata'   => $this->EE->TMPL->tagdata,
+            'tagproper' => ee()->TMPL->tagproper,
+            'tagparams' => ee()->TMPL->tagparams,
+            'tagdata'   => ee()->TMPL->tagdata,
             'priority'  => $this->priority
         );
             
@@ -4791,22 +4789,22 @@ class Stash {
      */ 
     function _prep_no_results($prefix)
     {
-        if (strpos($this->EE->TMPL->tagdata, 'if '.$prefix.':no_results') !== FALSE 
-                && preg_match("/".LD."if ".$prefix.":no_results".RD."(.*?)".LD.'\/'."if".RD."/s", $this->EE->TMPL->tagdata, $match)) 
+        if (strpos(ee()->TMPL->tagdata, 'if '.$prefix.':no_results') !== FALSE 
+                && preg_match("/".LD."if ".$prefix.":no_results".RD."(.*?)".LD.'\/'."if".RD."/s", ee()->TMPL->tagdata, $match)) 
         {
             if (stristr($match[1], LD.'if'))
             {
-                $match[0] = $this->EE->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                $match[0] = ee()->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
             }
         
             $no_results = substr($match[0], strlen(LD."if ".$prefix.":no_results".RD), -strlen(LD.'/'."if".RD));
             $no_results_block = $match[0];
             
             // remove {if prefix:no_results}..{/if} block from template
-            $this->EE->TMPL->tagdata = str_replace($no_results_block, '', $this->EE->TMPL->tagdata);
+            ee()->TMPL->tagdata = str_replace($no_results_block, '', ee()->TMPL->tagdata);
             
             // set no_result variable in Template class
-            $this->EE->TMPL->no_results = $no_results;
+            ee()->TMPL->no_results = $no_results;
         }
     }
     
@@ -4821,12 +4819,12 @@ class Stash {
      */ 
     function _no_results()
     {
-        if ( ! empty($this->EE->TMPL->no_results))
+        if ( ! empty(ee()->TMPL->no_results))
         {
             // parse the no_results block if it's got content
-            $this->EE->TMPL->no_results = $this->_parse_output($this->EE->TMPL->no_results);
+            ee()->TMPL->no_results = $this->_parse_output(ee()->TMPL->no_results);
         }
-        return $this->EE->TMPL->no_results();
+        return ee()->TMPL->no_results();
     }
 
     // ---------------------------------------------------------
@@ -4863,23 +4861,23 @@ class Stash {
      */ 
     function set_parse_params()
     {
-        $parse = $this->EE->TMPL->fetch_param('parse', NULL);
+        $parse = ee()->TMPL->fetch_param('parse', NULL);
 
         if ( NULL !== $parse)
         {
             if ( (bool) preg_match('/1|on|yes|y/i', $parse))
             {
                 // parse="yes"
-                $this->EE->TMPL->tagparams['parse_tags']          = 'yes';
-                $this->EE->TMPL->tagparams['parse_vars']          = 'yes';
-                $this->EE->TMPL->tagparams['parse_conditionals']  = 'yes';
+                ee()->TMPL->tagparams['parse_tags']          = 'yes';
+                ee()->TMPL->tagparams['parse_vars']          = 'yes';
+                ee()->TMPL->tagparams['parse_conditionals']  = 'yes';
             } 
             elseif ( (bool) preg_match('/^(0|off|no|n)$/i', $parse))    
             {   
                 // parse="no"
-                $this->EE->TMPL->tagparams['parse_tags']          = 'no';
-                $this->EE->TMPL->tagparams['parse_vars']          = 'no';
-                $this->EE->TMPL->tagparams['parse_conditionals']  = 'no';
+                ee()->TMPL->tagparams['parse_tags']          = 'no';
+                ee()->TMPL->tagparams['parse_vars']          = 'no';
+                ee()->TMPL->tagparams['parse_conditionals']  = 'no';
             }
         }
     }
@@ -4909,41 +4907,41 @@ class Stash {
         $original_tagparams = array();
         $original_tagdata = FALSE;
 
-        if ( isset($this->EE->TMPL->tagparams))
+        if ( isset(ee()->TMPL->tagparams))
         {
-            $original_tagparams = $this->EE->TMPL->tagparams;
+            $original_tagparams = ee()->TMPL->tagparams;
         }
-        if ( isset($this->EE->TMPL->tagdata))
+        if ( isset(ee()->TMPL->tagdata))
         {
-            $original_tagdata = $this->EE->TMPL->tagdata;
+            $original_tagdata = ee()->TMPL->tagdata;
         }
 
         // make sure we have a slate to work with
-        $this->EE->TMPL->tagparams = array();
-        $this->EE->TMPL->tagdata = FALSE;
+        ee()->TMPL->tagparams = array();
+        ee()->TMPL->tagdata = FALSE;
         
         if ( is_array($params))
         {
-            $this->EE->TMPL->tagparams = $params;
+            ee()->TMPL->tagparams = $params;
         }
         else
         {
-            $this->EE->TMPL->tagparams['name']    = $params;
-            $this->EE->TMPL->tagparams['type']    = $type;
-            $this->EE->TMPL->tagparams['scope']   = $scope;
+            ee()->TMPL->tagparams['name']    = $params;
+            ee()->TMPL->tagparams['type']    = $type;
+            ee()->TMPL->tagparams['scope']   = $scope;
         }
         
         if ( ! is_null($value))
         {
-            $this->EE->TMPL->tagdata = $value;
+            ee()->TMPL->tagdata = $value;
         }
         
         $this->init(); // re-initilize Stash 
         $result = $this->{$method}();
 
         // restore original template params and tagdata
-        $this->EE->TMPL->tagparams = $original_tagparams;
-        $this->EE->TMPL->tagdata = $original_tagdata;
+        ee()->TMPL->tagparams = $original_tagparams;
+        ee()->TMPL->tagdata = $original_tagdata;
 
         return $result;
     }
@@ -4973,33 +4971,33 @@ class Stash {
         $original_tagparams = array();
         $original_tagdata = FALSE;
 
-        if ( isset($this->EE->TMPL->tagparams))
+        if ( isset(ee()->TMPL->tagparams))
         {
-            $original_tagparams = $this->EE->TMPL->tagparams;
+            $original_tagparams = ee()->TMPL->tagparams;
         }
-        if ( isset($this->EE->TMPL->tagdata))
+        if ( isset(ee()->TMPL->tagdata))
         {
-            $original_tagdata = $this->EE->TMPL->tagdata;
+            $original_tagdata = ee()->TMPL->tagdata;
         }
 
         // make sure we have a slate to work with
-        $this->EE->TMPL->tagparams = array();
-        $this->EE->TMPL->tagdata = FALSE;
+        ee()->TMPL->tagparams = array();
+        ee()->TMPL->tagdata = FALSE;
         
         if ( is_array($params))
         {
-            $this->EE->TMPL->tagparams = $params;
+            ee()->TMPL->tagparams = $params;
         }
         else
         {
-            $this->EE->TMPL->tagparams['name']    = $params;
-            $this->EE->TMPL->tagparams['type']    = $type;
-            $this->EE->TMPL->tagparams['scope']   = $scope;
+            ee()->TMPL->tagparams['name']    = $params;
+            ee()->TMPL->tagparams['type']    = $type;
+            ee()->TMPL->tagparams['scope']   = $scope;
         }
         
         if ( ! is_null($value))
         {
-            $this->EE->TMPL->tagdata = $value;
+            ee()->TMPL->tagdata = $value;
         }
         
         // as this function is called statically, we need to get a Stash object instance and run the requested method
@@ -5007,8 +5005,8 @@ class Stash {
         $result = $self->{$method}();
 
         // restore original template params and tagdata
-        $this->EE->TMPL->tagparams = $original_tagparams;
-        $this->EE->TMPL->tagdata = $original_tagdata;
+        ee()->TMPL->tagparams = $original_tagparams;
+        ee()->TMPL->tagdata = $original_tagdata;
 
         return $result;
     }
@@ -5033,8 +5031,8 @@ class Stash {
         else
         {
             // Most active *legitimate* bots will contain one of these strings in the UA
-            $bot_list = $this->EE->config->item('stash_bots') ? 
-                        $this->EE->config->item('stash_bots') : 
+            $bot_list = ee()->config->item('stash_bots') ? 
+                        ee()->config->item('stash_bots') : 
                         array('bot', 'crawl', 'spider', 'archive', 'search', 'java', 'yahoo', 'teoma');
     
             foreach($bot_list as $bot) 
@@ -5059,9 +5057,9 @@ class Stash {
      */ 
     private function _get_boolean_config_item($item, $default = TRUE)
     { 
-        if ( isset($this->EE->config->config[$item])) 
+        if ( isset(ee()->config->config[$item])) 
         {
-            if ($this->EE->config->config[$item] === FALSE)
+            if (ee()->config->config[$item] === FALSE)
             {
                 return FALSE;
             }
@@ -5090,16 +5088,16 @@ class Stash {
     { 
         $cookie_data = serialize(array(
            'id' => $unique_id,
-           'dt' => $this->EE->localize->now
+           'dt' => ee()->localize->now
         ));
 
         if (version_compare(APP_VER, '2.8', '>=')) 
         { 
-            $this->EE->input->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
+            ee()->input->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
         }
         else
         {
-            $this->EE->functions->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
+            ee()->functions->set_cookie($this->stash_cookie, $cookie_data, $this->stash_cookie_expire);
         }  
     }
     
@@ -5111,7 +5109,7 @@ class Stash {
      */ 
     private function _get_stash_cookie()
     { 
-        $cookie_data = @unserialize($this->EE->input->cookie($this->stash_cookie));
+        $cookie_data = @unserialize(ee()->input->cookie($this->stash_cookie));
         
         if ($cookie_data !== FALSE)
         {

@@ -2,8 +2,9 @@
 if (! defined('STASH_VER'))
 {
     define('STASH_NAME', 'Stash');
-    define('STASH_VER',  '2.6.7');
-    define('STASH_AUTHOR',  'Mark Croxton');
+    define('STASH_VER',  '3.0.0');
+    define('STASH_AUTHOR',  'Mark Croxton, Hallmark Design');
+    define('STASH_AUTHOR_URL',  'http://hallmark-design.co.uk');
     define('STASH_DOCS',  'http://github.com/croxton/Stash/');
     define('STASH_DESC',  'Stash: save text and code snippets for reuse throughout your templates.');
 }
