@@ -1,5 +1,5 @@
 <?php
-require_once PATH_THIRD . 'mustash/config.php';
+require_once PATH_THIRD . 'stash/config.php';
 
 return array(
       'author'      => STASH_AUTHOR,
