@@ -4083,16 +4083,25 @@ class Stash {
         }
 
         // fetch the *unadulterated* URI of the current page
-        $ee_uri = new EE_URI;
+        if ( isset(self::$_cache['uri']))
+        {
+            $uri = self::$_cache['uri']; // retrieve from cache if we've done this before
+        }
+        else
+        {
+            $ee_uri = new EE_URI;
 
-        // documented as a 'private' method, but not actually. Called in CI_Router so unlikely to ever be made private.
-        $ee_uri->_fetch_uri_string(); 
-        $ee_uri->_remove_url_suffix();
-        $ee_uri->_explode_segments();
+            // documented as a 'private' method, but not actually. Called in CI_Router so unlikely to ever be made private.
+            $ee_uri->_fetch_uri_string(); 
+            $ee_uri->_remove_url_suffix();
+            $ee_uri->_explode_segments();
 
-        // provide a fallback value for index pages
-        $uri = $ee_uri->uri_string();
-        $uri = empty($uri) ? ee()->stash_model->get_index_key() : $uri;
+            // provide a fallback value for index pages
+            $uri = $ee_uri->uri_string();
+            $uri = empty($uri) ? ee()->stash_model->get_index_key() : $uri;
+
+            self::$_cache['uri'] = $uri; // cache the value
+        }
 
         // append query string?
         if ($this->include_query_str 
