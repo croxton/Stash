@@ -867,6 +867,13 @@ class Stash_model extends CI_Model {
         {
             $_values = array();
 
+            // static caching - save an index of the variable only?
+            if (ee()->config->item('stash_static_cache_index') 
+                && $this->_can_static_cache($row['bundle_id']))
+            {
+                $row['parameters'] = ''; // remove variable content
+            }
+
             foreach ($row as $col => $val)
             {
                 // add key
