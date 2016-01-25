@@ -2880,12 +2880,15 @@ class Stash {
             
             // this connection will timeout in 10 seconds
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+            // don't validate SSL certs
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
                 
-            $result = @curl_exec($ch); 
+            $result = @curl_exec($ch);
                 
             if (curl_errno($ch)) 
             {   
-                log($ch);
+                $this->EE->TMPL->log_item(curl_error($ch));
                 curl_close($ch);
             } 
             else 
