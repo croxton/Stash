@@ -3260,7 +3260,7 @@ class Stash {
     private function _matches($match, $against)
     {
         $is_match = TRUE;
-        $match = ee()->security->entity_decode($match);
+        $match = ee('Security/XSS')->entity_decode($match);
 
         if ( ! is_array($against)) 
         {
