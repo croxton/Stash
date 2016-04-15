@@ -528,6 +528,14 @@ class Stash_model extends CI_Model {
             'expire !=' => '0'
         ));
 
+        // -------------------------------------
+        // 'stash_prune' hook
+        // -------------------------------------
+        if (ee()->extensions->active_hook('stash_prune') === TRUE)
+        {
+            ee()->extensions->call('stash_prune', $query->result_array());
+        }
+
         if ($query->num_rows() > 0) 
         {
             if ($deleted = $this->delete_cache($query->result(), TRUE, 0, FALSE))

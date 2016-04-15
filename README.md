@@ -1,6 +1,6 @@
 ##Stash
 
-![Release](https://img.shields.io/badge/release-3.0.1-brightgreen.svg)
+![Release](https://img.shields.io/badge/release-3.0.2-brightgreen.svg)
 
 Stash for ExpressionEngine 3.
 
