@@ -807,6 +807,17 @@ class Stash_model extends CI_Model {
             return FALSE;
         }
 
+        // Blacklist of characters we don't want to allow as directory names in the cache
+        $bad = ee()->config->item('stash_static_character_blacklist')     
+                                    ? (array) ee()->config->item('stash_static_character_blacklist') 
+                                    : array(LD, RD, '<', '>', ':', '"', '\\', '|', '*', '.');
+        $new_uri = str_replace($bad, '', $uri);
+
+        if ($uri != $new_uri) 
+        {
+            return FALSE;
+        }
+
         // Build the path
         return trim($path.'/'.$site_id.'/'.trim($uri, '/')).'/';
     }

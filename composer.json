@@ -13,7 +13,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-dev": "2.6.*-dev"
+            "dev-dev": "2.7.*-dev"
         }
     }
 }
