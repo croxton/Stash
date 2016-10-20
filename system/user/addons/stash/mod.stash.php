@@ -285,12 +285,14 @@ class Stash {
         // -------------------------------------
         if (ee()->extensions->active_hook('stash_load_template_class') === TRUE)
         {
-            ee()->TMPL = ee()->extensions->call('stash_load_template_class');
+            ee()->remove('TMPL');
+            ee()->set('TMPL', ee()->extensions->call('stash_load_template_class'));
         } 
         else 
         {
             require_once APPPATH.'libraries/Template.php';
-            ee()->TMPL = new EE_Template();
+            ee()->remove('TMPL');
+            ee()->set('TMPL', new EE_Template());
             ee()->TMPL->modules = array('stash');
         }
     }
