@@ -767,7 +767,7 @@ class Stash {
                 self::$bundles[$bundle][$name] = $this->_stash[$name];
             }
 
-            ee()->TMPL->log_item('Stash: SET '. $name . ' to value ' . $this->_stash[$name]);  
+            ee()->TMPL->log_item('Stash: SET '. $name . ' to value: ' . '<textarea rows="6" cols="60" style="width:100%;">' . htmlentities($this->_stash[$name]) . '</textarea>');  
         }
         
         if ($output)
@@ -1065,7 +1065,7 @@ class Stash {
             $value = $this->set();  
         }
             
-        ee()->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value ' . $value);
+        ee()->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value: <textarea rows="6" cols="60" style="width:100%;">' . htmlentities($value) . '</textarea>');
         
         // save to bundle
         if ($bundle !== NULL)
@@ -5100,7 +5100,7 @@ class Stash {
      */ 
     private function _set_stash_cookie($unique_id)
     { 
-        $cookie_data = serialize(array(
+        $cookie_data = json_encode(array(
            'id' => $unique_id,
            'dt' => ee()->localize->now
         ));
@@ -5123,7 +5123,7 @@ class Stash {
      */ 
     private function _get_stash_cookie()
     { 
-        $cookie_data = @unserialize(ee()->input->cookie($this->stash_cookie));
+        $cookie_data = @json_decode(ee()->input->cookie($this->stash_cookie), TRUE);
         
         if ($cookie_data !== FALSE)
         {
