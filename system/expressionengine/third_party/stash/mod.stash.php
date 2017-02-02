@@ -5100,7 +5100,7 @@ class Stash {
      */ 
     private function _set_stash_cookie($unique_id)
     { 
-        $cookie_data = serialize(array(
+        $cookie_data = json_encode(array(
            'id' => $unique_id,
            'dt' => $this->EE->localize->now
         ));
@@ -5123,7 +5123,7 @@ class Stash {
      */ 
     private function _get_stash_cookie()
     { 
-        $cookie_data = @unserialize($this->EE->input->cookie($this->stash_cookie));
+        $cookie_data = @json_decode($this->EE->input->cookie($this->stash_cookie), TRUE);
         
         if ($cookie_data !== FALSE)
         {
