@@ -2665,7 +2665,7 @@ class Stash {
         }
 
         // context parameter MUST be set to the page URI pointer
-        $this->EE->TMPL->tagparams['context'] = '@URI';
+        $this->EE->TMPL->tagparams['context'] = $this->EE->TMPL->fetch_param('context', '@URI');
 
         // set a default parse depth of 4
         $this->EE->TMPL->tagparams['parse_depth'] = $this->EE->TMPL->fetch_param('parse_depth', 4);
