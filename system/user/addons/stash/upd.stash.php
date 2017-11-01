@@ -61,7 +61,7 @@ class Stash_upd {
           `expire` int(10) unsigned NOT NULL default '0',   
           `parameters` MEDIUMTEXT,
           PRIMARY KEY (`id`),
-          UNIQUE KEY `cache_key` (`key_name`,`bundle_id`,`site_id`,`session_id`),
+          UNIQUE KEY `cache_key` (`key_name`(191),`bundle_id`,`site_id`,`session_id`),
           KEY `bundle_id` (`bundle_id`),
           KEY `site_id` (`site_id`),
           KEY `expire` (`expire`)

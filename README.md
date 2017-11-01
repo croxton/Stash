@@ -1,8 +1,8 @@
 ## Stash
 
-![Release](https://img.shields.io/badge/release-3.0.5-brightgreen.svg)
+![Release](https://img.shields.io/badge/release-3.0.6-brightgreen.svg)
 
-Stash for ExpressionEngine 3.
+Stash for ExpressionEngine 3 and 4.
 
 * Author: [Mark Croxton](http://hallmark-design.co.uk/)
 * Requires: ExpressionEngine 3.0+
