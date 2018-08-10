@@ -725,7 +725,15 @@ class Stash {
                 // this permits dynamic tag pairs, e.g. {stash:{key}}{/stash:{key}} 
                 if ($this->parse_complete)
                 {
-                    $tag_vars = ee()->functions->assign_variables(ee()->TMPL->tagdata);
+                    if (version_compare(APP_VER, '4.0', '>=')) 
+                    { 
+                        $tag_vars = ee('Variables/Parser')->extractVariables(ee()->TMPL->tagdata); 
+                    }
+                    else
+                    {
+                        $tag_vars = ee()->functions->assign_variables(ee()->TMPL->tagdata);
+                    }
+                    
                     $tag_pairs = $tag_vars['var_pair'];
                 }
                 else
