@@ -426,7 +426,7 @@ class Stash {
         
         if ( !! $name)
         {
-            if ($context !== NULL && count( explode(':', $name) == 1 ) )
+            if ($context !== NULL && count( explode(':', $name)) == 1 )
             {
                 $name = $context . ':' . $name;
                 ee()->TMPL->tagparams['context'] = NULL;
@@ -848,7 +848,7 @@ class Stash {
         $context = ee()->TMPL->fetch_param('context', NULL);
         $global_name = $name;
         
-        if ($context !== NULL && count( explode(':', $name) == 1 ) )
+        if ($context !== NULL && count( explode(':', $name)) == 1 )
         {
             $name = $context . ':' . $name;
             ee()->TMPL->tagparams['context'] = NULL;
@@ -1518,7 +1518,7 @@ class Stash {
         
         if ( !! $name)
         {
-            if ($context !== NULL && count( explode(':', $name) == 1 ) )
+            if ($context !== NULL && count( explode(':', $name)) == 1 )
             {
                 $name = $context . ':' . $name;
             }
@@ -1728,7 +1728,7 @@ class Stash {
         if ( $this->not_empty(ee()->TMPL->tagdata))
         {
             // does the list really exist?
-            if ($context !== NULL && count( explode(':', $name) == 1 ) )
+            if ($context !== NULL && count( explode(':', $name)) == 1 )
             {
                 $name = $context . ':' . $name;
             }
@@ -2249,7 +2249,7 @@ class Stash {
                     
                     // get bundle var
                     $bundle_entry_key = $bundle;
-                    if ($bundle !== NULL && count( explode(':', $bundle) == 1 ) )
+                    if ($bundle !== NULL && count( explode(':', $bundle)) == 1 )
                     {
                         $bundle_entry_key = $context . ':' . $bundle;
                     }
@@ -3179,7 +3179,7 @@ class Stash {
             else
             {
                 // a named variable
-                if ($context !== NULL && count( explode(':', $name) == 1 ))
+                if ($context !== NULL && count( explode(':', $name)) == 1 )
                 {
                     $name = $context . ':' . $name;
                 }
