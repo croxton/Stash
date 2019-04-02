@@ -2,6 +2,7 @@
     "name": "croxton/stash",
     "description": "Extended templating for ExpressionEngine",
     "homepage": "https://github.com/croxton/Stash",
+    "license": "GPL-3.0-or-later",
     "authors": [
         {
             "name": "Mark Croxton",
@@ -9,11 +10,6 @@
         }
     ],
     "require": {
-        "php": ">=5.3.11"
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-dev": "2.7.*-dev"
-        }
+        "php": ">=7.0.0"
     }
 }
