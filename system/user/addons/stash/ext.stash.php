@@ -166,7 +166,15 @@ class Stash_ext {
         {
             if (strpos($val, LD) !== FALSE)
             {
-                $matches[0][$key] = ee()->functions->full_tag($matches[0][$key], $temp);
+                if (version_compare(APP_VER, '4.0', '>='))
+                {
+                    $matches[0][$key] = ee('Variables/Parser')->getFullTag($matches[0][$key], $temp);
+                }
+                else
+                {
+                    $matches[0][$key] = ee()->functions->full_tag($matches[0][$key], $temp);
+                }
+
                 $matches[2][$key] = substr(str_replace($matches[1][$key], '', $matches[0][$key]), 0, -1);
                 $temp = str_replace($matches[0][$key], '', $temp);
             }
@@ -178,8 +186,15 @@ class Stash_ext {
         foreach($matches[2] as $key => $val)
         {
             $parts = preg_split("/\s+/", $val, 2);
-            
-            $embed_params = (isset($parts[1])) ? ee()->functions->assign_parameters($parts[1]) : array();
+
+            if (version_compare(APP_VER, '4.0', '>='))
+            {
+                $embed_params = (isset($parts[1])) ? ee('Variables/Parser')->parseTagParameters($parts[1]) : array();
+            }
+            else
+            {
+                $embed_params = (isset($parts[1])) ? ee()->functions->assign_parameters($parts[1]) : array();
+            }
 
             if ($embed_params === FALSE)
             {
