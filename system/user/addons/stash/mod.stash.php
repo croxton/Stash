@@ -4815,7 +4815,14 @@ class Stash {
         {
             if (stristr($match[1], LD.'if'))
             {
-                $match[0] = ee()->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                if (version_compare(APP_VER, '4.0', '>='))
+                {
+                    $match[0] = ee('Variables/Parser')->getFullTag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                }
+                else
+                {
+                    $match[0] = ee()->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                }
             }
         
             $no_results = substr($match[0], strlen(LD."if ".$prefix.":no_results".RD), -strlen(LD.'/'."if".RD));
