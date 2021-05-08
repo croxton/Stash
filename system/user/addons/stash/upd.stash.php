@@ -111,7 +111,14 @@ class Stash_upd {
         
         if ($query->row('module_id'))
         {
-            ee()->db->delete('module_member_groups', array('module_id' => $query->row('module_id')));
+            if (version_compare(APP_VER, '6.0', '>='))
+            {
+                ee()->db->delete('module_member_roles', array('module_id' => $query->row('module_id')));
+            }
+            else
+            {
+                ee()->db->delete('module_member_groups', array('module_id' => $query->row('module_id')));
+            }
         }
 
         ee()->db->delete('modules', array('module_name' => 'Stash'));

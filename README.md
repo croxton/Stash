@@ -1,24 +1,22 @@
 ## Stash
 
-![Release](https://img.shields.io/badge/release-3.0.9-brightgreen.svg)
+![Release](https://img.shields.io/badge/release-3.1.0-brightgreen.svg)
 
-Stash for ExpressionEngine 3 and 4.
+Stash for ExpressionEngine 3.0 to 6.0+.
 
-* Author: [Mark Croxton](http://hallmark-design.co.uk/)
+* Author: [Mark Croxton](https://hallmark-design.co.uk/)
 * Requires: ExpressionEngine 3.0+
 
 ### Description
 
-Stash allows you to stash text and snippets of code for reuse throughout your templates. Variables can be set dynamically from the $_GET or $_POST superglobals and can optionally be cached in the database for persistence across pages.
-
-Stash variables that you create are available to templates embedded below the level at which you are using the tag, or later in the parse order of the current template.
-
-Stash is inspired by John D Wells' article on [template partials](http://johndwells.com/blog/homegrown-plugin-to-create-template-partials-for-expressionengine), and Rob Sanchez's [Dynamo](https://github.com/rsanchez/dynamo) module. 
-
+Stash allows you to stash text and snippets of code for reuse throughout your templates. Stash extends ExpressionEngine’s template parser with powerful features such as variables, lists, parse-order control, template partials, inheritance, layouts, caching and more. It will transform the way you think about and write templates.
 
 ### Documentation
 
 https://github.com/croxton/Stash/wiki/
+
+
+Copyright (c) 2021 Hallmark Design https://hallmark-design.co.uk
 
 
 
