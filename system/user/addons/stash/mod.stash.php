@@ -233,7 +233,7 @@ class Stash {
         }
         else
         {
-            $this->parse_vars = (bool) preg_match('/1|on|yes|y/i', $this->parse_vars);
+            $this->parse_vars = (bool) preg_match('/1|on|yes|y/i', (string) $this->parse_vars);
         }
         
         // parsing: how many passes of the template should we make? (more passes = more overhead). Default = 1
