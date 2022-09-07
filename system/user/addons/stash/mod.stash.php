@@ -233,7 +233,7 @@ class Stash {
         }
         else
         {
-            $this->parse_vars = (bool) preg_match('/1|on|yes|y/i', $this->parse_vars);
+            $this->parse_vars = (bool) preg_match('/1|on|yes|y/i', (string) $this->parse_vars);
         }
         
         // parsing: how many passes of the template should we make? (more passes = more overhead). Default = 1
@@ -1952,13 +1952,13 @@ class Stash {
         // does limit contain a fraction?
         if ($limit)
         {   
-            $limit = $this->_parse_fraction($limit, $offset, $absolute_results);
+            $limit = $this->_parse_fraction($limit, $absolute_results, $offset);
         }
 
         // does offset contain a fraction, e.g. '1/3' ?
         if ($offset)
         {
-            $offset = $this->_parse_fraction($offset, 0, $absolute_results);
+            $offset = $this->_parse_fraction($offset, $absolute_results);
         }
         
         // pagination
@@ -3956,7 +3956,7 @@ class Stash {
      * @param integer
      * @return integer
      */
-    private function _parse_fraction($fraction, $offset=0, $total)
+    private function _parse_fraction($fraction, $total, $offset=0)
     {
         if (strstr($fraction, '/'))
         {
@@ -4964,7 +4964,7 @@ class Stash {
             ee()->TMPL->tagdata = $value;
         }
         
-        $this->init(); // re-initilize Stash 
+        $this->init(); // re-initialize Stash
         $result = $this->{$method}();
 
         // restore original template params and tagdata
