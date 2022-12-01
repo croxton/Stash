@@ -2,7 +2,7 @@
 
 ![Release](https://img.shields.io/badge/release-3.1.1-brightgreen.svg)
 
-Stash for ExpressionEngine 3.0 to 6.0+.
+Stash for ExpressionEngine 3.0 to 7.0+.
 
 * Author: [Mark Croxton](https://hallmark-design.co.uk/)
 * Requires: ExpressionEngine 3.0+
