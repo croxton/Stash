@@ -4409,7 +4409,7 @@ class Stash {
         {
             foreach (ee()->config->_global_vars as $key => $val)
             {
-                $template = str_replace(LD.$key.RD, $val, $template);
+                $template = str_replace(LD.$key.RD, (string) $val, $template);
             }   
         }
         
