@@ -946,7 +946,7 @@ class Stash {
                         $low_query = $this->_stash[$low_query];
                     }
 
-                    $low_query = @unserialize(base64_decode(str_replace('_', '/', $low_query)));
+                    $low_query = @unserialize(base64_decode(str_replace('_', '/', $low_query)), ['allowed_classes' => false]);
 
                     if (isset( $low_query[$global_name] ))
                     {
@@ -1072,7 +1072,7 @@ class Stash {
             $value = $this->set();  
         }
             
-        ee()->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value: <textarea rows="6" cols="60" style="width:100%;">' . htmlentities($value) . '</textarea>');
+        ee()->TMPL->log_item('Stash: RETRIEVED '. $name . ' with value: <textarea rows="6" cols="60" style="width:100%;">' . htmlentities( (string) $value) . '</textarea>');
         
         // save to bundle
         if ($bundle !== NULL)
@@ -2039,17 +2039,18 @@ class Stash {
         
         // {absolute_count} - absolute count to the ordered/sorted items
         $i=0;
-        foreach($list as $key => &$value)
+        foreach($list as $key => &$v)
         {
             $i++;
-            $value['absolute_count'] = $i;
+            $v['absolute_count'] = $i;
             
             // {prefix:absolute_count}
             if ( ! is_null($prefix))
             {
-                $value[$prefix.':absolute_count'] = $i;
+                $v[$prefix.':absolute_count'] = $i;
             }
         }
+        unset($v);
         
         // {absolute_results} - record the total number of list rows
         $list_markers['absolute_results'] = $absolute_results;
@@ -2263,7 +2264,7 @@ class Stash {
                         $this->site_id
                     ))
                     {   
-                        $bundle_array[0] = unserialize($bundle_value);
+                        $bundle_array[0] = unserialize($bundle_value, ['allowed_classes' => false]);
                         
                         foreach ($bundle_array[0] as $key => $val)
                         {
@@ -2888,7 +2889,7 @@ class Stash {
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
 
             // don't validate SSL certs
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
                 
             $result = @curl_exec($ch); 
                 
@@ -4056,10 +4057,10 @@ class Stash {
         $mod_sum = 0;
         static $lcd = 0;
         
-        for($int=1; $int < count($array); $int++) 
+        for($int=1, $intMax = count($array); $int < $intMax; $int++)
         {                
             $modulus[$int] = ($array[0]*$x) % ($array[$int]);
-            $mod_sum = $mod_sum + $modulus[$int];            
+            $mod_sum += $modulus[$int];
         }
              
         if (!$mod_sum) 
@@ -4409,7 +4410,7 @@ class Stash {
         {
             foreach (ee()->config->_global_vars as $key => $val)
             {
-                $template = str_replace(LD.$key.RD, $val, $template);
+                $template = str_replace(LD.$key.RD, (string) $val, $template);
             }   
         }
         
@@ -4475,7 +4476,7 @@ class Stash {
         {  
             if (preg_match_all("/".LD."current_time\s+format=([\"\'])([^\\1]*?)\\1".RD."/", $template, $matches))
             {             
-                for ($j = 0; $j < count($matches[0]); $j++)
+                for ($j = 0, $jMax = count($matches[0]); $j < $jMax; $j++)
                 {   
                     if (version_compare(APP_VER, '2.6', '>=')) 
                     {           
@@ -4817,11 +4818,11 @@ class Stash {
             {
                 if (version_compare(APP_VER, '4.0', '>='))
                 {
-                    $match[0] = ee('Variables/Parser')->getFullTag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                    $match[0] = ee('Variables/Parser')->getFullTag($match[0], $match[1], LD.'if', LD.'\/'."if".RD);
                 }
                 else
                 {
-                    $match[0] = ee()->functions->full_tag($match[0], $block, LD.'if', LD.'\/'."if".RD);
+                    $match[0] = ee()->functions->full_tag($match[0], $match[1], LD.'if', LD.'\/'."if".RD);
                 }
             }
         

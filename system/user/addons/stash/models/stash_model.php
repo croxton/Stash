@@ -11,22 +11,22 @@
 
 class Stash_model extends CI_Model {
 
-    protected static array $keys = array();
-    protected static array $inserted_keys = array();
-    protected static stdClass $queue;
+    protected static $keys = array();
+    protected static $inserted_keys = array();
+    protected static $queue;
 
     // default bundle types
-    protected static array $bundle_ids = array(
+    protected static $bundle_ids = array(
         'default'   => 1,
         'template'  => 2,
         'static'    => 3
     );
 
     // name of cache files
-    private string $_static_file = 'index.html';
+    private $_static_file = 'index.html';
 
     // placeholder for indexes
-    private string $_index_key = '[index]';
+    private $_index_key = '[index]';
 
     public function __construct()
     {
@@ -50,15 +50,15 @@ class Stash_model extends CI_Model {
      * Insert key for user session
      *
      * @param string $key
+     * @param integer $bundle_id
      * @param string|null $session_id
      * @param integer $site_id
      * @param integer $expire
      * @param string $parameters
      * @param string $label
-     * @param integer $bundle_id
      * @return boolean
      */
-    public function insert_key(string $key, int $bundle_id = 1, string $session_id = NULL, int $site_id = 1, int $expire = 0, string $parameters = '', string $label = ''): bool
+    public function insert_key(string $key, int $bundle_id = 1, string $session_id = NULL, int $site_id = 1, int $expire = 0, string $parameters = '', string $label = '')
     {
         $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 
@@ -93,9 +93,9 @@ class Stash_model extends CI_Model {
      * @param string $cache_key
      * @return bool
      */
-    public function is_inserted_key($cache_key): bool
+    public function is_inserted_key($cache_key)
     {
-        return in_array($cache_key, self::$inserted_keys);
+        return in_array($cache_key, self::$inserted_keys) ? TRUE : FALSE;
     }
 
     /**
@@ -109,7 +109,7 @@ class Stash_model extends CI_Model {
      * @param string|null $parameters
      * @return boolean
      */
-    public function update_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, int $expire = 0, string $parameters = NULL): bool
+    public function update_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, int $expire = 0, string $parameters = NULL)
     {
         $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 
@@ -152,7 +152,7 @@ class Stash_model extends CI_Model {
      * @param integer $refresh Seconds to expiry date
      * @return boolean
      */
-    public function refresh_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, int $refresh = 0): bool
+    public function refresh_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, int $refresh = 0)
     {
         $expire = ee()->localize->now + $refresh;
         return $this->update_key($key, $bundle_id, $session_id, $site_id, $expire);
@@ -168,7 +168,7 @@ class Stash_model extends CI_Model {
      * @param string $col
      * @return bool|string
      */
-    public function get_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, string $col = 'parameters'): bool|string
+    public function get_key(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1, string $col = 'parameters')
     {
         $cache_key = $key . '_' . $bundle_id .'_' . $session_id . $site_id . '_' . $col;
 
@@ -228,12 +228,11 @@ class Stash_model extends CI_Model {
      * Get key expiry date
      *
      * @param string $key
-     * @param int $bundle_id
      * @param string $session_id
      * @param integer $site_id
      * @return int | boolean
      */
-    public function get_key_expiry(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1): bool|int
+    public function get_key_expiry(string $key, int $bundle_id = 1, string $session_id = '', int $site_id = 1)
     {
         $cache_key = $key . '_'. $bundle_id .'_' .$site_id . '_' . $session_id;
 
@@ -255,7 +254,7 @@ class Stash_model extends CI_Model {
      * @param integer $invalidate Delay until cached item expires (seconds)
      * @return boolean
      */
-    public function delete_key(string $key, bool|int $bundle_id = FALSE, string $session_id = NULL, int $site_id = 1, int $invalidate=0) : bool
+    public function delete_key(string $key, $bundle_id = FALSE, string $session_id = NULL, int $site_id = 1, int $invalidate=0)
     {
         $this->db->where('key_name', $key)
             ->where('site_id', $site_id);
@@ -309,7 +308,7 @@ class Stash_model extends CI_Model {
      * @param integer $invalidate Delay until cached item expires (seconds)
      * @return boolean
      */
-    public function delete_matching_keys(int|bool $bundle_id = FALSE, string $session_id=NULL, int $site_id = 1, string $regex=NULL, int $invalidate=0) : bool
+    public function delete_matching_keys($bundle_id = FALSE, string $session_id=NULL, int $site_id = 1, string $regex=NULL, int $invalidate=0)
     {
         $deleted = FALSE; // have keys been deleted from the database?
         $clear_static = TRUE; // attempt to delete corresponding *individual* static cache files?
@@ -391,7 +390,7 @@ class Stash_model extends CI_Model {
      * @param bool $call_hook
      * @return boolean
      */
-    protected function delete_cache(array $vars, bool $clear_static = TRUE, int $invalidate = 0, bool $call_hook = TRUE): bool
+    protected function delete_cache(array $vars, bool $clear_static = TRUE, int $invalidate = 0, bool $call_hook = TRUE)
     {
         // get a list of variable ids
         $ids = array();
@@ -451,7 +450,7 @@ class Stash_model extends CI_Model {
      * @param integer $site_id
      * @return boolean
      */
-    public function flush_cache(int $site_id = 1): bool
+    public function flush_cache(int $site_id = 1)
     {
         // delete all variables saved in the db
         if ($result = ee()->db->where('site_id', $site_id)->delete('stash'))
@@ -484,7 +483,7 @@ class Stash_model extends CI_Model {
      * @param integer $period the invalidation period in seconds
      * @return boolean
      */
-    private function _invalidate(array $ids, int $period=0): bool
+    private function _invalidate(array $ids, int $period=0)
     {
         $now = ee()->localize->now;
 
@@ -518,7 +517,7 @@ class Stash_model extends CI_Model {
      *
      * @return boolean
      */
-    public function prune_keys(): bool
+    public function prune_keys()
     {
         $query = $this->db->get_where('stash', array(
             'expire <'  => ee()->localize->now,
@@ -550,7 +549,7 @@ class Stash_model extends CI_Model {
      * @param string $bundle
      * @return bool|int
      */
-    public function get_bundle_by_name(string $bundle): bool|int
+    public function get_bundle_by_name(string $bundle)
     {
         $cache_key = $bundle;
 
@@ -581,7 +580,7 @@ class Stash_model extends CI_Model {
      * @param integer $bundle_id
      * @return bool|string
      */
-    public function get_bundle_by_id(int $bundle_id): bool|string
+    public function get_bundle_by_id(int $bundle_id)
     {
         if ( ! $bundle_name = array_search($bundle_id, self::$bundle_ids) )
         {
@@ -612,7 +611,7 @@ class Stash_model extends CI_Model {
      * @param string $bundle_label
      * @return bool|int
      */
-    public function insert_bundle(string $bundle, string $bundle_label = ''): bool|int
+    public function insert_bundle(string $bundle, string $bundle_label = '')
     {
         $data = array(
             'bundle_name'   => $bundle,
@@ -634,7 +633,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return bool
      */
-    public function bundle_entry_exists(int $bundle_id, int $site_id = 1): bool
+    public function bundle_entry_exists(int $bundle_id, int $site_id = 1)
     {
         $result = $this->db->select('id')
             ->from('stash')
@@ -658,7 +657,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return int
      */
-    public function bundle_entry_count(int $bundle_id, int $site_id = 1): int
+    public function bundle_entry_count(int $bundle_id, int $site_id = 1)
     {
         $result = $this->db->select('COUNT(id) AS row_count')
             ->from('stash')
@@ -687,7 +686,7 @@ class Stash_model extends CI_Model {
      * @param string|array $data
      * @return boolean
      */
-    protected function write_static_cache(string|array $data): bool
+    protected function write_static_cache($data)
     {
         if ( ! isset($data['bundle_id'])) {
             return FALSE;
@@ -714,7 +713,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return boolean
      */
-    protected function delete_static_cache(string $key, int $bundle_id, int $site_id): bool
+    protected function delete_static_cache(string $key, int $bundle_id, int $site_id)
     {
         // write to static file cache?
         if ($this->_can_static_cache($bundle_id))
@@ -737,7 +736,7 @@ class Stash_model extends CI_Model {
      * @param string|null $parameters
      * @return boolean
      */
-    private function _write_file(string $uri, int $site_id, string $parameters = NULL): bool
+    private function _write_file(string $uri, int $site_id, string $parameters = NULL)
     {
         ee()->load->helper('file');
 
@@ -764,7 +763,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return boolean
      */
-    private function _delete_file(string $uri = '/', int $site_id = 1): bool
+    private function _delete_file(string $uri = '/', int $site_id = 1)
     {
         if ($path = ($this->_path($uri, $site_id) && @unlink($this->_path($uri, $site_id) . $this->_static_file)))
         {
@@ -780,7 +779,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return boolean
      */
-    private function _delete_dir(string $uri, int $site_id): bool
+    private function _delete_dir(string $uri, int $site_id)
     {
         ee()->load->helper('file');
 
@@ -798,7 +797,7 @@ class Stash_model extends CI_Model {
      * @param int $site_id
      * @return bool|string
      */
-    private function _path(string $uri = '/', int $site_id = 1): bool|string
+    private function _path(string $uri = '/', int $site_id = 1)
     {
         // Get parts
         $path = ee()->config->item('stash_static_basepath');
@@ -830,7 +829,7 @@ class Stash_model extends CI_Model {
      * @param integer $bundle_id
      * @return boolean
      */
-    private function _can_static_cache(int $bundle_id): bool
+    private function _can_static_cache(int $bundle_id)
     {
         if ( ee()->config->item('stash_static_cache_enabled'))
         {
@@ -856,7 +855,7 @@ class Stash_model extends CI_Model {
      * @param string $key
      * @return string
      */
-    public function parse_uri_from_key(string $key): string
+    public function parse_uri_from_key(string $key)
     {
         $uri = explode(':', $key);
         return $uri[0] === $this->_index_key ? '' : $uri[0];
@@ -867,7 +866,7 @@ class Stash_model extends CI_Model {
      *
      * @return string
      */
-    public function get_index_key(): string
+    public function get_index_key()
     {
         return $this->_index_key;
     }
@@ -879,7 +878,7 @@ class Stash_model extends CI_Model {
      * @param Array $data Array in form of "Column" => "Value", ...
      * @return void
      */
-    protected function insert_ignore_batch(string $table, array $data): void
+    protected function insert_ignore_batch(string $table, array $data)
     {
         $_keys = array();
         $_prepared = array();
@@ -920,7 +919,7 @@ class Stash_model extends CI_Model {
      * @param Array $data Array in form of "Column" => "Value", ...
      * @return boolean
      */
-    protected function queue_insert(string $table, string $cache_key, array $data): bool
+    protected function queue_insert(string $table, string $cache_key, array $data)
     {
         if ( ! isset(self::$queue->inserts[$table]))
         {
@@ -944,7 +943,7 @@ class Stash_model extends CI_Model {
      * @param array $data Array in form of "Column" => "Value", ...
      * @return boolean
      */
-    protected function queue_update(string $table, string $cache_key, array $data): bool
+    protected function queue_update(string $table, string $cache_key, array $data)
     {
         if ( ! isset(self::$queue->updates[$table]))
         {
@@ -961,7 +960,7 @@ class Stash_model extends CI_Model {
      *
      * @return void
      */
-    public function process_queue(): void
+    public function process_queue()
     {
         // batch inserts - must run first
         foreach(self::$queue->inserts as $table => $data)
@@ -1015,7 +1014,7 @@ class Stash_model extends CI_Model {
      *
      * @return stdClass
      */
-    public function &get_queue(): stdClass
+    public function &get_queue()
     {
         return self::$queue;
     }
