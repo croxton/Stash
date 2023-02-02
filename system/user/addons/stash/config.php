@@ -2,7 +2,7 @@
 if (! defined('STASH_VER'))
 {
     define('STASH_NAME', 'Stash');
-    define('STASH_VER',  '3.1.0');
+    define('STASH_VER',  '3.1.1');
     define('STASH_AUTHOR',  'Mark Croxton, Hallmark Design');
     define('STASH_AUTHOR_URL',  'http://hallmark-design.co.uk');
     define('STASH_DOCS',  'http://github.com/croxton/Stash/');

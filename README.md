@@ -1,3 +1,6 @@
+# DEPRECATED
+If you're starting a new ExpressionEngine project today, please consider using Twig for templating via  [Coilpack](https://expressionengine.github.io/coilpack-docs/)
+
 ## Stash
 
 ![Release](https://img.shields.io/badge/release-3.1.1-brightgreen.svg)
