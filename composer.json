@@ -1,7 +1,7 @@
 {
     "name": "croxton/stash",
     "description": "Extended templating for ExpressionEngine",
-    "version": "3.1.1",
+    "version": "3.1.2",
     "homepage": "https://github.com/croxton/Stash",
     "support": {
         "docs": "https://github.com/croxton/Stash/blob/master/README.md",

@@ -1,9 +1,9 @@
 # DEPRECATED
-If you're starting a new ExpressionEngine project today, please consider using Twig for templating via  [Coilpack](https://expressionengine.github.io/coilpack-docs/)
+If you're starting a new ExpressionEngine project today, please consider using Twig for templating via  [Coilpack](https://expressionengine.github.io/coilpack-docs/).
 
 ## Stash
 
-![Release](https://img.shields.io/badge/release-3.1.1-brightgreen.svg)
+![Release](https://img.shields.io/badge/release-3.1.2-brightgreen.svg)
 
 Stash for ExpressionEngine 3.0 to 7.0+.
 
@@ -19,7 +19,7 @@ Stash allows you to stash text and snippets of code for reuse throughout your te
 https://github.com/croxton/Stash/wiki/
 
 
-Copyright (c) 2021 Hallmark Design https://hallmark-design.co.uk
+Copyright (c) 2023 Hallmark Design https://hallmark-design.co.uk
 
 
 
